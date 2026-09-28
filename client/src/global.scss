@@ -7,6 +7,19 @@
 @import "@ionic/angular/css/display.css";
 @import "@ionic/angular/css/palettes/dark.system.css";
 
+html, body, ion-app {
+  direction: rtl;
+}
+
+/* Chrome keeps date inputs left-to-right even when dir=rtl.
+   Ionic's scoped rule is more specific, so this needs !important. */
+ion-input input.native-input[type='date'] {
+  text-align: right !important;
+}
+ion-input input.native-input[type='date']::-webkit-date-and-time-value {
+  text-align: right !important;
+}
+
 h1, h2, .serif { font-family: var(--rs-serif); font-weight: 700; line-height: 1.2; }
 h1 { font-size: 32px; margin: 8px 0 10px; }
 h2 { font-size: 26px; margin: 4px 0 10px; }

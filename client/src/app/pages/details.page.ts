@@ -28,31 +28,31 @@ import { WizardStore } from '../core/wizard.store';
 
         <ion-list lines="full">
           <ion-item [class.filled]="isFilled('startDate')">
-            <ion-input label="תאריך התחלה" labelPlacement="stacked" type="date" [(ngModel)]="form.startDate" name="startDate"
+            <ion-input dir="rtl" label="תאריך התחלה" labelPlacement="stacked" type="date" [(ngModel)]="form.startDate" name="startDate"
                        [class.filled-label]="isFilled('startDate')" [errorText]="fieldErrors()['startDate'] ?? ''"></ion-input>
           </ion-item>
           <ion-item>
-            <ion-input label="תאריך סיום" labelPlacement="stacked" type="date" [(ngModel)]="form.endDate" name="endDate"
+            <ion-input dir="rtl" label="תאריך סיום" labelPlacement="stacked" type="date" [(ngModel)]="form.endDate" name="endDate"
                        [errorText]="fieldErrors()['endDate'] ?? ''"></ion-input>
           </ion-item>
           <ion-item [class.filled]="isFilled('monthlySalary')">
-            <ion-input label="שכר חודשי ברוטו (₪)" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.monthlySalary"
+            <ion-input dir="rtl" label="שכר חודשי ברוטו (₪)" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.monthlySalary"
                        name="salary" helperText="שכר היסוד, בלי שעות נוספות והחזרים" [errorText]="fieldErrors()['monthlySalary'] ?? ''"></ion-input>
           </ion-item>
           <ion-item [class.filled]="isFilled('jobPercent')">
-            <ion-input label="היקף משרה (%)" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
+            <ion-input dir="rtl" label="היקף משרה (%)" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
           </ion-item>
           <ion-item [class.filled]="isFilled('workWeek')">
-            <ion-select label="ימי עבודה בשבוע" labelPlacement="stacked" [(ngModel)]="form.workDaysPerWeek" name="days" interface="popover">
+            <ion-select dir="rtl" label="ימי עבודה בשבוע" labelPlacement="stacked" [(ngModel)]="form.workDaysPerWeek" name="days" interface="popover">
               <ion-select-option [value]="5">5</ion-select-option>
               <ion-select-option [value]="6">6</ion-select-option>
             </ion-select>
           </ion-item>
           <ion-item [class.filled]="isFilled('vacationBalanceDays')">
-            <ion-input label="יתרת ימי חופשה" labelPlacement="stacked" type="number" inputmode="decimal" [(ngModel)]="form.vacationBalanceDays" name="vac"></ion-input>
+            <ion-input dir="rtl" label="יתרת ימי חופשה" labelPlacement="stacked" type="number" inputmode="decimal" [(ngModel)]="form.vacationBalanceDays" name="vac"></ion-input>
           </ion-item>
           <ion-item [class.filled]="isFilled('recuperationDaysPaidLastYear')">
-            <ion-input label="ימי הבראה ששולמו בשנה האחרונה" labelPlacement="stacked" type="number" inputmode="decimal"
+            <ion-input dir="rtl" label="ימי הבראה ששולמו בשנה האחרונה" labelPlacement="stacked" type="number" inputmode="decimal"
                        [(ngModel)]="form.recuperationDaysPaidLastYear" name="rec"></ion-input>
           </ion-item>
         </ion-list>

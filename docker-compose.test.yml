@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: rosh
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rosh_dev_password}
     ports: ["5432:5432"]
-    volumes: [pgdata:/var/lib/postgresql/data]
+    volumes: [pgdata_test:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rosh -d rosh_shaket"]
       interval: 5s
@@ -18,7 +18,7 @@ services:
       MONGO_INITDB_DATABASE: rosh_shaket
     ports: ["27017:27017"]
     volumes:
-      - mongodata:/data/db
+      - mongodata_test:/data/db
       - ./server/db/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
@@ -46,19 +46,6 @@ services:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }
 
-  client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    ports: ["4200:4200"]
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    environment:
-      SKIP_PREFLIGHT_CHECK: true
-    depends_on:
-      api: { condition: service_started }
-
 volumes:
-  pgdata:
-  mongodata:
+  pgdata_test:
+  mongodata_test:
