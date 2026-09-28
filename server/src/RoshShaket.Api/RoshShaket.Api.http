@@ -1,0 +1,26 @@
+@host = http://localhost:5080
+
+### Calculate (fired)
+POST {{host}}/api/calculations
+Content-Type: application/json
+
+{
+  "profile": {
+    "startDate": "2021-03-01", "endDate": "2026-09-28", "monthlySalary": 16500, "jobPercent": 100,
+    "workDaysPerWeek": 5, "vacationBalanceDays": 9, "recuperationDaysPaidLastYear": 0,
+    "section14": "Partial6", "hasStudyFund": true
+  },
+  "reason": "Fired"
+}
+
+### Compare fired vs resigned
+POST {{host}}/api/calculations/compare
+Content-Type: application/json
+
+{ "profile": { "startDate": "2021-03-01", "endDate": "2026-09-28", "monthlySalary": 16500, "jobPercent": 100, "workDaysPerWeek": 5, "vacationBalanceDays": 9, "recuperationDaysPaidLastYear": 0, "section14": "Partial6", "hasStudyFund": true } }
+
+### Checklist
+GET {{host}}/api/checklist?reason=Resigned
+
+### Sources
+GET {{host}}/api/sources

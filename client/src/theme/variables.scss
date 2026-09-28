@@ -1,0 +1,42 @@
+:root {
+  --rs-serif: "Frank Ruhl Libre", "David", Georgia, serif;
+  --ion-font-family: "Assistant", "Segoe UI", Arial, sans-serif;
+
+  --ion-background-color: #E9F0EC;
+  --ion-text-color: #16323A;
+  --ion-item-background: #FFFFFF;
+  --ion-toolbar-background: #E9F0EC;
+  --ion-tab-bar-background: #FFFFFF;
+
+  --ion-color-primary: #1F6F66;
+  --ion-color-primary-rgb: 31, 111, 102;
+  --ion-color-primary-contrast: #FFFFFF;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #1B625A;
+  --ion-color-primary-tint: #357D75;
+
+  --rs-line: #CFDCD6;
+  --rs-soft: #DCEBE5;
+  --rs-warn: #8A5A00;
+  --rs-warn-bg: #FBEFD5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-background-color: #0F1D21;
+    --ion-text-color: #E4EEEA;
+    --ion-item-background: #172A2F;
+    --ion-toolbar-background: #0F1D21;
+    --ion-tab-bar-background: #172A2F;
+    --ion-color-primary: #5FB8AC;
+    --ion-color-primary-rgb: 95, 184, 172;
+    --ion-color-primary-contrast: #0F1D21;
+    --ion-color-primary-contrast-rgb: 15, 29, 33;
+    --ion-color-primary-shade: #54A297;
+    --ion-color-primary-tint: #6FBFB4;
+    --rs-line: #2A4248;
+    --rs-soft: #1E3A3A;
+    --rs-warn: #F2C46B;
+    --rs-warn-bg: #3A2F17;
+  }
+}

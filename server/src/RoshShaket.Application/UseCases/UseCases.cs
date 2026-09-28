@@ -1,0 +1,65 @@
+using RoshShaket.Application.Abstractions;
+using RoshShaket.Application.Calculation;
+using RoshShaket.Application.Payslips;
+using RoshShaket.Application.Rules;
+using RoshShaket.Domain;
+using RoshShaket.Domain.Content;
+
+namespace RoshShaket.Application.UseCases;
+
+// One class per use case (Single Responsibility). Each depends only on abstractions.
+
+public sealed record CalculateRightsCommand(EmploymentProfile Profile, ExitReason Reason, bool FromPayslip, bool ConsentToAnonymousStats);
+
+public sealed class CalculateRightsHandler(IRightsCalculator calculator, IAnnualValuesProvider values, ICalculationLog log, IClock clock)
+{
+    public async Task<CalculationResult> HandleAsync(CalculateRightsCommand cmd, CancellationToken ct)
+    {
+        var annual = await values.GetForDateAsync(cmd.Profile.EndDate, ct);
+        var result = calculator.Calculate(new RuleContext(cmd.Profile, cmd.Reason, annual));
+
+        if (cmd.ConsentToAnonymousStats)
+        {
+            await log.RecordAsync(new AnonymizedCalculation(
+                clock.Now, cmd.Reason, (int)Math.Floor(result.Seniority.Years), cmd.Profile.Section14,
+                Math.Round(result.EstimatedTotal / 1000m) * 1000m, cmd.FromPayslip), ct);
+        }
+        return result;
+    }
+}
+
+/// <summary>Both scenarios for someone still deciding.</summary>
+public sealed class CompareScenariosHandler(CalculateRightsHandler inner)
+{
+    public async Task<IReadOnlyList<CalculationResult>> HandleAsync(EmploymentProfile profile, bool fromPayslip, CancellationToken ct)
+    {
+        var fired = await inner.HandleAsync(new CalculateRightsCommand(profile, ExitReason.Fired, fromPayslip, false), ct);
+        var resigned = await inner.HandleAsync(new CalculateRightsCommand(profile, ExitReason.Resigned, fromPayslip, false), ct);
+        return [fired, resigned];
+    }
+}
+
+public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUploadPolicy policy)
+{
+    public async Task<ProfileDraft> HandleAsync(IReadOnlyList<PayslipImage> images, CancellationToken ct)
+    {
+        policy.Validate(images);
+        var extraction = await extractor.ExtractAsync(images, ct);
+        return PayslipMapper.ToDraft(extraction);
+    }
+}
+
+public sealed class GetChecklistHandler(IContentRepository content)
+{
+    public async Task<IReadOnlyList<ChecklistItem>> HandleAsync(ExitReason reason, CancellationToken ct)
+    {
+        var tag = ExitReasonTags.ToTag(reason);
+        var all = await content.GetChecklistAsync(ct);
+        return all.Where(i => i.AppliesTo(tag)).OrderBy(i => i.Order).ToList();
+    }
+}
+
+public sealed class GetSourcesHandler(IContentRepository content)
+{
+    public Task<IReadOnlyList<RightsSource>> HandleAsync(CancellationToken ct) => content.GetSourcesAsync(ct);
+}

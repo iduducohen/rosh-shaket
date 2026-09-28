@@ -1,0 +1,81 @@
+using RoshShaket.Domain;
+
+namespace RoshShaket.Application.Payslips;
+
+public sealed record PayslipImage(byte[] Data, string MediaType);
+
+/// <summary>Raw fields read from payslips. Every field is optional: unknown stays null, never guessed.</summary>
+public sealed record PayslipExtraction(
+    bool IsPayslip,
+    string? PayslipMonth,
+    DateOnly? StartDate,
+    decimal? BaseSalary,
+    decimal? JobPercent,
+    int? WorkDaysPerWeek,
+    decimal? VacationBalance,
+    decimal? RecuperationDaysPaid,
+    decimal? SeveranceRatePercent,
+    bool? HasStudyFund);
+
+/// <summary>What the client pre-fills for the user to confirm.</summary>
+public sealed record ProfileDraft(
+    bool IsPayslip,
+    string? PayslipMonth,
+    DateOnly? StartDate,
+    decimal? MonthlySalary,
+    decimal? JobPercent,
+    WorkWeek? WorkWeek,
+    decimal? VacationBalanceDays,
+    decimal? RecuperationDaysPaidLastYear,
+    Section14Arrangement? Section14Suggestion,
+    bool? HasStudyFund,
+    IReadOnlyList<string> Filled,
+    IReadOnlyList<string> Missing);
+
+public sealed class PayslipUploadPolicy
+{
+    public const int MaxImages = 5;
+    public const long MaxBytesPerImage = 10 * 1024 * 1024;
+    public static readonly IReadOnlySet<string> AllowedMediaTypes =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "image/jpeg", "image/png", "image/webp" };
+
+    public void Validate(IReadOnlyList<PayslipImage> images)
+    {
+        var errors = new Dictionary<string, string>();
+        if (images.Count == 0) errors["files"] = "לא התקבלה תמונה";
+        if (images.Count > MaxImages) errors["files"] = $"עד {MaxImages} תלושים בכל פעם";
+        if (images.Any(i => !AllowedMediaTypes.Contains(i.MediaType))) errors["mediaType"] = "רק JPG, PNG או WEBP";
+        if (images.Any(i => i.Data.LongLength > MaxBytesPerImage)) errors["size"] = "כל תמונה עד 10MB";
+        if (errors.Count > 0) throw new DomainValidationException(errors);
+    }
+}
+
+public static class PayslipMapper
+{
+    public static ProfileDraft ToDraft(PayslipExtraction x)
+    {
+        var filled = new List<string>();
+        void Mark(object? v, string name) { if (v is not null) filled.Add(name); }
+
+        WorkWeek? week = x.WorkDaysPerWeek switch { 5 => WorkWeek.FiveDays, 6 => WorkWeek.SixDays, _ => null };
+        Section14Arrangement? s14 = x.SeveranceRatePercent switch
+        {
+            >= 8.13m and <= 8.53m => Section14Arrangement.Full,
+            >= 5.8m and <= 6.2m => Section14Arrangement.Partial6,
+            _ => null
+        };
+
+        Mark(x.StartDate, "startDate"); Mark(x.BaseSalary, "monthlySalary"); Mark(x.JobPercent, "jobPercent");
+        Mark(week, "workWeek"); Mark(x.VacationBalance, "vacationBalanceDays");
+        Mark(x.RecuperationDaysPaid, "recuperationDaysPaidLastYear"); Mark(s14, "section14"); Mark(x.HasStudyFund, "hasStudyFund");
+
+        var missing = new List<string>();
+        if (x.StartDate is null) missing.Add("startDate");
+        if (x.BaseSalary is null) missing.Add("monthlySalary");
+
+        return new ProfileDraft(x.IsPayslip, x.PayslipMonth, x.StartDate, x.BaseSalary, x.JobPercent, week,
+            x.VacationBalance, x.RecuperationDaysPaid, s14, x.HasStudyFund, filled, missing);
+    }
+}
+
+public sealed class PayslipExtractionException(string message) : Exception(message);
