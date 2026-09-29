@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sample-lawyer-partner",
+    "name": "משרד לדוגמה, שותף",
+    "kind": "Lawyer",
+    "summary": "עורך דין לדיני עבודה. דוגמה להחלפה בשם אמיתי.",
+    "cooperation": true,
+    "discountPercent": 10,
+    "email": "office@example.com",
+    "whatsapp": "972500000000"
+  },
+  {
+    "id": "sample-lawyer-discount",
+    "name": "משרד לדוגמה, הנחה גדולה",
+    "kind": "Lawyer",
+    "summary": "בלי שיתוף פעולה. ההנחה הגדולה שמה אותו אחרי שותפים ולפני הנחה קטנה.",
+    "cooperation": false,
+    "discountPercent": 25,
+    "email": "office@example.com",
+    "whatsapp": "972500000000"
+  },
+  {
+    "id": "sample-lawyer-small",
+    "name": "משרד לדוגמה, הנחה קטנה",
+    "kind": "Lawyer",
+    "summary": "הנחה קטנה, בלי שיתוף פעולה. מופיע אחרון.",
+    "cooperation": false,
+    "discountPercent": 5,
+    "email": "office@example.com",
+    "whatsapp": "972500000000"
+  },
+  {
+    "id": "sample-pro-partner",
+    "name": "משרד שכר לדוגמה, שותף",
+    "kind": "Professional",
+    "summary": "בדיקת שכר וזכויות. דוגמה להחלפה בשם אמיתי.",
+    "cooperation": true,
+    "discountPercent": 0,
+    "email": "office@example.com",
+    "whatsapp": "972500000000"
+  },
+  {
+    "id": "sample-pro-discount",
+    "name": "ייעוץ שכר לדוגמה",
+    "kind": "Professional",
+    "summary": "הנחה גדולה, בלי שיתוף פעולה. מופיע אחרי שותפים.",
+    "cooperation": false,
+    "discountPercent": 20,
+    "email": "office@example.com",
+    "whatsapp": "972500000000"
+  }
+]

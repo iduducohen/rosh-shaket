@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14967F"/>
+      <stop offset="1" stop-color="#0B5F53"/>
+    </linearGradient>
+    <clipPath id="door">
+      <path d="M13 31V19.5a7 7 0 0 1 14 0V31z"/>
+    </clipPath>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#g)"/>
+  <path d="M13 31V19.5a7 7 0 0 1 14 0V31z" fill="#fff"/>
+  <g clip-path="url(#door)">
+    <circle cx="20" cy="25.2" r="4.2" fill="#F2A93B"/>
+    <rect x="12" y="25.2" width="16" height="6" fill="#fff"/>
+    <rect x="12" y="24.7" width="16" height="1" fill="#0E7C6B" opacity=".35"/>
+  </g>
+  <rect x="10" y="31" width="20" height="2.2" rx="1.1" fill="#fff" opacity=".55"/>
+</svg>

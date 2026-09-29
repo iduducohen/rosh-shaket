@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /start
+Disallow: /reason
+Disallow: /details
+Disallow: /results

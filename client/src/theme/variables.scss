@@ -1,41 +1,57 @@
+// Palette: warm "paper" background, deep teal for trust, amber as the single warm accent.
 :root {
   --rs-serif: "Frank Ruhl Libre", "David", Georgia, serif;
   --ion-font-family: "Assistant", "Segoe UI", Arial, sans-serif;
 
-  --ion-background-color: #E9F0EC;
-  --ion-text-color: #16323A;
+  --ion-background-color: #F6F4EF;
+  --ion-background-color-rgb: 246, 244, 239;
+  --ion-text-color: #0E2229;
+  --ion-text-color-rgb: 14, 34, 41;
   --ion-item-background: #FFFFFF;
-  --ion-toolbar-background: #E9F0EC;
+  --ion-toolbar-background: #F6F4EF;
   --ion-tab-bar-background: #FFFFFF;
 
-  --ion-color-primary: #1F6F66;
-  --ion-color-primary-rgb: 31, 111, 102;
+  --ion-color-primary: #0E7C6B;
+  --ion-color-primary-rgb: 14, 124, 107;
   --ion-color-primary-contrast: #FFFFFF;
   --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #1B625A;
-  --ion-color-primary-tint: #357D75;
+  --ion-color-primary-shade: #0C6D5E;
+  --ion-color-primary-tint: #26897A;
 
-  --rs-line: #CFDCD6;
-  --rs-soft: #DCEBE5;
+  --ion-color-medium: #5E6F73;
+  --ion-color-medium-rgb: 94, 111, 115;
+
+  --rs-ink: #0B1F26;          // dark storytelling panel
+  --rs-ink-2: #103A36;
+  --rs-accent: #F2A93B;       // amber: highlights only
+  --rs-line: #E3DED3;
+  --rs-soft: #E4F1ED;
   --rs-warn: #8A5A00;
-  --rs-warn-bg: #FBEFD5;
+  --rs-warn-bg: #FDF1DC;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ion-background-color: #0F1D21;
-    --ion-text-color: #E4EEEA;
-    --ion-item-background: #172A2F;
-    --ion-toolbar-background: #0F1D21;
-    --ion-tab-bar-background: #172A2F;
-    --ion-color-primary: #5FB8AC;
-    --ion-color-primary-rgb: 95, 184, 172;
-    --ion-color-primary-contrast: #0F1D21;
-    --ion-color-primary-contrast-rgb: 15, 29, 33;
-    --ion-color-primary-shade: #54A297;
-    --ion-color-primary-tint: #6FBFB4;
-    --rs-line: #2A4248;
-    --rs-soft: #1E3A3A;
+    --ion-background-color: #0B1A1F;
+    --ion-background-color-rgb: 11, 26, 31;
+    --ion-text-color: #E8F0ED;
+    --ion-text-color-rgb: 232, 240, 237;
+    --ion-item-background: #13262C;
+    --ion-toolbar-background: #0B1A1F;
+    --ion-tab-bar-background: #13262C;
+    --ion-color-primary: #3FB8A3;
+    --ion-color-primary-rgb: 63, 184, 163;
+    --ion-color-primary-contrast: #06201B;
+    --ion-color-primary-contrast-rgb: 6, 32, 27;
+    --ion-color-primary-shade: #37A290;
+    --ion-color-primary-tint: #52BFAC;
+    --ion-color-medium: #9DB1B7;
+    --ion-color-medium-rgb: 157, 177, 183;
+    --rs-ink: #06141A;
+    --rs-ink-2: #0C2E2A;
+    --rs-accent: #F2B24F;
+    --rs-line: #22393F;
+    --rs-soft: #163631;
     --rs-warn: #F2C46B;
     --rs-warn-bg: #3A2F17;
   }

@@ -18,4 +18,6 @@ public sealed class DistributedCacheStore(IDistributedCache cache) : ICacheStore
     public Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken ct) =>
         cache.SetAsync(key, JsonSerializer.SerializeToUtf8Bytes(value, Json),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl }, ct);
+
+    public Task RemoveAsync(string key, CancellationToken ct) => cache.RemoveAsync(key, ct);
 }

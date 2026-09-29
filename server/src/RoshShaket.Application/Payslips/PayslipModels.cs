@@ -15,7 +15,8 @@ public sealed record PayslipExtraction(
     decimal? VacationBalance,
     decimal? RecuperationDaysPaid,
     decimal? SeveranceRatePercent,
-    bool? HasStudyFund);
+    bool? HasStudyFund,
+    bool Readable = true);
 
 /// <summary>What the client pre-fills for the user to confirm.</summary>
 public sealed record ProfileDraft(
@@ -30,7 +31,8 @@ public sealed record ProfileDraft(
     Section14Arrangement? Section14Suggestion,
     bool? HasStudyFund,
     IReadOnlyList<string> Filled,
-    IReadOnlyList<string> Missing);
+    IReadOnlyList<string> Missing,
+    bool Readable);
 
 public sealed class PayslipUploadPolicy
 {
@@ -74,7 +76,7 @@ public static class PayslipMapper
         if (x.BaseSalary is null) missing.Add("monthlySalary");
 
         return new ProfileDraft(x.IsPayslip, x.PayslipMonth, x.StartDate, x.BaseSalary, x.JobPercent, week,
-            x.VacationBalance, x.RecuperationDaysPaid, s14, x.HasStudyFund, filled, missing);
+            x.VacationBalance, x.RecuperationDaysPaid, s14, x.HasStudyFund, filled, missing, x.Readable);
     }
 }
 

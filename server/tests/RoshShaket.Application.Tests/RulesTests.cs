@@ -94,6 +94,7 @@ public class RulesTests
     {
         var draft = PayslipMapper.ToDraft(new PayslipExtraction(true, "2026-08", null, 16500m, 100m, 5, 9m, null, 6m, true));
         Assert.Equal(Section14Arrangement.Partial6, draft.Section14Suggestion);
+        Assert.True(draft.Readable);
         Assert.Contains("startDate", draft.Missing);
     }
 }

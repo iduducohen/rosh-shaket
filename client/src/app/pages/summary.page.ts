@@ -2,12 +2,15 @@ import { DecimalPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonButton, IonContent, IonLabel, IonSegment, IonSegmentButton } from '@ionic/angular/standalone';
+import { DeskHeaderComponent } from '../core/desk-header.component';
+import { PaidHelpComponent } from '../core/paid-help.component';
+import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
 
 @Component({
   selector: 'app-summary',
   standalone: true,
-  imports: [DecimalPipe, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
+  imports: [DeskHeaderComponent, PaidHelpComponent, ExperienceReviewComponent, DecimalPipe, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
   styles: [`
     .total { margin: 8px 0 18px; padding: 18px 0 16px; border-top: 2px solid var(--ion-text-color); border-bottom: 1px solid var(--rs-line); }
     .num { font-family: var(--rs-serif); font-size: 50px; font-weight: 700; line-height: 1; }
@@ -18,10 +21,23 @@ import { WizardStore } from '../core/wizard.store';
     .amt { font-family: var(--rs-serif); font-size: 21px; white-space: nowrap; }
     .how { font-size: 14px; color: var(--ion-color-medium); margin-top: 2px; }
     .basis { margin: 18px 0 6px; padding: 12px 14px; border-radius: 12px; background: var(--rs-soft); font-size: 14.5px; }
+    @media (min-width: 992px) {
+      ion-segment { max-width: 420px; margin-bottom: 8px; }
+      .sum { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); grid-template-areas: "total items" "basis items"; grid-template-rows: auto 1fr; gap: 0 48px; align-items: start; }
+      .sum-total { grid-area: total; position: sticky; top: 24px; }
+      .sum-items { grid-area: items; }
+      .sum-basis { grid-area: basis; align-self: start; }
+      .total { border: 1px solid var(--rs-line); border-top: 4px solid var(--ion-color-primary); border-radius: 16px; padding: 24px; background: var(--ion-item-background); margin-top: 0; }
+      .num { font-size: 60px; }
+      .items { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .item { border: 1px solid var(--rs-line); border-radius: 14px; padding: 16px 18px; background: var(--ion-item-background); }
+      .items .note { grid-column: 1 / -1; margin: 0; }
+    }
   `],
   template: `
-    <ion-content class="ion-padding">
-      <div class="page">
+    <ion-content>
+      <app-desk-header [step]="4" [tabs]="true"></app-desk-header>
+      <div class="page ion-padding">
         @if (store.results().length > 1) {
           <ion-segment [value]="store.activeIndex()" (ionChange)="store.activeIndex.set(+($any($event).detail.value))">
             <ion-segment-button [value]="0"><ion-label>אם אפוטר</ion-label></ion-segment-button>
@@ -30,11 +46,15 @@ import { WizardStore } from '../core/wizard.store';
         }
         @if (store.active(); as r) {
           <h2>{{ store.results().length > 1 ? (store.activeIndex() === 0 ? 'אם תפוטרו' : 'אם תתפטרו') : 'מה מגיע לכם' }}</h2>
+          <div class="sum">
+          <div class="sum-total">
           <div class="total">
             <div class="muted small">סה"כ משוער מהמעסיק בגמר החשבון</div>
             <div class="num"><small>₪</small>{{ r.estimatedTotal | number:'1.0-0' }}</div>
             <div class="muted small">ותק: {{ r.seniorityYears | number:'1.1-1' }} שנים</div>
           </div>
+          </div>
+          <div class="sum-items items">
 
           @for (c of r.components; track c.code) {
             <div class="item">
@@ -47,6 +67,8 @@ import { WizardStore } from '../core/wizard.store';
             </div>
           }
           @for (a of r.advisories; track a) { <div class="note">{{ a }}</div> }
+          </div>
+          <div class="sum-basis">
 
           <div class="basis">
             <b>{{ store.fromPayslip() ? 'חישוב ראשוני לפי התלוש' + (store.payslipMonth() ? ' (' + store.payslipMonth() + ')' : '') : 'החישוב לפי הנתונים שהזנתם' }}</b><br>
@@ -55,6 +77,10 @@ import { WizardStore } from '../core/wizard.store';
             <ion-button fill="clear" size="small" (click)="edit()">משהו לא נכון? לתקן נתונים</ion-button>
           </div>
           <p class="muted small">ערך יום הבראה: ₪{{ r.recuperationDayValue }} (בתוקף מ-{{ r.valuesValidFrom }}). ברוטו, לפני מס. הערכה, לא ייעוץ משפטי.</p>
+          </div>
+          </div>
+          <app-paid-help></app-paid-help>
+          <app-experience-review></app-experience-review>
         } @else {
           <p>עוד אין חישוב. <ion-button fill="clear" (click)="restart()">להתחיל</ion-button></p>
         }
@@ -67,5 +93,5 @@ export class SummaryPage {
   private readonly router = inject(Router);
 
   edit(): void { this.router.navigateByUrl('/details'); }
-  restart(): void { this.store.reset(); this.router.navigateByUrl('/'); }
+  restart(): void { this.store.reset(); this.router.navigateByUrl('/start'); }
 }

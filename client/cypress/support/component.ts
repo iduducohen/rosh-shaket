@@ -1,19 +1,9 @@
-// Cypress Component testing support file
-// This file is loaded before component tests
+import { mount } from 'cypress/angular';
 
-import './e2e';
-
-// Mount component with testing utilities
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {
-    interface Chainable {
-      mount: typeof mount;
-    }
+    interface Chainable { mount: typeof mount; }
   }
 }
-
-const mount = () => {
-  // Component testing setup
-};
-
-export { mount };
+Cypress.Commands.add('mount', mount);

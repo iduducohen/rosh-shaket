@@ -1,3 +1,4 @@
+using RoshShaket.Application.Auth;
 using RoshShaket.Application.Calculation;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Rules;
@@ -27,6 +28,9 @@ public static class ApplicationModule
         services.AddScoped<ExtractPayslipHandler>();
         services.AddScoped<GetChecklistHandler>();
         services.AddScoped<GetSourcesHandler>();
+        services.AddScoped<GetPartnersHandler>();
+        services.AddScoped<ExternalSignInHandler>();
+        services.AddScoped<EmailCodeSignInHandler>();
         return services;
     }
 }

@@ -8,6 +8,8 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
 {
     public DbSet<AnnualValuesRow> AnnualValues => Set<AnnualValuesRow>();
     public DbSet<CalculationLogRow> CalculationLog => Set<CalculationLogRow>();
+    public DbSet<UserRow> Users => Set<UserRow>();
+    public DbSet<UserIdentityRow> UserIdentities => Set<UserIdentityRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -41,6 +43,25 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.Property(x => x.EstimatedTotalRounded).HasPrecision(12, 0);
             e.HasIndex(x => x.CreatedAt);
         });
+
+        b.Entity<UserRow>(e =>
+        {
+            e.ToTable("users");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Email).HasMaxLength(254);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Email).IsUnique();
+        });
+
+        b.Entity<UserIdentityRow>(e =>
+        {
+            e.ToTable("user_identities");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Provider).HasMaxLength(32);
+            e.Property(x => x.Subject).HasMaxLength(254);
+            e.HasIndex(x => new { x.Provider, x.Subject }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
 
@@ -63,4 +84,23 @@ public sealed class CalculationLogRow
     public Section14Arrangement Section14 { get; set; }
     public decimal EstimatedTotalRounded { get; set; }
     public bool FromPayslip { get; set; }
+}
+
+public sealed class UserRow
+{
+    public Guid Id { get; set; }
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset LastLoginAt { get; set; }
+}
+
+public sealed class UserIdentityRow
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public UserRow? User { get; set; }
+    public string Provider { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
 }

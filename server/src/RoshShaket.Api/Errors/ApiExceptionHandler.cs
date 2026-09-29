@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using RoshShaket.Application.Auth;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Domain;
 
@@ -14,11 +16,14 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
         {
             DomainValidationException v => (StatusCodes.Status400BadRequest, "נתונים לא תקינים", v.Errors),
             PayslipExtractionException p => (StatusCodes.Status422UnprocessableEntity, p.Message, (IReadOnlyDictionary<string, string>?)null),
+            AuthenticationFailedException a => (StatusCodes.Status401Unauthorized, a.Message, (IReadOnlyDictionary<string, string>?)null),
             BadHttpRequestException => (StatusCodes.Status400BadRequest, "בקשה לא תקינה", (IReadOnlyDictionary<string, string>?)null),
             _ => (StatusCodes.Status500InternalServerError, "שגיאה בשרת", (IReadOnlyDictionary<string, string>?)null)
         };
 
-        if (status >= 500) log.LogError(exception, "Unhandled exception");
+        // Attach correlation id from header (if present) to the log message for easier correlation
+        var correlationId = context.Request.Headers.TryGetValue("X-Correlation-ID", out var cid) ? cid.ToString() : null;
+        if (status >= 500) log.LogError(exception, "Unhandled exception while processing {Path} CorrelationId={CorrelationId}", context.Request.Path, correlationId);
 
         var details = new ProblemDetails { Status = status, Title = title };
         if (errors is not null) details.Extensions["errors"] = errors;

@@ -12,45 +12,104 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": { "base": "www", "browser": "" },
+            "outputPath": {
+              "base": "www",
+              "browser": ""
+            },
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
+            "polyfills": [
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "src/assets", "output": "assets" }],
-            "styles": ["src/global.scss", "src/theme/variables.scss"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets"
+              },
+              "src/robots.txt",
+              "src/favicon.ico",
+              "src/favicon.svg",
+              "src/favicon-32.png",
+              "src/apple-touch-icon.png",
+              "src/manifest.webmanifest"
+            ],
+            "styles": [
+              "src/global.scss",
+              "src/theme/variables.scss"
+            ]
           },
           "configurations": {
             "production": {
-              "budgets": [{ "type": "initial", "maximumWarning": "2mb", "maximumError": "5mb" }],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "2mb",
+                  "maximumError": "5mb"
+                }
+              ],
               "outputHashing": "all",
-              "fileReplacements": [{ "replace": "src/environments/environment.ts", "with": "src/environments/environment.prod.ts" }]
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": { "buildTarget": "app:build:production" },
-            "development": { "buildTarget": "app:build:development" }
+            "production": {
+              "buildTarget": "app:build:production"
+            },
+            "development": {
+              "buildTarget": "app:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
-          "options": { "browserTarget": "app:build" }
+          "options": {
+            "buildTarget": "app:build"
+          }
         },
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
-            "polyfills": ["zone.js", "zone.js/testing"],
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "src/assets", "output": "assets" }],
-            "styles": ["src/global.scss"],
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets"
+              },
+              "src/robots.txt",
+              "src/favicon.ico",
+              "src/favicon.svg",
+              "src/favicon-32.png",
+              "src/apple-touch-icon.png",
+              "src/manifest.webmanifest"
+            ],
+            "styles": [
+              "src/global.scss",
+              "src/theme/variables.scss"
+            ],
             "scripts": [],
             "karmaConfig": "karma.conf.js"
           }
@@ -58,5 +117,7 @@
       }
     }
   },
-  "cli": { "analytics": false }
+  "cli": {
+    "analytics": false
+  }
 }

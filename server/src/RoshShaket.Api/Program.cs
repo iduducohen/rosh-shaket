@@ -1,11 +1,19 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.DataProtection;
+using RoshShaket.Api.Catalog;
 using RoshShaket.Api.Composition;
 using RoshShaket.Api.Endpoints;
 using RoshShaket.Api.Errors;
+using RoshShaket.Application.Abstractions;
 using RoshShaket.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure simple, structured console logging. Uses built-in providers only so restore doesn't add packages.
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(o => { o.IncludeScopes = true; o.TimestampFormat = "yyyy-MM-dd HH:mm:ss "; });
 
 builder.Services
     .AddApplication()
@@ -15,6 +23,28 @@ builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Ad
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<IPartnerCatalog>(sp =>
+    new JsonPartnerCatalog(Path.Combine(builder.Environment.ContentRootPath, "partners.json"),
+        sp.GetRequiredService<ILogger<JsonPartnerCatalog>>()));
+
+// Sign-in: the API issues its own short-lived bearer tokens (+ refresh tokens) after verifying the provider.
+builder.Services.AddAuthentication(BearerTokenDefaults.AuthenticationScheme)
+    .AddBearerToken(o =>
+    {
+        o.BearerTokenExpiration = TimeSpan.FromHours(1);
+        o.RefreshTokenExpiration = TimeSpan.FromDays(30);
+    });
+builder.Services.AddAuthorization();
+// Tokens are protected with Data Protection keys: persist them so a restart doesn't sign everyone out.
+var keysPath = builder.Configuration["DataProtection:KeysPath"];
+builder.Services.AddDataProtection()
+    .SetApplicationName("rosh-shaket")
+    .PersistKeysToFileSystem(new DirectoryInfo(string.IsNullOrWhiteSpace(keysPath)
+        ? Path.Combine(Path.GetTempPath(), "rosh-shaket-dp-keys")
+        : keysPath));
 
 builder.Services.AddCors(o => o.AddPolicy("app", p => p
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
@@ -27,18 +57,40 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(PayslipEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy(AuthEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy(HelpEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy(ReviewEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
 });
 
 var app = builder.Build();
 
+// CorrelationId must be very early so logs and exception handlers can include it
+app.UseMiddleware<RoshShaket.Api.Middleware.CorrelationIdMiddleware>();
+// Request logging records timing and surface-level errors
+app.UseMiddleware<RoshShaket.Api.Middleware.RequestLoggingMiddleware>();
+
 app.UseExceptionHandler();
 app.UseCors("app");
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapHealthChecks("/health");
 app.MapCalculationEndpoints();
 app.MapPayslipEndpoints();
 app.MapContentEndpoints();
+app.MapAuthEndpoints();
+app.MapHelpEndpoints();
+app.MapReviewEndpoints();
 
 await app.Services.InitializeDatabasesAsync();
 app.Run();

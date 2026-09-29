@@ -1,26 +1,25 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient } from '@angular/common/http';
-import { RouteReuseStrategy, provideRouter } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
+import { inject as injectAnalytics } from '@vercel/analytics';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { RouteReuseStrategy, provideRouter } from '@angular/router';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
 import { defineCustomElements } from '@ionic/pwa-elements/loader';
-import { inject } from '@vercel/analytics';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
+import { authInterceptor } from './app/core/auth/auth.interceptor';
 
 // Web fallback UI for the Capacitor camera (native apps use the OS camera and gallery).
 defineCustomElements(window);
 
-// Vercel serves the insights script only for the web deployment.
-if (!Capacitor.isNativePlatform()) {
-  inject();
-}
+// Vercel Web Analytics on the website only (not inside the native apps).
+if (!Capacitor.isNativePlatform()) injectAnalytics();
 
 bootstrapApplication(AppComponent, {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideIonicAngular({ mode: 'md' }),
     provideRouter(routes),
-    provideHttpClient()
+    provideHttpClient(withInterceptors([authInterceptor]))
   ]
 }).catch(err => console.error(err));

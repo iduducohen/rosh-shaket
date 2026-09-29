@@ -42,6 +42,7 @@ export interface CalculationResponse {
 
 export interface ProfileDraft {
   isPayslip: boolean;
+  readable?: boolean;
   payslipMonth: string | null;
   startDate: string | null;
   monthlySalary: number | null;

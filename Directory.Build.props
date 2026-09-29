@@ -1,0 +1,3 @@
+<Project>
+  <!-- Nearest Directory.Build.props wins. This keeps the solution off the user-profile props, which inject packages this repo does not use. -->
+</Project>

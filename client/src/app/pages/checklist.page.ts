@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { IonCheckbox, IonContent, IonItem, IonList, IonListHeader, IonLabel } from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
 import { ChecklistItem, REASON_LABELS, RightsSource } from '../core/models';
+import { DeskHeaderComponent } from '../core/desk-header.component';
 import { WizardStore } from '../core/wizard.store';
 
 const STORAGE_KEY = 'rs-checked';
@@ -9,14 +10,21 @@ const STORAGE_KEY = 'rs-checked';
 @Component({
   selector: 'app-checklist',
   standalone: true,
-  imports: [IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel],
-  styles: [`.done { color: var(--ion-color-medium); text-decoration: line-through; } a { font-size: 13.5px; display: block; }`],
+  imports: [DeskHeaderComponent, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel],
+  styles: [`
+    .done { color: var(--ion-color-medium); text-decoration: line-through; } a { font-size: 13.5px; display: block; }
+    @media (min-width: 992px) {
+      ion-list { border: 1px solid var(--rs-line); border-radius: 16px; padding: 6px 4px; margin: 0; }
+    }
+  `],
   template: `
-    <ion-content class="ion-padding">
-      <div class="page">
+    <ion-content>
+      <app-desk-header [step]="4" [tabs]="true"></app-desk-header>
+      <div class="page ion-padding">
         <h2>הצ'קליסט שלכם</h2>
         @if (reasonLabel()) { <p class="muted small">מותאם ל{{ reasonLabel() }}. הסימונים נשמרים במכשיר.</p> }
         @if (error()) { <div class="note">{{ error() }}</div> }
+        <div class="desk-grid-3">
         @for (g of groups(); track g.name) {
           <ion-list lines="full">
             <ion-list-header><ion-label><b>{{ g.name }}</b></ion-label></ion-list-header>
@@ -31,6 +39,7 @@ const STORAGE_KEY = 'rs-checked';
             }
           </ion-list>
         }
+        </div>
       </div>
     </ion-content>
   `

@@ -41,24 +41,25 @@ services:
       ConnectionStrings__Mongo: mongodb://mongo:27017
       ConnectionStrings__Redis: redis:6379
       Claude__ApiKey: ${ANTHROPIC_API_KEY:-}
+      DataProtection__KeysPath: /keys
+      Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Auth__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Auth__Google__AdditionalAudiences__0: ${GOOGLE_IOS_CLIENT_ID:-}
+      Auth__Apple__AdditionalAudiences__0: il.roshshaket.app
+      Auth__Apple__ClientId: ${APPLE_SERVICES_ID:-}
+      Auth__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
+      Auth__Smtp__Host: ${SMTP_HOST:-}
+      Auth__Smtp__User: ${SMTP_USER:-}
+      Auth__Smtp__Password: ${SMTP_PASSWORD:-}
+      Auth__Smtp__From: ${SMTP_FROM:-}
+    volumes:
+      - dpkeys:/keys
     depends_on:
       postgres: { condition: service_healthy }
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }
 
-  client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    ports: ["4200:4200"]
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    environment:
-      SKIP_PREFLIGHT_CHECK: true
-    depends_on:
-      api: { condition: service_started }
-
 volumes:
   pgdata:
   mongodata:
+  dpkeys:

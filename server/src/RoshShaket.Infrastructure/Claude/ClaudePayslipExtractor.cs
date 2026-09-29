@@ -18,6 +18,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         אלו תמונות של תלוש שכר ישראלי אחד או יותר. אם יש כמה, השתמש בתלוש העדכני ביותר לשכר וליתרות.
         חלץ רק את הנתונים הבאים, והחזר JSON בלבד, בלי טקסט נוסף ובלי סימוני קוד:
         {"is_payslip": true|false,
+         "readable": true|false,
          "payslip_month": "YYYY-MM" או null,
          "start_date": "YYYY-MM-DD" או null (תאריך תחילת עבודה / ותק),
          "base_salary": מספר או null (שכר יסוד חודשי ברוטו, בלי שעות נוספות והחזרים),
@@ -28,6 +29,8 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
          "severance_rate": מספר או null (שיעור הפרשת מעסיק לפיצויים, למשל 8.33 או 6),
          "has_keren_hishtalmut": true|false|null}
         אם נתון לא מופיע בבירור, החזר null. אל תנחש ואל תשלים.
+        is_payslip הוא true רק אם זה בבירור תלוש שכר ישראלי. אחרת false. לא חוזה, לא חשבונית, לא תעודה ולא תמונה אחרת.
+        readable הוא true רק אם הטקסט חד וקריא מספיק כדי לקרוא שכר ותאריכים. false אם התמונה מטושטשת, חשוכה, חתוכה, או חסר בה חלק מהדף.
         אל תחזיר שם, תעודת זהות, כתובת, מספר עובד, פרטי מעסיק או מספר חשבון.
         """;
 
@@ -98,7 +101,8 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         return new PayslipExtraction(
             raw.IsPayslip ?? false, raw.PayslipMonth, startDate, Positive(raw.BaseSalary), Percent(raw.JobPercent),
             raw.WorkDaysPerWeek is 5 or 6 ? raw.WorkDaysPerWeek : null, NonNegative(raw.VacationBalance),
-            NonNegative(raw.RecuperationDaysPaid), Positive(raw.SeveranceRate), raw.HasKerenHishtalmut);
+            NonNegative(raw.RecuperationDaysPaid), Positive(raw.SeveranceRate), raw.HasKerenHishtalmut,
+            raw.Readable ?? raw.IsPayslip ?? false);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;
@@ -108,6 +112,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
     private sealed class RawExtraction
     {
         [JsonPropertyName("is_payslip")] public bool? IsPayslip { get; set; }
+        [JsonPropertyName("readable")] public bool? Readable { get; set; }
         [JsonPropertyName("payslip_month")] public string? PayslipMonth { get; set; }
         [JsonPropertyName("start_date")] public string? StartDate { get; set; }
         [JsonPropertyName("base_salary")] public decimal? BaseSalary { get; set; }

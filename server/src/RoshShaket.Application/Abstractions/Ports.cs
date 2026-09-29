@@ -19,6 +19,12 @@ public interface IContentRepository
     Task<IReadOnlyList<RightsSource>> GetSourcesAsync(CancellationToken ct);
 }
 
+/// <summary>Professionals and lawyers offered for paid help. Edited without a database.</summary>
+public interface IPartnerCatalog
+{
+    Task<IReadOnlyList<PartnerOffer>> GetAsync(CancellationToken ct);
+}
+
 /// <summary>Reads structured fields from payslip images (an LLM behind the scenes). Must never return identifiers.</summary>
 public interface IPayslipExtractor
 {
@@ -36,6 +42,7 @@ public interface ICacheStore
 {
     Task<T?> GetAsync<T>(string key, CancellationToken ct);
     Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken ct);
+    Task RemoveAsync(string key, CancellationToken ct);
 }
 
 public interface IClock

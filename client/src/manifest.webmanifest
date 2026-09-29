@@ -1,0 +1,32 @@
+{
+  "name": "יוצאים בראש שקט",
+  "short_name": "ראש שקט",
+  "description": "הערכת זכויות בסיום עבודה: פיצויים, פדיון חופשה, דמי הבראה והודעה מוקדמת.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#0B1F26",
+  "theme_color": "#0E7C6B",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -2,16 +2,69 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>יוצאים בראש שקט</title>
+  <title>יוצאים בראש שקט | הערכת זכויות בסיום עבודה</title>
   <base href="/" />
   <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="עוזבים עבודה? מצלמים תלוש ומקבלים הערכה של פיצויים, פדיון חופשה, דמי הבראה והודעה מוקדמת, עם צ'קליסט ומקורות רשמיים. בלי עלות." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0E7C6B" />
   <meta name="color-scheme" content="light dark" />
   <meta name="format-detection" content="telephone=no" />
+  <meta name="application-name" content="יוצאים בראש שקט" />
+  <link rel="canonical" href="/" />
+  <link rel="icon" href="favicon.ico" sizes="32x32" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="he_IL" />
+  <meta property="og:site_name" content="יוצאים בראש שקט" />
+  <meta property="og:title" content="יוצאים בראש שקט | הערכת זכויות בסיום עבודה" />
+  <meta property="og:description" content="עוזבים עבודה? מצלמים תלוש ומקבלים הערכה של פיצויים, פדיון חופשה, דמי הבראה והודעה מוקדמת, עם צ'קליסט ומקורות רשמיים. בלי עלות." />
+  <meta property="og:url" content="/" />
+  <meta property="og:image" content="assets/og-cover.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="יוצאים בראש שקט — זכויות בסיום עבודה" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="יוצאים בראש שקט | הערכת זכויות בסיום עבודה" />
+  <meta name="twitter:description" content="עוזבים עבודה? מצלמים תלוש ומקבלים הערכה של פיצויים, פדיון חופשה, דמי הבראה והודעה מוקדמת, עם צ'קליסט ומקורות רשמיים. בלי עלות." />
+  <meta name="twitter:image" content="assets/og-cover.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var origin = location.origin;
+      var url = origin + '/';
+      var image = origin + '/assets/og-cover.png';
+      var canonical = document.querySelector('link[rel="canonical"]');
+      if (canonical) canonical.href = url;
+      var ogUrl = document.querySelector('meta[property="og:url"]');
+      if (ogUrl) ogUrl.content = url;
+      var ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.content = image;
+      var twImage = document.querySelector('meta[name="twitter:image"]');
+      if (twImage) twImage.content = image;
+    })();
+  </script>
 </head>
 <body>
-  <app-root></app-root>
+  <app-root>
+    <main>
+      <h1>יוצאים בראש שקט</h1>
+      <p>עוזבים עבודה? צלמו תלוש, ענו על שאלה אחת, ותדעו מה מגיע לכם ומה לעשות לפני היום האחרון.</p>
+      <p>הערכה של פיצויים, פדיון חופשה, דמי הבראה והודעה מוקדמת, עם צ'קליסט ומקורות רשמיים. בלי עלות.</p>
+      <h2>איך זה עובד</h2>
+      <ol>
+        <li>מצלמים תלוש</li>
+        <li>עונים על שאלה אחת</li>
+        <li>מקבלים תשובה</li>
+      </ol>
+      <p>הערכה בלבד, לא ייעוץ משפטי. המסמכים לא נשמרים.</p>
+      <p><a href="/login">להתחיל</a></p>
+    </main>
+  </app-root>
 </body>
 </html>

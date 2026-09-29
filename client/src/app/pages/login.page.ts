@@ -1,211 +1,133 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
-import {
-  IonContent,
-  IonHeader,
-  IonTitle,
-  IonToolbar,
-  IonCard,
-  IonCardContent,
-  IonButton,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonText,
-  IonSpinner,
-  IonImg
-} from '@ionic/angular/standalone';
-import { AuthService } from '../core/auth.service';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { arrowBackOutline, lockClosedOutline, logoApple, logoGoogle, logoMicrosoft, mailOutline, ribbonOutline, sparklesOutline } from 'ionicons/icons';
+import { describeError } from '../core/api.service';
+import { AuthService } from '../core/auth/auth.service';
+import { ProviderInfo, SocialProviderId } from '../core/auth/auth.models';
+import { SignInCancelled, SocialProviders } from '../core/auth/social/social-providers';
+import { LogoComponent } from '../core/logo.component';
+
+interface Sheet { label: string; x: number; y: number; r: number; tone: string; }
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    IonContent,
-    IonHeader,
-    IonTitle,
-    IonToolbar,
-    IonCard,
-    IonCardContent,
-    IonButton,
-    IonInput,
-    IonItem,
-    IonLabel,
-    IonText,
-    IonSpinner,
-    IonImg
-  ],
-  template: `
-    <ion-header>
-      <ion-toolbar color="primary">
-        <ion-title>התחברות למערכת</ion-title>
-      </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding" dir="rtl">
-      <div class="login-container">
-        <!-- Logo -->
-        <div class="logo-container">
-          <div class="logo">📊</div>
-          <h1>RoshShaket</h1>
-          <p>מערכת חישוב זכויות עובדים</p>
-        </div>
-
-        <!-- Login Form -->
-        <ion-card>
-          <ion-card-content>
-            <form [formGroup]="loginForm" (ngSubmit)="onLogin()">
-              <!-- Email -->
-              <ion-item>
-                <ion-label position="floating">דוא"ל</ion-label>
-                <ion-input
-                  formControlName="email"
-                  type="email"
-                  placeholder="הכנס דוא״ל"
-                  dir="rtl">
-                </ion-input>
-              </ion-item>
-
-              <!-- Password -->
-              <ion-item>
-                <ion-label position="floating">סיסמה</ion-label>
-                <ion-input
-                  formControlName="password"
-                  type="password"
-                  placeholder="הכנס סיסמה"
-                  dir="rtl">
-                </ion-input>
-              </ion-item>
-
-              <!-- Error Message -->
-              <div *ngIf="errorMessage" class="error-message">
-                <ion-text color="danger">
-                  <p>{{ errorMessage }}</p>
-                </ion-text>
-              </div>
-
-              <!-- Submit Button -->
-              <ion-button
-                expand="block"
-                color="primary"
-                type="submit"
-                [disabled]="!loginForm.valid || isLoading">
-                <ion-spinner *ngIf="isLoading" name="dots"></ion-spinner>
-                <span *ngIf="!isLoading">התחבר</span>
-              </ion-button>
-            </form>
-
-            <!-- Demo Credentials -->
-            <div class="demo-info">
-              <p><strong>נתוני דוגמה:</strong></p>
-              <p>דוא"ל: demo@example.com</p>
-              <p>סיסמה: demo123</p>
-            </div>
-          </ion-card-content>
-        </ion-card>
-      </div>
-    </ion-content>
-  `,
-  styles: [`
-    .login-container {
-      max-width: 400px;
-      margin: 0 auto;
-      padding-top: 40px;
-    }
-
-    .logo-container {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .logo {
-      font-size: 64px;
-      margin-bottom: 16px;
-    }
-
-    .logo-container h1 {
-      margin: 8px 0;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .logo-container p {
-      margin: 4px 0;
-      color: #666;
-      font-size: 14px;
-    }
-
-    .error-message {
-      margin: 12px 0;
-      padding: 8px;
-      background-color: #f8d7da;
-      border-radius: 4px;
-    }
-
-    .demo-info {
-      margin-top: 20px;
-      padding: 12px;
-      background-color: #e8f4f8;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #555;
-      text-align: center;
-    }
-
-    .demo-info p {
-      margin: 4px 0;
-    }
-
-    ion-button[disabled] {
-      opacity: 0.6;
-    }
-  `]
+  imports: [FormsModule, RouterLink, IonContent, IonIcon, IonSpinner, LogoComponent],
+  styleUrl: './login.page.scss',
+  templateUrl: './login.page.html'
 })
-export class LoginPage implements OnInit {
-  loginForm!: FormGroup;
-  isLoading = false;
-  errorMessage = '';
+export class LoginPage implements OnInit, OnDestroy {
+  private readonly auth = inject(AuthService);
+  private readonly social = inject(SocialProviders);
+  private readonly router = inject(Router);
 
-  constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router
-  ) {}
+  /** Only providers that have a flow on this platform (web popup or native SDK). */
+  readonly socialButtons = ([
+    { id: 'Google', label: 'המשך עם Google', icon: 'logo-google' },
+    { id: 'Apple', label: 'המשך עם Apple', icon: 'logo-apple' },
+    { id: 'Microsoft', label: 'המשך עם Microsoft', icon: 'logo-microsoft' }
+  ] as { id: SocialProviderId; label: string; icon: string }[]).filter(b => this.social.isSupported(b.id));
 
-  ngOnInit(): void {
-    this.initializeForm();
+  /** The pile of paperwork the animation collapses into one answer. */
+  readonly sheets: Sheet[] = [
+    { label: 'תלוש שכר', x: -128, y: -46, r: -13, tone: '#0E7C6B' },
+    { label: 'טופס 101', x: -44, y: -78, r: -4, tone: '#5B6CC2' },
+    { label: 'דוח מסלקה', x: 50, y: -56, r: 7, tone: '#C2733B' },
+    { label: 'חוזה עבודה', x: 128, y: 6, r: 14, tone: '#8A5A9E' },
+    { label: 'טופס 161', x: -8, y: 38, r: -3, tone: '#3F7FA6' }
+  ];
+
+  readonly step = signal<'choose' | 'code'>('choose');
+  readonly busy = signal<string | null>(null);
+  readonly error = signal('');
+  readonly resendIn = signal(0);
+  email = '';
+  code = '';
+
+  private providers: ProviderInfo[] = [];
+  private timer: ReturnType<typeof setInterval> | undefined;
+
+  constructor() {
+    addIcons({ logoGoogle, logoApple, logoMicrosoft, mailOutline, arrowBackOutline, lockClosedOutline, ribbonOutline, sparklesOutline });
   }
 
-  initializeForm(): void {
-    this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]]
-    });
+  async ngOnInit(): Promise<void> {
+    try { this.providers = await this.auth.providers(); } catch { this.providers = []; }
   }
 
-  onLogin(): void {
-    if (!this.loginForm.valid) {
+  ngOnDestroy(): void { clearInterval(this.timer); }
+
+  async withProvider(id: SocialProviderId): Promise<void> {
+    this.error.set('');
+    const info = this.providers.find(p => p.provider === id);
+    const flow = this.social.get(id);
+    if (!flow || !info?.enabled || (flow.needsClientId && !info.clientId)) {
+      this.error.set(`ההתחברות עם ${id} עוד לא הוגדרה בשרת. בינתיים אפשר להיכנס עם אימייל.`);
       return;
     }
+    this.busy.set(id);
+    try {
+      const credential = await flow.getCredential(info);
+      await this.auth.signInWithProvider(id, credential);
+      await this.router.navigateByUrl('/start', { replaceUrl: true });
+    } catch (err) {
+      if (!(err instanceof SignInCancelled)) this.error.set(describeError(err).message);
+    } finally {
+      this.busy.set(null);
+    }
+  }
 
-    this.isLoading = true;
-    this.errorMessage = '';
+  async sendCode(): Promise<void> {
+    this.error.set('');
+    if (!/^\S+@\S+\.\S+$/.test(this.email.trim())) { this.error.set('הכניסו כתובת אימייל תקינה.'); return; }
+    this.busy.set('email');
+    try {
+      await this.auth.startEmail(this.email.trim());
+      this.code = '';
+      this.step.set('code');
+      this.startCooldown();
+    } catch (err) {
+      this.error.set(describeError(err).message);
+    } finally {
+      this.busy.set(null);
+    }
+  }
 
-    const credentials = this.loginForm.value;
+  async verify(): Promise<void> {
+    this.error.set('');
+    if (!/^\d{6}$/.test(this.code.trim())) { this.error.set('הקוד הוא 6 ספרות.'); return; }
+    this.busy.set('verify');
+    try {
+      await this.auth.verifyEmail(this.email.trim(), this.code.trim());
+      await this.router.navigateByUrl('/start', { replaceUrl: true });
+    } catch (err) {
+      this.error.set(describeError(err).message);
+    } finally {
+      this.busy.set(null);
+    }
+  }
 
-    this.authService.login(credentials).subscribe({
-      next: () => {
-        this.isLoading = false;
-        this.router.navigate(['/']);
-      },
-      error: (error) => {
-        this.isLoading = false;
-        this.errorMessage = error.message || 'התחברות נכשלה. בדוק את הנתונים שהכנסת.';
-      }
-    });
+  onCodeInput(): void {
+    this.code = this.code.replace(/\D/g, '').slice(0, 6);
+    if (this.code.length === 6 && !this.busy()) this.verify();
+  }
+
+  changeEmail(): void { this.step.set('choose'); this.error.set(''); }
+
+  guest(): void {
+    this.auth.continueAsGuest();
+    this.router.navigateByUrl('/start', { replaceUrl: true });
+  }
+
+  private startCooldown(): void {
+    clearInterval(this.timer);
+    this.resendIn.set(30);
+    this.timer = setInterval(() => {
+      this.resendIn.update(s => Math.max(0, s - 1));
+      if (this.resendIn() === 0) clearInterval(this.timer);
+    }, 1000);
   }
 }

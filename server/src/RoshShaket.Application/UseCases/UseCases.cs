@@ -63,3 +63,13 @@ public sealed class GetSourcesHandler(IContentRepository content)
 {
     public Task<IReadOnlyList<RightsSource>> HandleAsync(CancellationToken ct) => content.GetSourcesAsync(ct);
 }
+
+public sealed class GetPartnersHandler(IPartnerCatalog catalog)
+{
+    public async Task<IReadOnlyList<PartnerOffer>> HandleAsync(string? kind, CancellationToken ct)
+    {
+        var all = await catalog.GetAsync(ct);
+        var filtered = string.IsNullOrWhiteSpace(kind) ? all : all.Where(p => p.Kind == kind);
+        return PartnerRanking.ByPriority(filtered);
+    }
+}

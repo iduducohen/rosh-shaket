@@ -12,6 +12,8 @@
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
   </ItemGroup>
   <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\RoshShaket.Api\RoshShaket.Api.csproj" />
     <ProjectReference Include="..\..\src\RoshShaket.Application\RoshShaket.Application.csproj" />
   </ItemGroup>

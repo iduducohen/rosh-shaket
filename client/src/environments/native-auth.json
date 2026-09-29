@@ -1,0 +1,5 @@
+{
+  "$comment": "Native sign-in. googleIosClientId must match Auth:Google:IosClientId on the server. microsoftAndroidKeyHash is the signing-key hash registered on the Android platform in Azure. Web client ids come from the API.",
+  "googleIosClientId": "412008675123-tb2vbb9epv9v7dumurjvd3l19m3340cg.apps.googleusercontent.com",
+  "microsoftAndroidKeyHash": ""
+}

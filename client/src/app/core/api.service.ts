@@ -31,6 +31,47 @@ export class ApiService {
   sources(): Promise<RightsSource[]> {
     return firstValueFrom(this.http.get<RightsSource[]>(`${this.base}/api/sources`));
   }
+
+  partners(kind: 'Professional' | 'Lawyer'): Promise<PartnerOffer[]> {
+    return firstValueFrom(this.http.get<PartnerOffer[]>(`${this.base}/api/partners`, { params: { kind } }));
+  }
+
+  requestPaidHelp(body: PaidHelpRequest): Promise<void> {
+    return firstValueFrom(this.http.post<void>(`${this.base}/api/help-requests`, body));
+  }
+
+  submitReview(body: ExperienceReview): Promise<void> {
+    return firstValueFrom(this.http.post<void>(`${this.base}/api/reviews`, body));
+  }
+}
+
+export interface PartnerOffer {
+  id: string;
+  name: string;
+  kind: 'Professional' | 'Lawyer';
+  summary: string;
+  cooperation: boolean;
+  discountPercent: number;
+  email: string | null;
+  whatsapp: string | null;
+}
+
+export interface PaidHelpRequest {
+  kind: 'Professional' | 'Lawyer';
+  name: string;
+  phone: string;
+  email: string;
+  note: string | null;
+  reason: string | null;
+  estimatedTotal: number | null;
+  partnerId: string | null;
+  channel: 'Email' | 'WhatsApp' | null;
+}
+
+export interface ExperienceReview {
+  systemRating: number;
+  experienceRating: number;
+  text: string | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */
