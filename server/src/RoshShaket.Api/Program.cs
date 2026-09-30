@@ -46,10 +46,17 @@ builder.Services.AddDataProtection()
         ? Path.Combine(Path.GetTempPath(), "rosh-shaket-dp-keys")
         : keysPath));
 
-builder.Services.AddCors(o => o.AddPolicy("app", p => p
-    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
-    .AllowAnyHeader()
-    .AllowAnyMethod()));
+builder.Services.AddCors(o => o.AddPolicy("app", p =>
+{
+    var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+    var exactOrigins = origins.Where(o => !o.Contains("*")).ToArray();
+    p.WithOrigins(exactOrigins).AllowAnyHeader().AllowAnyMethod();
+    // Allow any vercel.app subdomain for preview deployments
+    p.SetIsOriginAllowed(origin =>
+        exactOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) ||
+        (Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+         uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)));
+}));
 
 builder.Services.AddRateLimiter(o =>
 {
