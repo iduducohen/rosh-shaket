@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { AlertController, IonButton, IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { cameraOutline, documentTextOutline } from 'ionicons/icons';
+import { cameraOutline, checkmarkOutline, closeOutline, documentTextOutline } from 'ionicons/icons';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { ApiService, describeError } from '../core/api.service';
 import { PhotoService, isUserCancel } from '../core/photo.service';
@@ -24,7 +24,10 @@ import { LogoComponent } from '../core/logo.component';
     .upload b { display: block; font-size: 17px; }
     .row { display: flex; gap: 8px; margin-top: 10px; }
     .row ion-button { flex: 1; margin: 0; }
-    .status { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-top: 10px; }
+    .status { display: flex; gap: 10px; align-items: center; font-size: 15px; font-weight: 700; margin-top: 10px; }
+    .status ion-icon { font-size: 28px; flex: none; }
+    .status.ok { color: var(--ion-color-primary); }
+    .status.bad { color: var(--ion-color-danger); }
     .foot { font-size: 12.5px; margin-top: 22px; }
     .hello { margin: 10px 0 0; color: var(--ion-color-primary); font-weight: 700; }
     @media (min-width: 992px) {
@@ -51,7 +54,7 @@ import { LogoComponent } from '../core/logo.component';
         <div class="up">
         <div class="upload">
           <b>הדרך המהירה: העלו את התלוש האחרון</b>
-          <span class="muted small">נבדוק שזה תלוש שכר תקין ובאיכות טובה, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF. הקבצים לא נשמרים.</span>
+          <span class="muted small">תלוש אחרון אחד מספיק: השכר והיתרות כבר מסוכמים בו. נבדוק שהוא תקין, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF. הקבצים לא נשמרים.</span>
           <div class="row">
             @if (native) {
               <ion-button (click)="pickCamera()" [disabled]="busy()">
@@ -66,7 +69,11 @@ import { LogoComponent } from '../core/logo.component';
           @if (busy()) {
             <div class="status" aria-live="polite"><ion-spinner name="crescent"></ion-spinner>בודק שהקובץ תלוש שכר תקין…</div>
           } @else if (status()) {
-            <div class="status" aria-live="polite">{{ status() }}</div>
+            <div class="status" [class.ok]="verdict() === 'ok'" [class.bad]="verdict() === 'bad'" aria-live="polite">
+              @if (verdict() === 'ok') { <ion-icon name="checkmark-outline" aria-hidden="true"></ion-icon> }
+              @if (verdict() === 'bad') { <ion-icon name="close-outline" aria-hidden="true"></ion-icon> }
+              <span>{{ status() }}</span>
+            </div>
           }
         </div>
 
@@ -94,11 +101,13 @@ export class WelcomePage {
 
   readonly busy = signal(false);
   readonly status = signal('');
+  readonly verdict = signal<'ok' | 'bad' | ''>('');
   readonly native = Capacitor.isNativePlatform();
   private readonly alerts = inject(AlertController);
+  private continueTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
-    addIcons({ cameraOutline, documentTextOutline });
+    addIcons({ cameraOutline, documentTextOutline, checkmarkOutline, closeOutline });
   }
 
   pickCamera(): Promise<void> {
@@ -135,42 +144,64 @@ export class WelcomePage {
   }
 
   private async read(load: () => Promise<Blob[]>, fallback: string): Promise<void> {
+    clearTimeout(this.continueTimer);
+    this.verdict.set('');
     this.status.set('בודק את איכות הקובץ…');
     let images: Blob[];
     try {
       images = await load();
     } catch (err) {
-      if (isUserCancel(err)) this.status.set('');
-      else this.status.set(err instanceof Error && err.message ? err.message : fallback);
+      if (isUserCancel(err)) {
+        this.status.set('');
+        this.verdict.set('');
+      } else {
+        this.fail(err instanceof Error && err.message ? err.message : fallback);
+      }
       return;
     }
     if (images.length === 0) {
       this.status.set('');
+      this.verdict.set('');
       return;
     }
 
     this.busy.set(true);
+    let accepted = false;
     try {
       const draft = await this.api.extractPayslips(images);
       if (!draft.isPayslip) {
-        this.status.set('זה לא נראה כמו תלוש שכר. העלו את התלוש עצמו, תמונה של כל הדף או PDF.');
+        this.fail('זה לא נראה כמו תלוש שכר. העלו את התלוש עצמו, תמונה של כל הדף או PDF.');
         return;
       }
       if (draft.readable === false) {
-        this.status.set('התלוש לא מספיק חד לקריאה. צלמו את כל הדף באור טוב, בלי טשטוש ובלי צל.');
+        this.fail('התלוש לא מספיק חד לקריאה. צלמו את כל הדף באור טוב, בלי טשטוש ובלי צל.');
         return;
       }
       this.store.reset();
       this.store.applyDraft(draft);
-      await this.router.navigateByUrl('/reason');
+      this.verdict.set('ok');
+      this.status.set('התלוש תקין');
+      accepted = true;
     } catch (err) {
-      this.status.set(describeError(err).message + ' אפשר גם למלא ידנית.');
+      this.fail(describeError(err).message + ' אפשר גם למלא ידנית.');
     } finally {
       this.busy.set(false);
     }
+    if (accepted) this.continueToReason();
+  }
+
+  private fail(message: string): void {
+    this.verdict.set('bad');
+    this.status.set(message);
+  }
+
+  private continueToReason(): void {
+    clearTimeout(this.continueTimer);
+    this.continueTimer = setTimeout(() => void this.router.navigateByUrl('/reason'), 900);
   }
 
   manual(): void {
+    clearTimeout(this.continueTimer);
     this.store.reset();
     this.router.navigateByUrl('/reason');
   }

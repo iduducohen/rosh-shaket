@@ -6,7 +6,7 @@ public sealed class ClaudeOptions
     public string ApiKey { get; set; } = "";
     public string Model { get; set; } = "claude-sonnet-5";
     public string BaseUrl { get; set; } = "https://api.anthropic.com/";
-    public int MaxTokens { get; set; } = 1024;
+    public int MaxTokens { get; set; } = 8192;
     public int TimeoutSeconds { get; set; } = 90;
 }
 

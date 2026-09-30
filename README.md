@@ -59,7 +59,7 @@ dotnet test                   # בדיקות יחידה
 ```bash
 cd client
 npm install
-npm start                     # http://localhost:8100
+npm start                     # http://localhost:5051
 ```
 
 לאנדרואיד ו-iOS:
@@ -90,7 +90,7 @@ npm run android                          # או: npm run ios
 
 | ספק | מה צריך | הערך ב-`.env` |
 | --- | --- | --- |
-| Google | ב-Google Cloud Console יוצרים OAuth Client מסוג Web application. ב-Authorized JavaScript origins מוסיפים את כתובת הלקוח, למשל `http://localhost:8100` ואת כתובת ה-Vercel. | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| Google | ב-Google Cloud Console יוצרים OAuth Client מסוג Web application. ב-Authorized JavaScript origins מוסיפים את כתובת הלקוח, למשל `http://localhost:5051` ואת כתובת ה-Vercel. | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Apple | ב-Apple Developer יוצרים Services ID עם Sign in with Apple. מגדירים domain, ו-Return URL שהוא `https://<domain>/login`. Apple דורשת HTTPS, כך שב-localhost זה לא יעבוד. | `APPLE_SERVICES_ID` |
 | Microsoft | ב-Azure (Entra ID) יוצרים App registration, בוחרים Supported accounts: Personal + work, ומוסיפים פלטפורמת SPA עם Redirect URI שהוא `<client>/login`. | `MICROSOFT_CLIENT_ID` |
 | מייל | שרת SMTP, למשל SendGrid, Mailgun או Amazon SES. | `SMTP_*` |

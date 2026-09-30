@@ -8,7 +8,7 @@
 
 ### [BROWSER_ACCESS_GUIDE.md](BROWSER_ACCESS_GUIDE.md) ⭐ START HERE
 **Quick browser access in 1 minute**
-- ✅ Access running app: http://localhost:8100
+- ✅ Access running app: http://localhost:5051
 - ✅ Use DevTools for debugging
 - ✅ Test responsive design
 - ✅ Monitor API calls
@@ -121,7 +121,7 @@ See: [BROWSER_ACCESS_GUIDE.md](BROWSER_ACCESS_GUIDE.md)
 
 Steps:
 1. `npm start` - Starts dev server
-2. Open http://localhost:8100
+2. Open http://localhost:5051
 3. Edit code
 4. See changes auto-refresh
 5. Use F12 for DevTools
@@ -268,7 +268,7 @@ Steps:
 ### 1. Open in Browser (5 min)
 ```bash
 # Dev server already running!
-# Just open: http://localhost:8100
+# Just open: http://localhost:5051
 ```
 
 See: [BROWSER_ACCESS_GUIDE.md](BROWSER_ACCESS_GUIDE.md)
@@ -315,7 +315,7 @@ docker-compose down   # Stop services
 ## 📱 Services Running
 
 ```
-Web App:    http://localhost:8100
+Web App:    http://localhost:5051
 API:        http://localhost:5080
 Database:   localhost:5432 (PostgreSQL)
 Cache:      localhost:6379 (Redis)
@@ -363,7 +363,7 @@ Check these files:
 
 ✅ **Infrastructure**: Complete and running  
 ✅ **Testing**: Ready for all test types  
-✅ **Browser**: App accessible at http://localhost:8100  
+✅ **Browser**: App accessible at http://localhost:5051  
 ✅ **Android**: Ready to build and deploy  
 ✅ **Documentation**: 10 comprehensive guides  
 

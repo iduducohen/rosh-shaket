@@ -166,7 +166,7 @@ npm start
 
 ### גישה:
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ---
@@ -223,7 +223,7 @@ client/src/app/
 
 ### בדוק התחברות:
 ```bash
-1. פתח: http://localhost:8100
+1. פתח: http://localhost:5051
 2. אתה אמור להיות מופנה ל: /login
 3. הכנס דוא"ל: demo@example.com
 4. הכנס סיסמה: demo123
@@ -242,7 +242,7 @@ client/src/app/
 
 ### בדוק הגנה:
 ```bash
-1. פתח http://localhost:8100 (ללא התחברות)
+1. פתח http://localhost:5051 (ללא התחברות)
 2. אתה אמור להיות מופנה ל: /login
 3. ניתן לגשת רק לעמוד התחברות
 ```
@@ -324,7 +324,7 @@ npm start
 
 ### שלב 2: פתיחת הדפדפן
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ### שלב 3: התחברות
@@ -403,7 +403,7 @@ npm start
 
 **אז היכנס ל:**
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ---

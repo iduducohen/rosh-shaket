@@ -53,5 +53,5 @@ public static class SeverancePolicy
 public static class DailyWagePolicy
 {
     public static decimal FromMonthly(decimal monthlySalary, WorkWeek workWeek) =>
-        monthlySalary / (workWeek == WorkWeek.FiveDays ? 21.67m : 25m);
+        monthlySalary / ((int)workWeek == 6 ? 25m : (int)workWeek * 21.67m / 5m);
 }

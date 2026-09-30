@@ -162,7 +162,7 @@ npm start
 
 ### שלב 2: פתח בדפדפן
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ### שלב 3: התחבר
@@ -228,7 +228,7 @@ http://localhost:8100
 
 ### 1. בדוק התחברות:
 ```bash
-1. http://localhost:8100
+1. http://localhost:5051
 2. דא"ל: demo@example.com
 3. סיסמה: demo123
 4. לחץ: התחבר
@@ -445,7 +445,7 @@ npm start
 
 ### לגישה:
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ### נתונים:

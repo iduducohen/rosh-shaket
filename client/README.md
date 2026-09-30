@@ -19,13 +19,13 @@ npm install
 npm start
 ```
 
-האפליקציה עולה ב-[http://localhost:8100](http://localhost:8100). `npm start` משחרר קודם את פורט 8100 אם שרת ישן עדיין תופס אותו.
+האפליקציה עולה ב-[http://localhost:5051](http://localhost:5051). `npm start` משחרר קודם את פורט 5051 אם שרת ישן עדיין תופס אותו.
 
 ## סקריפטים
 
 | פקודה | מה עושה |
 | --- | --- |
-| `npm start` | שרת פיתוח על פורט 8100 |
+| `npm start` | שרת פיתוח על פורט 5051 |
 | `npm run build` | בילד production לתיקיית `www` |
 | `npm test` | בדיקות יחידה (Karma) עם כיסוי קוד |
 | `npm run test:ci` | אותן בדיקות ב-Chrome headless, לשרת CI או לקונטיינר |
@@ -59,7 +59,7 @@ npm start
 
 | מפתח | מה שמים |
 | --- | --- |
-| `RedirectOrigin` | כתובת הדפדפן בלי סלאש בסוף, למשל `http://127.0.0.1:8100`. Apple ו-Microsoft חוזרים אל `{RedirectOrigin}/login`. |
+| `RedirectOrigin` | כתובת הדפדפן בלי סלאש בסוף, למשל `http://127.0.0.1:5051`. Apple ו-Microsoft חוזרים אל `{RedirectOrigin}/login`. |
 | `Google:ClientId` | OAuth client מסוג Web. |
 | `Google:ClientSecret` | הסוד של אותו client. בלי שניהם Google לא נדלק. |
 | `Google:IosClientId` | OAuth client מסוג iOS, Bundle ID `il.roshshaket.app`. אותו ערך ב-`src/environments/native-auth.json` בשדה `googleIosClientId`. |
@@ -106,7 +106,7 @@ npm run cap:sync
 
 ```bash
 docker build -t rosh-shaket-client .
-docker run -p 8100:8100 rosh-shaket-client
+docker run -p 5051:5051 rosh-shaket-client
 ```
 
 ## מבנה

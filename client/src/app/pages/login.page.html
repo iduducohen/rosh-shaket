@@ -119,12 +119,37 @@
         @if (error()) { <div class="error" role="alert">{{ error() }}</div> }
 
         <div class="guest">
-          <button type="button" class="link strong" (click)="guest()">להמשיך בלי חשבון <ion-icon name="arrow-back-outline"></ion-icon></button>
+          <button type="button" class="link strong" (click)="guest()">להמשיך בלי חשבון</button>
           <p>אפשר לחשב בלי להירשם. החשבון רק שומר את התוצאות.</p>
         </div>
 
-        <p class="legal">בהמשך אתם מאשרים את <a routerLink="/terms">תנאי השימוש</a> ואת <a routerLink="/privacy">מדיניות הפרטיות</a>. הערכה בלבד, לא ייעוץ משפטי.</p>
+        <p class="legal">בהמשך אתם מאשרים את <button type="button" (click)="openLegal('terms')">תנאי השימוש</button> ואת <button type="button" (click)="openLegal('privacy')">מדיניות הפרטיות</button>. הערכה בלבד, לא ייעוץ משפטי.</p>
       </div>
     </section>
   </div>
 </ion-content>
+
+@if (legal(); as doc) {
+  <div class="legal-backdrop" (click)="openLegal(null)">
+    <div class="legal-dialog" role="dialog" aria-modal="true" aria-labelledby="legal-title" (click)="$event.stopPropagation()">
+      <div class="legal-head">
+        <h2 id="legal-title">{{ doc.title }}</h2>
+        <button type="button" class="legal-close" (click)="openLegal(null)" aria-label="סגירה">
+          <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+        </button>
+      </div>
+      <div class="legal-body">
+        <p class="legal-updated">עודכן לאחרונה: {{ doc.updated }}</p>
+        @for (section of doc.sections; track section.heading) {
+          <section class="term">
+            <h3>{{ section.heading }}</h3>
+            @for (paragraph of section.paragraphs; track paragraph) { <p>{{ paragraph }}</p> }
+          </section>
+        }
+        <p class="legal-more">
+          <button type="button" class="link" (click)="openLegal(doc.otherPath === '/privacy' ? 'privacy' : 'terms')">{{ doc.otherLabel }}</button>
+        </p>
+      </div>
+    </div>
+  </div>
+}

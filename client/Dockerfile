@@ -8,7 +8,7 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 8100
+EXPOSE 5051
 
 # --host 0.0.0.0 so the dev server is reachable from outside the container
 CMD ["npm", "start", "--", "--host", "0.0.0.0"]

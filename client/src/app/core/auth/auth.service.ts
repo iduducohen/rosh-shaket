@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthProvider, Me, ProviderInfo, SocialCredential, TokenResponse } from './auth.models';
@@ -13,6 +14,7 @@ interface StoredTokens { accessToken: string; refreshToken: string; expiresAt: n
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly base = `${environment.apiBaseUrl}/api/auth`;
   private tokens: StoredTokens | null = read<StoredTokens>(TOKENS_KEY);
   private initPromise: Promise<void> | null = null;
@@ -20,6 +22,8 @@ export class AuthService {
 
   readonly user = signal<Me | null>(null);
   readonly guest = signal(localStorage.getItem(GUEST_KEY) === '1');
+  /** A still-valid access token, so a refresh can open the app before /me returns. */
+  readonly hasSession = signal(this.tokens !== null && this.tokens.expiresAt > Date.now());
   readonly isSignedIn = computed(() => this.user() !== null);
   readonly displayName = computed(() => {
     const u = this.user();
@@ -59,6 +63,7 @@ export class AuthService {
 
   signOut(): void {
     this.tokens = null;
+    this.hasSession.set(false);
     this.user.set(null);
     this.guest.set(false);
     try { localStorage.removeItem(TOKENS_KEY); localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
@@ -91,6 +96,7 @@ export class AuthService {
 
   private store(res: TokenResponse): void {
     this.tokens = { accessToken: res.accessToken, refreshToken: res.refreshToken, expiresAt: Date.now() + res.expiresIn * 1000 };
+    this.hasSession.set(true);
     try { localStorage.setItem(TOKENS_KEY, JSON.stringify(this.tokens)); } catch { /* ignore */ }
   }
 
@@ -100,10 +106,26 @@ export class AuthService {
 
   private async restore(): Promise<void> {
     if (!this.tokens) return;
+    if (this.hasSession()) {
+      void this.revalidate();
+      return;
+    }
     try {
       await this.loadMe(); // the interceptor refreshes an expired access token
     } catch (err) {
       if (!(err instanceof HttpErrorResponse) || err.status === 401) this.signOut();
+    }
+  }
+
+  /** Confirms a still-valid token without blocking the first screen. */
+  private async revalidate(): Promise<void> {
+    try {
+      await this.loadMe();
+    } catch (err) {
+      if (!(err instanceof HttpErrorResponse) || err.status === 401) {
+        this.signOut();
+        void this.router.navigateByUrl('/login');
+      }
     }
   }
 }

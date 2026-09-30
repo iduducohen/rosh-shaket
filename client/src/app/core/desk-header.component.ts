@@ -38,14 +38,16 @@ import { LogoComponent } from './logo.component';
         </nav>
       } @else {
       <nav class="steps" aria-label="שלבים">
-        <span [class.on]="step() === 1">1. תלוש או הזנה</span>
+        <span [class.on]="step() === 1">1. תלוש שכר</span>
         <span [class.on]="step() === 2">2. סיבת העזיבה</span>
         <span [class.on]="step() === 3">3. פרטים</span>
         <span [class.on]="step() === 4">4. מה מגיע לי</span>
       </nav>
       }
       <div class="end">
-        <button class="restart" (click)="home()">להתחיל מחדש</button>
+        @if (step() > 1) {
+          <button class="restart" (click)="home()">להתחיל מחדש</button>
+        }
         @if (auth.isSignedIn()) {
           <span class="who"><span class="avatar" aria-hidden="true">{{ initial() }}</span>{{ auth.displayName() }}</span>
           <button class="restart" (click)="signOut()">התנתקות</button>

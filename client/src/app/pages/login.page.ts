@@ -1,21 +1,22 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { arrowBackOutline, lockClosedOutline, logoApple, logoGoogle, logoMicrosoft, mailOutline, ribbonOutline, sparklesOutline } from 'ionicons/icons';
+import { arrowBackOutline, closeOutline, lockClosedOutline, logoApple, logoGoogle, logoMicrosoft, mailOutline, ribbonOutline, sparklesOutline } from 'ionicons/icons';
 import { describeError } from '../core/api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { ProviderInfo, SocialProviderId } from '../core/auth/auth.models';
 import { SignInCancelled, SocialProviders } from '../core/auth/social/social-providers';
 import { LogoComponent } from '../core/logo.component';
+import { legalDoc } from './legal.page';
 
 interface Sheet { label: string; x: number; y: number; r: number; tone: string; }
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule, RouterLink, IonContent, IonIcon, IonSpinner, LogoComponent],
+  imports: [FormsModule, IonContent, IonIcon, IonSpinner, LogoComponent],
   styleUrl: './login.page.scss',
   templateUrl: './login.page.html'
 })
@@ -41,6 +42,11 @@ export class LoginPage implements OnInit, OnDestroy {
   ];
 
   readonly step = signal<'choose' | 'code'>('choose');
+  private readonly legalKind = signal<'terms' | 'privacy' | null>(null);
+  readonly legal = computed(() => {
+    const kind = this.legalKind();
+    return kind ? legalDoc(kind) : null;
+  });
   readonly busy = signal<string | null>(null);
   readonly error = signal('');
   readonly resendIn = signal(0);
@@ -51,7 +57,7 @@ export class LoginPage implements OnInit, OnDestroy {
   private timer: ReturnType<typeof setInterval> | undefined;
 
   constructor() {
-    addIcons({ logoGoogle, logoApple, logoMicrosoft, mailOutline, arrowBackOutline, lockClosedOutline, ribbonOutline, sparklesOutline });
+    addIcons({ logoGoogle, logoApple, logoMicrosoft, mailOutline, arrowBackOutline, closeOutline, lockClosedOutline, ribbonOutline, sparklesOutline });
   }
 
   async ngOnInit(): Promise<void> {
@@ -72,7 +78,7 @@ export class LoginPage implements OnInit, OnDestroy {
     try {
       const credential = await flow.getCredential(info);
       await this.auth.signInWithProvider(id, credential);
-      await this.router.navigateByUrl('/start', { replaceUrl: true });
+      await this.router.navigateByUrl('/details', { replaceUrl: true });
     } catch (err) {
       if (!(err instanceof SignInCancelled)) this.error.set(describeError(err).message);
     } finally {
@@ -102,7 +108,7 @@ export class LoginPage implements OnInit, OnDestroy {
     this.busy.set('verify');
     try {
       await this.auth.verifyEmail(this.email.trim(), this.code.trim());
-      await this.router.navigateByUrl('/start', { replaceUrl: true });
+      await this.router.navigateByUrl('/details', { replaceUrl: true });
     } catch (err) {
       this.error.set(describeError(err).message);
     } finally {
@@ -116,6 +122,11 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   changeEmail(): void { this.step.set('choose'); this.error.set(''); }
+
+  openLegal(kind: 'terms' | 'privacy' | null): void { this.legalKind.set(kind); }
+
+  @HostListener('document:keydown.escape')
+  closeLegal(): void { this.legalKind.set(null); }
 
   guest(): void {
     this.auth.continueAsGuest();

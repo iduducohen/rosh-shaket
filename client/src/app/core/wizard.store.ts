@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { CalculationResponse, ExitChoice, ExitReason, ProfileDraft, ProfileDto } from './models';
+import { CalculationResponse, ExitChoice, ExitReason, FundLine, ProfileDraft, ProfileDto } from './models';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -21,6 +21,7 @@ export class WizardStore {
   readonly choice = signal<ExitChoice | null>(null);
   readonly profile = signal<ProfileDto>(emptyProfile());
   readonly filledFields = signal<string[]>([]);
+  readonly funds = signal<FundLine[] | null>(null);
   readonly fromPayslip = signal(false);
   readonly payslipMonth = signal<string | null>(null);
   readonly results = signal<CalculationResponse[]>([]);
@@ -44,6 +45,7 @@ export class WizardStore {
       hasStudyFund: d.hasStudyFund ?? p.hasStudyFund
     });
     this.filledFields.set(d.filled);
+    this.funds.set(d.funds ?? null);
     this.fromPayslip.set(true);
     this.payslipMonth.set(d.payslipMonth);
   }
@@ -52,6 +54,7 @@ export class WizardStore {
     this.choice.set(null);
     this.profile.set(emptyProfile());
     this.filledFields.set([]);
+    this.funds.set(null);
     this.fromPayslip.set(false);
     this.payslipMonth.set(null);
     this.results.set([]);

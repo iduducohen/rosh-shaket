@@ -1,6 +1,6 @@
 # Running RoshShaket in Browser & Android Studio
 
-**Status**: ✅ Development server running on `http://localhost:8100`
+**Status**: ✅ Development server running on `http://localhost:5051`
 
 ---
 
@@ -9,13 +9,13 @@
 ### ✅ Server is Running!
 
 **Access the app:**
-- **Local**: http://localhost:8100
-- **Network**: Find your machine IP and use: http://YOUR_IP:8100
+- **Local**: http://localhost:5051
+- **Network**: Find your machine IP and use: http://YOUR_IP:5051
 
 ### What's Running
 
 ```
-✔ Angular Dev Server: http://localhost:8100
+✔ Angular Dev Server: http://localhost:5051
 ✔ API Backend: http://localhost:5080
 ✔ Hot Reload: Enabled (changes refresh automatically)
 ✔ Watch Mode: Active
@@ -216,7 +216,7 @@ const config: CapacitorConfig = {
   webDir: 'www',
   server: {
     androidScheme: 'https',
-    url: 'http://YOUR_MACHINE_IP:8100'  // For live reload
+    url: 'http://YOUR_MACHINE_IP:5051'  // For live reload
   }
 };
 
@@ -332,7 +332,7 @@ docker-compose ps
 docker-compose up -d
 ```
 
-#### Port 8100 already in use?
+#### Port 5051 already in use?
 ```bash
 # Use different port
 ng serve --port 8101
@@ -453,7 +453,7 @@ npm run e2e:open
 
 ### 1. Test in Browser Now
 ```bash
-# Already running on http://localhost:8100
+# Already running on http://localhost:5051
 # Open in any browser:
 # Chrome, Firefox, Safari, Edge
 ```
@@ -566,7 +566,7 @@ ifconfig  # Look for inet
 
 Then access from another machine:
 ```
-http://YOUR_MACHINE_IP:8100
+http://YOUR_MACHINE_IP:5051
 ```
 
 Useful for:
@@ -618,7 +618,7 @@ npm run build:prod
 
 ## Summary
 
-✅ **Browser**: Running now on http://localhost:8100  
+✅ **Browser**: Running now on http://localhost:5051  
 ✅ **Android**: Ready to build and deploy  
 ✅ **API**: Configured at http://localhost:5080  
 ✅ **Testing**: Unit and E2E tests ready  

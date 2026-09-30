@@ -96,5 +96,28 @@ public class RulesTests
         Assert.Equal(Section14Arrangement.Partial6, draft.Section14Suggestion);
         Assert.True(draft.Readable);
         Assert.Contains("startDate", draft.Missing);
+        Assert.Empty(draft.Funds);
+    }
+
+    [Fact]
+    public void Payslip_fund_rows_fill_study_fund_and_section14()
+    {
+        var funds = new[]
+        {
+            new FundLine("pension", "מנורה", 6m, 6.5m, "percent", "פוליסה 123"),
+            new FundLine("severance", "מנורה", 0m, 8.33m, "percent", null),
+            new FundLine("disability", "מנורה", null, 2.5m, "percent", null),
+            new FundLine("study", "אלטשולר", 2.5m, 7.5m, "percent", null)
+        };
+        var draft = PayslipMapper.ToDraft(new PayslipExtraction(
+            true, "2026-08", new DateOnly(2016, 1, 1), 16500m, 100m, 5, 11.04m, 1m, null, null, true, funds));
+
+        Assert.Equal(11.04m, draft.VacationBalanceDays);
+        Assert.Equal(1m, draft.RecuperationDaysPaidLastYear);
+        Assert.Equal(Section14Arrangement.Full, draft.Section14Suggestion);
+        Assert.True(draft.HasStudyFund);
+        Assert.Equal(4, draft.Funds.Count);
+        Assert.Contains("pension", draft.Filled);
+        Assert.Contains("study", draft.Filled);
     }
 }

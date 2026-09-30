@@ -168,6 +168,10 @@ const PRIVACY: LegalDoc = {
   ]
 };
 
+export function legalDoc(kind: 'terms' | 'privacy'): LegalDoc {
+  return kind === 'privacy' ? PRIVACY : TERMS;
+}
+
 @Component({
   selector: 'app-legal',
   standalone: true,
@@ -200,5 +204,5 @@ const PRIVACY: LegalDoc = {
 export class LegalPage {
   private readonly route = inject(ActivatedRoute);
   private readonly kind = toSignal(this.route.data.pipe(map(data => data['doc'] as string)), { initialValue: 'terms' });
-  readonly doc = computed(() => this.kind() === 'privacy' ? PRIVACY : TERMS);
+  readonly doc = computed(() => legalDoc(this.kind() === 'privacy' ? 'privacy' : 'terms'));
 }

@@ -42,7 +42,7 @@ describe('Sign-in screen', () => {
     cy.contains('בדקו את תיבת הדואר');
     cy.get('#code').type('123456'); // six digits submit automatically
     cy.wait('@verify');
-    cy.location('pathname').should('eq', '/start');
+    cy.location('pathname').should('eq', '/details');
     cy.contains('שלום דודו');
   });
 });

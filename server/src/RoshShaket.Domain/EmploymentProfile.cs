@@ -41,7 +41,7 @@ public sealed record EmploymentProfile
         if (end.Year - start.Year > 60) errors["startDate"] = "תאריך ההתחלה לא סביר";
         if (monthlySalary <= 0) errors["monthlySalary"] = "השכר צריך להיות גדול מאפס";
         if (jobPercent is <= 0 or > 100) errors["jobPercent"] = "היקף משרה בין 1 ל-100";
-        if (!Enum.IsDefined(workWeek)) errors["workWeek"] = "ימי עבודה בשבוע: 5 או 6";
+        if (!Enum.IsDefined(workWeek)) errors["workWeek"] = "ימי עבודה בשבוע: 1 עד 6";
         if (vacationBalanceDays < 0) errors["vacationBalanceDays"] = "יתרת חופשה לא יכולה להיות שלילית";
         if (recuperationDaysPaidLastYear < 0) errors["recuperationDaysPaidLastYear"] = "ימי הבראה לא יכולים להיות שליליים";
         if (errors.Count > 0) throw new DomainValidationException(errors);

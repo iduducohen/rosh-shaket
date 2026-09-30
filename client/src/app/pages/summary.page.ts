@@ -1,8 +1,10 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonButton, IonContent, IonLabel, IonSegment, IonSegmentButton } from '@ionic/angular/standalone';
+import { ApiService } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { RightsSource } from '../core/models';
 import { PaidHelpComponent } from '../core/paid-help.component';
 import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
@@ -20,6 +22,7 @@ import { WizardStore } from '../core/wizard.store';
     .name { font-weight: 700; }
     .amt { font-family: var(--rs-serif); font-size: 21px; white-space: nowrap; }
     .how { font-size: 14px; color: var(--ion-color-medium); margin-top: 2px; }
+    .src { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 700; }
     .basis { margin: 18px 0 6px; padding: 12px 14px; border-radius: 12px; background: var(--rs-soft); font-size: 14.5px; }
     @media (min-width: 992px) {
       ion-segment { max-width: 420px; margin-bottom: 8px; }
@@ -64,6 +67,9 @@ import { WizardStore } from '../core/wizard.store';
               </div>
               <div class="how">{{ c.explanation }}</div>
               @if (c.flag) { <span class="flag">{{ c.flag }}</span> }
+              @if (sourceUrl(c.sourceKey); as url) {
+                <a class="src" [href]="url" target="_blank" rel="noopener">{{ sourceTitle(c.sourceKey) }}</a>
+              }
             </div>
           }
           @for (a of r.advisories; track a) { <div class="note">{{ a }}</div> }
@@ -90,7 +96,21 @@ import { WizardStore } from '../core/wizard.store';
 })
 export class SummaryPage {
   readonly store = inject(WizardStore);
+  private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly sources = signal<RightsSource[]>([]);
+
+  constructor() {
+    this.api.sources().then(s => this.sources.set(s)).catch(() => undefined);
+  }
+
+  sourceUrl(key: string | null): string | null {
+    return key ? this.sources().find(s => s.key === key)?.url ?? null : null;
+  }
+
+  sourceTitle(key: string | null): string {
+    return this.sources().find(s => s.key === key)?.title ?? 'המקור הרשמי';
+  }
 
   edit(): void { this.router.navigateByUrl('/details'); }
   restart(): void { this.store.reset(); this.router.navigateByUrl('/start'); }

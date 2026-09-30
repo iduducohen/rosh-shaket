@@ -10,8 +10,8 @@
 ### ✅ Angular Dev Server
 ```
 Status:     RUNNING ✅
-URL:        http://localhost:8100
-Port:       8100
+URL:        http://localhost:5051
+Port:       5051
 Hot Reload: ENABLED
 Watch Mode: ACTIVE
 ```
@@ -58,10 +58,10 @@ Health:     HEALTHY
 
 **Open any browser and go to:**
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
-**Or click here:** [Open RoshShaket](http://localhost:8100)
+**Or click here:** [Open RoshShaket](http://localhost:5051)
 
 **What you'll see:**
 - Ionic app interface
@@ -130,7 +130,7 @@ See: [ANDROID_STUDIO_SETUP.md](ANDROID_STUDIO_SETUP.md)
 │ RoshShaket Services Status                          │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│ 🌐 Web App       http://localhost:8100   ✅ RUNNING│
+│ 🌐 Web App       http://localhost:5051   ✅ RUNNING│
 │    Angular CLI   Build complete                    │
 │    Hot reload    Watching files...                │
 │    Clients:      Connected                        │
@@ -160,10 +160,10 @@ See: [ANDROID_STUDIO_SETUP.md](ANDROID_STUDIO_SETUP.md)
 ### Access App Now
 ```bash
 # Web Browser
-Open: http://localhost:8100
+Open: http://localhost:5051
 
 # Or via curl
-curl http://localhost:8100
+curl http://localhost:5051
 ```
 
 ### Run Tests Now
@@ -248,7 +248,7 @@ docker-compose down
 ```
 ✅ npm start                  (Angular dev server)
    │
-   ├─ ng serve --port 8100   (Running on 8100)
+   ├─ ng serve --port 5051   (Running on 5051)
    ├─ Watch mode             (Monitoring files)
    └─ Hot reload             (Enabled)
 
@@ -273,7 +273,7 @@ docker-compose down
 ## 🎯 Next Actions
 
 ### Immediate (Right Now!)
-1. **Open in browser**: http://localhost:8100
+1. **Open in browser**: http://localhost:5051
 2. **Use DevTools**: Press F12
 3. **Explore the app**: Click around
 4. **Check Network**: See API calls
@@ -428,7 +428,7 @@ See detailed troubleshooting in [TESTING.md](TESTING.md) or [BROWSER_ACCESS_GUID
 
 **Click here or copy URL:**
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
 ---
@@ -437,7 +437,7 @@ http://localhost:8100
 
 | Component | Status | Access |
 |-----------|--------|--------|
-| Web App | ✅ RUNNING | http://localhost:8100 |
+| Web App | ✅ RUNNING | http://localhost:5051 |
 | API | ✅ RUNNING | http://localhost:5080 |
 | PostgreSQL | ✅ RUNNING | localhost:5432 |
 | MongoDB | ✅ RUNNING | localhost:27017 |
@@ -450,7 +450,7 @@ http://localhost:8100
 
 **🚀 Everything is up and running!**
 
-**Next step: Open http://localhost:8100 in your browser**
+**Next step: Open http://localhost:5051 in your browser**
 
 ---
 

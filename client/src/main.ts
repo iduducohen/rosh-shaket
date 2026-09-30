@@ -9,12 +9,6 @@ import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { authInterceptor } from './app/core/auth/auth.interceptor';
 
-// Web fallback UI for the Capacitor camera (native apps use the OS camera and gallery).
-defineCustomElements(window);
-
-// Vercel Web Analytics on the website only (not inside the native apps).
-if (!Capacitor.isNativePlatform()) injectAnalytics();
-
 bootstrapApplication(AppComponent, {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
@@ -22,4 +16,8 @@ bootstrapApplication(AppComponent, {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor]))
   ]
+}).then(() => {
+  // Camera web UI and analytics are not needed for the first paint.
+  defineCustomElements(window);
+  if (!Capacitor.isNativePlatform()) injectAnalytics();
 }).catch(err => console.error(err));

@@ -9,7 +9,7 @@ export const sessionGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   await auth.init();
-  return auth.isSignedIn() || auth.guest() ? true : router.parseUrl('/login');
+  return auth.isSignedIn() || auth.hasSession() || auth.guest() ? true : router.parseUrl('/login');
 };
 
 /** Login screen: skip it when already signed in. */
@@ -17,5 +17,5 @@ export const loginGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   await auth.init();
-  return auth.isSignedIn() ? router.parseUrl('/start') : true;
+  return auth.isSignedIn() || auth.hasSession() ? router.parseUrl('/details') : true;
 };

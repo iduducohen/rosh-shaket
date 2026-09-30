@@ -35,7 +35,7 @@ describe('LoginPage', () => {
     expect(f.componentInstance.error()).toContain('עוד לא הוגדרה');
   });
 
-  it('continue as guest goes to the start screen', () => {
+  it('continue as guest goes to the payslip screen', () => {
     const f = TestBed.createComponent(LoginPage);
     const nav = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
     f.componentInstance.guest();

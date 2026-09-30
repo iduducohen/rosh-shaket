@@ -6,6 +6,9 @@ services:
       - "5080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      Cors__Origins__0: http://localhost:5051
+      Cors__Origins__1: http://127.0.0.1:5051
+      Claude__ApiKey: ${Claude__ApiKey}
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=rosh_shaket;Username=rosh;Password=rosh_dev_password
       ConnectionStrings__Mongo: mongodb://mongo:27017
       ConnectionStrings__Redis: redis:6379

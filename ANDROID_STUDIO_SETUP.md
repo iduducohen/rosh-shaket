@@ -237,7 +237,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     // FOR DEVELOPMENT ON EMULATOR:
-    url: 'http://10.0.2.2:8100'  // This is your dev server
+    url: 'http://10.0.2.2:5051'  // This is your dev server
   }
 };
 
@@ -265,7 +265,7 @@ ifconfig  # inet
 Edit `capacitor.config.ts`:
 ```typescript
 server: {
-  url: 'http://192.168.1.100:8100'  // Your actual IP
+  url: 'http://192.168.1.100:5051'  // Your actual IP
 }
 ```
 
@@ -280,12 +280,12 @@ For fastest development:
 ```bash
 # Terminal 1: Start web dev server
 npm start
-# Runs on http://localhost:8100
+# Runs on http://localhost:5051
 
 # Terminal 2: Monitor file changes
 # (leave running)
 
-# Browser: Open http://localhost:8100
+# Browser: Open http://localhost:5051
 # Test changes in browser
 
 # When satisfied:

@@ -4,7 +4,7 @@ public sealed class AuthOptions
 {
     public const string Section = "Auth";
 
-    /// <summary>Browser origin the provider consoles redirect back to, without a trailing slash. Example: http://127.0.0.1:8100.</summary>
+    /// <summary>Browser origin the provider consoles redirect back to, without a trailing slash. Example: http://127.0.0.1:5051.</summary>
     public string RedirectOrigin { get; set; } = "";
 
     public GoogleAuthOptions Google { get; set; } = new();

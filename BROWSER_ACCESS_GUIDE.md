@@ -1,7 +1,7 @@
 # 🌐 Browser Access Guide - RoshShaket
 
 **Status**: ✅ Dev Server Running  
-**URL**: http://localhost:8100  
+**URL**: http://localhost:5051  
 **API**: http://localhost:5080
 
 ---
@@ -20,10 +20,10 @@ Open any of these browsers:
 
 Copy and paste this URL:
 ```
-http://localhost:8100
+http://localhost:5051
 ```
 
-**Or directly click**: [Open RoshShaket in Browser](http://localhost:8100)
+**Or directly click**: [Open RoshShaket in Browser](http://localhost:5051)
 
 ### Step 3: App Loads
 
@@ -255,7 +255,7 @@ docker-compose up -d
 
 ### Port Already in Use?
 
-If port 8100 is taken:
+If port 5051 is taken:
 
 ```bash
 # Use different port
@@ -389,7 +389,7 @@ ifconfig
 
 Share URL:
 ```
-http://YOUR_IP:8100
+http://YOUR_IP:5051
 ```
 
 Others can access from:
@@ -488,7 +488,7 @@ Show only:
 ## ✨ What's Running
 
 ```
-Dev Server:     http://localhost:8100
+Dev Server:     http://localhost:5051
 API Backend:    http://localhost:5080
 DB (Postgres):  localhost:5432
 DB (Mongo):     localhost:27017
@@ -569,7 +569,7 @@ npm run e2e:open
 ## 🎉 You're Ready!
 
 **App is running:**
-- ✅ Accessible at http://localhost:8100
+- ✅ Accessible at http://localhost:5051
 - ✅ DevTools ready for debugging
 - ✅ API connected
 - ✅ Fully functional
@@ -578,7 +578,7 @@ npm run e2e:open
 
 ---
 
-**Open in browser:** http://localhost:8100
+**Open in browser:** http://localhost:5051
 
 **Next steps:**
 1. Open DevTools (F12)

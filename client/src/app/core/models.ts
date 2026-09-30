@@ -11,7 +11,7 @@ export interface ProfileDto {
   endDate: string;
   monthlySalary: number;
   jobPercent: number;
-  workDaysPerWeek: 5 | 6;
+  workDaysPerWeek: 1 | 2 | 3 | 4 | 5 | 6;
   vacationBalanceDays: number;
   recuperationDaysPaidLastYear: number;
   section14: Section14;
@@ -40,6 +40,17 @@ export interface CalculationResponse {
   recuperationDayValue: number;
 }
 
+export type FundKind = 'pension' | 'severance' | 'disability' | 'study';
+
+export interface FundLine {
+  kind: FundKind;
+  name: string | null;
+  employee: number | null;
+  employer: number | null;
+  unit: 'percent' | 'amount' | null;
+  detail: string | null;
+}
+
 export interface ProfileDraft {
   isPayslip: boolean;
   readable?: boolean;
@@ -54,6 +65,8 @@ export interface ProfileDraft {
   hasStudyFund: boolean | null;
   filled: string[];
   missing: string[];
+  /** null when the server did not return fund rows. An empty array means the payslip had none. */
+  funds?: FundLine[] | null;
 }
 
 export interface ChecklistItem {

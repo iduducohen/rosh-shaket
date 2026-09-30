@@ -175,14 +175,58 @@ input.code { text-align: center; font-size: 30px; letter-spacing: 14px; font-fam
   color: var(--ion-color-medium); font: inherit; font-size: 14.5px; cursor: pointer; }
 .back ion-icon { transform: scaleX(-1); }
 .link { background: none; border: 0; padding: 0; font: inherit; color: var(--ion-color-primary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.link.strong { font-weight: 700; font-size: 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.link.strong { font-weight: 700; font-size: 16px; text-decoration: none; }
 
 .error { margin-top: 14px; padding: 11px 14px; border-radius: 12px; background: var(--rs-warn-bg); color: var(--rs-warn); font-size: 14.5px; }
 
-.guest { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rs-line); }
+.guest { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rs-line); text-align: center; }
 .guest p { margin: 4px 0 0; font-size: 13.5px; color: var(--ion-color-medium); }
-.legal { margin-top: 22px; font-size: 12px; color: var(--ion-color-medium); }
-.legal a { color: inherit; }
+.legal { margin-top: 22px; font-size: 12px; color: var(--ion-color-medium); text-align: center; }
+.legal button {
+  background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.legal-backdrop {
+  position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .52);
+  display: flex; align-items: stretch; justify-content: center; padding: 0;
+}
+.legal-dialog {
+  position: relative; width: 100%; height: 100%; max-height: none; margin: 0;
+  display: flex; flex-direction: column; text-align: start; overflow: hidden;
+  background: var(--ion-background-color); color: var(--ion-text-color);
+  border-radius: 0; padding: 0;
+  box-shadow: none; animation: none; opacity: 1;
+}
+.legal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 12px;
+  border-bottom: 1px solid var(--rs-line);
+}
+.legal-head h2 { margin: 0; font-family: var(--rs-serif); font-size: 28px; }
+.legal-close {
+  background: none; border: 0; color: var(--ion-color-medium); cursor: pointer;
+  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+}
+.legal-close ion-icon { font-size: 26px; }
+.legal-body {
+  flex: 1; overflow: auto; padding: 8px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+  width: min(760px, 100%); margin-inline: auto;
+}
+.legal-updated { margin: 16px 0 0; color: var(--ion-color-medium); font-size: 14px; }
+.term { margin-top: 22px; }
+.term h3 { margin: 0 0 8px; font-size: 18px; }
+.term p { margin: 0 0 10px; line-height: 1.7; font-size: 16px; }
+.legal-more { margin: 28px 0 0; }
+@media (min-width: 992px) {
+  .legal-backdrop { align-items: center; padding: 28px; }
+  .legal-dialog {
+    width: min(1040px, 92vw); height: min(860px, 90vh);
+    border-radius: 20px; box-shadow: 0 28px 80px rgba(0, 0, 0, .32);
+  }
+  .legal-head { padding: 22px 28px 16px; }
+  .legal-head h2 { font-size: 34px; }
+  .legal-body { padding: 8px 36px 36px; }
+}
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 button:focus-visible, a:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
