@@ -51,10 +51,13 @@ public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUp
 
 public sealed class GetChecklistHandler(IContentRepository content)
 {
-    public async Task<IReadOnlyList<ChecklistItem>> HandleAsync(ExitReason reason, CancellationToken ct)
+    public async Task<IReadOnlyList<ChecklistItem>> HandleAsync(ExitReason? reason, CancellationToken ct)
     {
-        var tag = ExitReasonTags.ToTag(reason);
         var all = await content.GetChecklistAsync(ct);
+        if (reason is null)
+            return all.OrderBy(i => i.Order).ToList();
+
+        var tag = ExitReasonTags.ToTag(reason.Value);
         return all.Where(i => i.AppliesTo(tag)).OrderBy(i => i.Order).ToList();
     }
 }

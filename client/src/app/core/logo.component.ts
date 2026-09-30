@@ -3,7 +3,7 @@ import { Component, input } from '@angular/core';
 let uid = 0;
 
 /**
- * Brand mark: a doorway with a sun rising inside it – leaving, calmly, toward something brighter.
+ * Brand mark: a quiet head in profile – calm mind when leaving work.
  * Original artwork. `tone` switches the wordmark for dark backgrounds.
  */
 @Component({
@@ -22,16 +22,23 @@ let uid = 0;
         <linearGradient [attr.id]="gid" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="#14967F"/><stop offset="1" stop-color="#0B5F53"/>
         </linearGradient>
-        <clipPath [attr.id]="cid"><path d="M13 31V19.5a7 7 0 0 1 14 0V31z"/></clipPath>
       </defs>
       <rect width="40" height="40" rx="11" [attr.fill]="'url(#' + gid + ')'"/>
-      <path d="M13 31V19.5a7 7 0 0 1 14 0V31z" fill="#FFFFFF"/>
-      <g [attr.clip-path]="'url(#' + cid + ')'">
-        <circle cx="20" cy="25.2" r="4.2" fill="#F2A93B"/>
-        <rect x="12" y="25.2" width="16" height="6" fill="#FFFFFF"/>
-        <rect x="12" y="24.7" width="16" height="1" fill="#0E7C6B" opacity=".35"/>
-      </g>
-      <rect x="10" y="31" width="20" height="2.2" rx="1.1" fill="#FFFFFF" opacity=".55"/>
+      <!-- Head profile facing left (RTL) -->
+      <path
+        d="M25.2 31.5
+           C29.5 27.8 31.2 22.2 29.6 16.8
+           C28.2 11.8 23.6 9.2 18.4 9.8
+           C15.2 10.2 12.8 12 11.8 14.6
+           C11.2 16.2 10.2 17.2 9.6 18
+           L12.8 19.4
+           C11.8 21.2 11.6 23 12.8 24.8
+           C14.2 26.8 16.4 28.2 18.2 29.2
+           L19.2 31.5"
+        fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Calm mind: line broken around a quiet point -->
+      <path d="M14 16.4h3.6M22.4 16.4H26" fill="none" stroke="#FFFFFF" stroke-width="1.55" stroke-linecap="round"/>
+      <circle cx="20" cy="16.4" r="1.9" fill="none" stroke="#FFFFFF" stroke-width="1.55"/>
     </svg>
     @if (wordmark()) {
       <span class="word" [style.font-size.px]="size() * 0.55">יוצאים בראש שקט
@@ -46,5 +53,4 @@ export class LogoComponent {
   readonly tagline = input(false);
   readonly tone = input<'dark' | 'light'>('dark');
   protected readonly gid = `rs-logo-g-${++uid}`;
-  protected readonly cid = `rs-logo-c-${uid}`;
 }

@@ -38,7 +38,7 @@ export class WizardStore {
       startDate: d.startDate ?? p.startDate,
       monthlySalary: d.monthlySalary ?? p.monthlySalary,
       jobPercent: d.jobPercent ?? p.jobPercent,
-      workDaysPerWeek: d.workWeek === 'SixDays' ? 6 : d.workWeek === 'FiveDays' ? 5 : p.workDaysPerWeek,
+      workDaysPerWeek: mapWorkDays(d.workWeek) ?? p.workDaysPerWeek,
       vacationBalanceDays: d.vacationBalanceDays ?? p.vacationBalanceDays,
       recuperationDaysPaidLastYear: d.recuperationDaysPaidLastYear ?? p.recuperationDaysPaidLastYear,
       section14: d.section14Suggestion ?? p.section14,
@@ -60,4 +60,15 @@ export class WizardStore {
     this.results.set([]);
     this.activeIndex.set(0);
   }
+}
+
+const WORK_WEEK_DAYS: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
+  OneDay: 1, TwoDays: 2, ThreeDays: 3, FourDays: 4, FiveDays: 5, SixDays: 6,
+  '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+};
+
+function mapWorkDays(value: string | number | null | undefined): 1 | 2 | 3 | 4 | 5 | 6 | null {
+  if (value == null) return null;
+  if (typeof value === 'number') return value >= 1 && value <= 6 ? value as 1 | 2 | 3 | 4 | 5 | 6 : null;
+  return WORK_WEEK_DAYS[value] ?? null;
 }

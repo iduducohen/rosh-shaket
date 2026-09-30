@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { CalculationResponse, ChecklistItem, ExitReason, ProfileDraft, ProfileDto, RightsSource } from './models';
+import { CalculationResponse, ChecklistItem, ExitReason, FundLine, ProfileDraft, ProfileDto, RightsReport, RightsSource } from './models';
 
 /** Thin HTTP adapter. Knows URLs and shapes, nothing about the flow. */
 @Injectable({ providedIn: 'root' })
@@ -18,14 +18,44 @@ export class ApiService {
     return firstValueFrom(this.http.post<CalculationResponse[]>(`${this.base}/api/calculations/compare`, { profile, fromPayslip }));
   }
 
+  buildReport(body: {
+    profile: ProfileDto;
+    reason: ExitReason | null;
+    compare: boolean;
+    fromPayslip: boolean;
+    payslipMonth: string | null;
+    funds: FundLine[];
+  }): Promise<RightsReport> {
+    return firstValueFrom(this.http.post<RightsReport>(`${this.base}/api/reports`, body));
+  }
+
+  exportReport(
+    body: {
+      profile: ProfileDto;
+      reason: ExitReason | null;
+      compare: boolean;
+      fromPayslip: boolean;
+      payslipMonth: string | null;
+      funds: FundLine[];
+    },
+    format: 'html' | 'csv' | 'json'
+  ): Promise<Blob> {
+    return firstValueFrom(this.http.post(`${this.base}/api/reports/export?format=${format}`, body, {
+      responseType: 'blob'
+    }));
+  }
+
   extractPayslips(images: Blob[]): Promise<ProfileDraft> {
     const form = new FormData();
     images.forEach((img, i) => form.append('files', img, `payslip-${i + 1}.jpg`));
     return firstValueFrom(this.http.post<ProfileDraft>(`${this.base}/api/payslips/extract`, form));
   }
 
-  checklist(reason: ExitReason): Promise<ChecklistItem[]> {
-    return firstValueFrom(this.http.get<ChecklistItem[]>(`${this.base}/api/checklist`, { params: { reason } }));
+  checklist(reason?: ExitReason | null): Promise<ChecklistItem[]> {
+    return firstValueFrom(this.http.get<ChecklistItem[]>(
+      `${this.base}/api/checklist`,
+      reason ? { params: { reason } } : {}
+    ));
   }
 
   sources(): Promise<RightsSource[]> {

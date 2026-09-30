@@ -1,6 +1,7 @@
 using RoshShaket.Application.Auth;
 using RoshShaket.Application.Calculation;
 using RoshShaket.Application.Payslips;
+using RoshShaket.Application.Reports;
 using RoshShaket.Application.Rules;
 using RoshShaket.Application.UseCases;
 
@@ -25,6 +26,7 @@ public static class ApplicationModule
 
         services.AddScoped<CalculateRightsHandler>();
         services.AddScoped<CompareScenariosHandler>();
+        services.AddScoped<BuildReportHandler>();
         services.AddScoped<ExtractPayslipHandler>();
         services.AddScoped<GetChecklistHandler>();
         services.AddScoped<GetSourcesHandler>();

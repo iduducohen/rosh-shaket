@@ -9,7 +9,7 @@ public static class ContentEndpoints
     {
         var group = app.MapGroup("/api").WithTags("Content");
 
-        group.MapGet("/checklist", async (ExitReason reason, GetChecklistHandler handler, CancellationToken ct) =>
+        group.MapGet("/checklist", async (ExitReason? reason, GetChecklistHandler handler, CancellationToken ct) =>
             TypedResults.Ok(await handler.HandleAsync(reason, ct)));
 
         group.MapGet("/sources", async (GetSourcesHandler handler, CancellationToken ct) =>

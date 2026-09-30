@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { IonButton, IonContent, IonLabel, IonSegment, IonSegmentButton } from '@ionic/angular/standalone';
+import { Router, RouterLink } from '@angular/router';
+import { IonButton, IonContent, IonLabel, IonSegment, IonSegmentButton, ViewWillEnter } from '@ionic/angular/standalone';
 import { ApiService } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { RightsSource } from '../core/models';
@@ -12,7 +12,7 @@ import { WizardStore } from '../core/wizard.store';
 @Component({
   selector: 'app-summary',
   standalone: true,
-  imports: [DeskHeaderComponent, PaidHelpComponent, ExperienceReviewComponent, DecimalPipe, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
+  imports: [DeskHeaderComponent, PaidHelpComponent, ExperienceReviewComponent, DecimalPipe, RouterLink, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
   styles: [`
     .total { margin: 8px 0 18px; padding: 18px 0 16px; border-top: 2px solid var(--ion-text-color); border-bottom: 1px solid var(--rs-line); }
     .num { font-family: var(--rs-serif); font-size: 50px; font-weight: 700; line-height: 1; }
@@ -22,9 +22,22 @@ import { WizardStore } from '../core/wizard.store';
     .name { font-weight: 700; }
     .amt { font-family: var(--rs-serif); font-size: 21px; white-space: nowrap; }
     .how { font-size: 14px; color: var(--ion-color-medium); margin-top: 2px; }
-    .src { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 700; }
+    .src {
+      display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 700;
+      color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 3px;
+    }
     .basis { margin: 18px 0 6px; padding: 12px 14px; border-radius: 12px; background: var(--rs-soft); font-size: 14.5px; }
+    .results-nav {
+      display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
+    }
+    .results-nav a {
+      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--rs-line);
+      color: var(--ion-text-color); text-decoration: none; font-weight: 700; font-size: 14.5px;
+      background: var(--ion-item-background);
+    }
+    .results-nav a.on { border-color: var(--ion-color-primary); background: var(--rs-soft); color: var(--ion-color-primary); }
     @media (min-width: 992px) {
+      .results-nav { display: none; }
       ion-segment { max-width: 420px; margin-bottom: 8px; }
       .sum { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); grid-template-areas: "total items" "basis items"; grid-template-rows: auto 1fr; gap: 0 48px; align-items: start; }
       .sum-total { grid-area: total; position: sticky; top: 24px; }
@@ -41,6 +54,12 @@ import { WizardStore } from '../core/wizard.store';
     <ion-content>
       <app-desk-header [step]="4" [tabs]="true"></app-desk-header>
       <div class="page ion-padding">
+        <nav class="results-nav" aria-label="תוצאות">
+          <a routerLink="/results/summary" class="on">מה מגיע לי</a>
+          <a routerLink="/results/reports">דוחות</a>
+          <a routerLink="/checklist">צ'קליסט</a>
+          <a routerLink="/sources">מקורות</a>
+        </nav>
         @if (store.results().length > 1) {
           <ion-segment [value]="store.activeIndex()" (ionChange)="store.activeIndex.set(+($any($event).detail.value))">
             <ion-segment-button [value]="0"><ion-label>אם אפוטר</ion-label></ion-segment-button>
@@ -94,14 +113,18 @@ import { WizardStore } from '../core/wizard.store';
     </ion-content>
   `
 })
-export class SummaryPage {
+export class SummaryPage implements ViewWillEnter {
   readonly store = inject(WizardStore);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly sources = signal<RightsSource[]>([]);
 
   constructor() {
-    this.api.sources().then(s => this.sources.set(s)).catch(() => undefined);
+    void this.loadSources();
+  }
+
+  ionViewWillEnter(): void {
+    void this.loadSources();
   }
 
   sourceUrl(key: string | null): string | null {
@@ -112,6 +135,14 @@ export class SummaryPage {
     return this.sources().find(s => s.key === key)?.title ?? 'המקור הרשמי';
   }
 
-  edit(): void { this.router.navigateByUrl('/details'); }
-  restart(): void { this.store.reset(); this.router.navigateByUrl('/start'); }
+  edit(): void { void this.router.navigateByUrl('/details'); }
+  restart(): void { this.store.reset(); void this.router.navigateByUrl('/start'); }
+
+  private async loadSources(): Promise<void> {
+    try {
+      this.sources.set(await this.api.sources());
+    } catch {
+      /* keep whatever was already loaded */
+    }
+  }
 }

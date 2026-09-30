@@ -1,7 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
-import { AlertController, IonButton, IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
+import { AlertController, IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { cameraOutline, checkmarkOutline, closeOutline, documentTextOutline } from 'ionicons/icons';
 import { DeskHeaderComponent } from '../core/desk-header.component';
@@ -92,7 +92,7 @@ import { LogoComponent } from '../core/logo.component';
     </ion-content>
   `
 })
-export class WelcomePage {
+export class WelcomePage implements ViewWillEnter, OnDestroy {
   private readonly photos = inject(PhotoService);
   private readonly api = inject(ApiService);
   private readonly store = inject(WizardStore);
@@ -108,6 +108,14 @@ export class WelcomePage {
 
   constructor() {
     addIcons({ cameraOutline, documentTextOutline, checkmarkOutline, closeOutline });
+  }
+
+  ionViewWillEnter(): void {
+    this.clearUploadState();
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.continueTimer);
   }
 
   pickCamera(): Promise<void> {
@@ -152,16 +160,14 @@ export class WelcomePage {
       images = await load();
     } catch (err) {
       if (isUserCancel(err)) {
-        this.status.set('');
-        this.verdict.set('');
+        this.clearUploadState();
       } else {
         this.fail(err instanceof Error && err.message ? err.message : fallback);
       }
       return;
     }
     if (images.length === 0) {
-      this.status.set('');
-      this.verdict.set('');
+      this.clearUploadState();
       return;
     }
 
@@ -201,8 +207,15 @@ export class WelcomePage {
   }
 
   manual(): void {
-    clearTimeout(this.continueTimer);
+    this.clearUploadState();
     this.store.reset();
-    this.router.navigateByUrl('/reason');
+    void this.router.navigateByUrl('/reason');
+  }
+
+  private clearUploadState(): void {
+    clearTimeout(this.continueTimer);
+    this.busy.set(false);
+    this.status.set('');
+    this.verdict.set('');
   }
 }

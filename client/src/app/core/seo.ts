@@ -24,6 +24,9 @@ export const SEO = {
   reason: { title: 'סיבת העזיבה · יוצאים בראש שקט', index: false },
   details: { title: 'פרטים · יוצאים בראש שקט', index: false },
   results: { title: 'התוצאה · יוצאים בראש שקט', index: false },
+  reports: { title: 'דוחות · יוצאים בראש שקט', index: false },
+  checklist: { title: 'צ\'קליסט · יוצאים בראש שקט', index: false },
+  sources: { title: 'מקורות · יוצאים בראש שקט', index: false },
   terms: {
     title: 'תנאי השימוש · יוצאים בראש שקט',
     description: 'תנאי השימוש של יוצאים בראש שקט: הערכה של זכויות בסיום עבודה, לא ייעוץ משפטי.',

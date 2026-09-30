@@ -4,7 +4,7 @@ export type ExitReason = 'Fired' | 'ResignedJustified' | 'Resigned' | 'ContractE
 export type ExitChoice = ExitReason | 'Considering';
 export type Section14 = 'Full' | 'Partial6' | 'None' | 'Unknown';
 export type Certainty = 'Estimate' | 'NeedsVerification' | 'Informational';
-export type WorkWeek = 'FiveDays' | 'SixDays';
+export type WorkWeek = 'OneDay' | 'TwoDays' | 'ThreeDays' | 'FourDays' | 'FiveDays' | 'SixDays';
 
 export interface ProfileDto {
   startDate: string;          // yyyy-MM-dd
@@ -83,6 +83,62 @@ export interface RightsSource {
   title: string;
   url: string;
   description: string;
+}
+
+export interface ChartSlice {
+  key: string;
+  label: string;
+  value: number;
+  unit: 'ils' | 'percent' | string;
+}
+
+export interface ReportComponent {
+  code: string;
+  title: string;
+  amount: number | null;
+  displayValue: string | null;
+  explanation: string;
+  includedInTotal: boolean;
+  certainty: string;
+  flag: string | null;
+}
+
+export interface ScenarioReport {
+  reason: ExitReason;
+  reasonLabel: string;
+  seniorityYears: number;
+  estimatedTotal: number;
+  components: ReportComponent[];
+  entitlementSlices: ChartSlice[];
+  advisories: string[];
+  valuesValidFrom: string;
+  recuperationDayValue: number;
+}
+
+export interface ReportBasis {
+  startDate: string;
+  endDate: string;
+  monthlySalary: number;
+  jobPercent: number;
+  workWeek: string;
+  vacationBalanceDays: number;
+  recuperationDaysPaidLastYear: number;
+  section14: string;
+  hasStudyFund: boolean;
+  fromPayslip: boolean;
+  payslipMonth: string | null;
+}
+
+export interface RightsReport {
+  generatedAt: string;
+  title: string;
+  basis: ReportBasis;
+  scenarios: ScenarioReport[];
+  funds: FundLine[];
+  employerFundSlices: ChartSlice[];
+  employeeFundSlices: ChartSlice[];
+  scenarioTotalSlices: ChartSlice[];
+  disclaimer: string;
 }
 
 export const REASON_LABELS: Record<ExitReason, string> = {
