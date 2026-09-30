@@ -1,8 +1,15 @@
 {
-  "rewrites": [
+  "buildCommand": "cd client && npm run build:prod",
+  "outputDirectory": "client/www",
+  "headers": [
     {
-      "source": "/((?!api/|_next/|favicon.ico|.*\.js|.*\.mjs|.*\.css|.*\.wasm|.*\.map).*)",
-      "destination": "/index.html"
+      "source": "/pdfjs-dist/**",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
     }
   ]
 }
