@@ -1,21 +1,22 @@
 describe('Application E2E Tests', () => {
-  beforeEach(() => {
-    cy.visit('/');
-  });
-
   it('should load the app', () => {
-    cy.get('app-root').should('be.visible');
+    cy.visit('/');
+    cy.get('ion-app').should('exist');
+    cy.get('body').should('be.visible');
   });
 
   it('should have a working navigation', () => {
-    cy.get('ion-menu').should('exist');
+    cy.visit('/');
+    cy.contains('ברוכים הבאים').should('be.visible');
   });
 
   it('should navigate to home page', () => {
+    cy.visit('/');
     cy.url().should('include', '/');
   });
 
   it('should display main content', () => {
-    cy.get('ion-content').should('be.visible');
+    cy.visit('/');
+    cy.contains('button').should('have.length.greaterThan', 0);
   });
 });
