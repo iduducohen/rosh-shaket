@@ -1,0 +1,8 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "server/Dockerfile"
+
+[deploy]
+startCommand = "dotnet RoshShaket.Api.dll"
+restartPolicyMaxRetries = 5
+restartPolicyWindowMs = 60000
