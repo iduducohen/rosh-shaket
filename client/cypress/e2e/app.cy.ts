@@ -17,6 +17,6 @@ describe('Application E2E Tests', () => {
 
   it('should display main content', () => {
     cy.visit('/');
-    cy.contains('button').should('have.length.greaterThan', 0);
+    cy.contains('ברוכים הבאים').should('be.visible');
   });
 });
