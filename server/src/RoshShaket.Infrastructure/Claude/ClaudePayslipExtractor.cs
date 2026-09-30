@@ -46,7 +46,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
     public async Task<PayslipExtraction> ExtractAsync(IReadOnlyList<PayslipImage> images, CancellationToken ct)
     {
         var o = options.Value;
-        var apiKey = o.ApiKey ?? Environment.GetEnvironmentVariable("Claude__ApiKey") ?? "";
+        var apiKey = !string.IsNullOrWhiteSpace(o.ApiKey) ? o.ApiKey : (Environment.GetEnvironmentVariable("Claude__ApiKey") ?? "");
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new PayslipExtractionException("קריאת תלושים אינה מוגדרת בשרת (חסר מפתח API).");
 
