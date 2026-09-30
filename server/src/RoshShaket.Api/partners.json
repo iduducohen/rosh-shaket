@@ -1,29 +1,46 @@
 [
   {
     "id": "sample-lawyer-partner",
-    "name": "משרד לדוגמה, שותף",
+    "name": "משרד עורכי דין שותף",
     "kind": "Lawyer",
-    "summary": "עורך דין לדיני עבודה. דוגמה להחלפה בשם אמיתי.",
+    "specialty": "דיני עבודה ויחסי עובד–מעסיק",
+    "summary": "ליווי בסיום העסקה, פיצויים והודעה מוקדמת. שותף רשמי של האפליקציה.",
+    "recommendations": [
+      "מתאים כשיש מחלוקת עם המעסיק או סירוב לשלם",
+      "בודקים גם את תלושי השכר ואת סעיף 14",
+      "מקבלים הצעת מחיר לפני שמתחילים"
+    ],
     "cooperation": true,
     "discountPercent": 10,
+    "website": "https://www.kolzchut.org.il/he/דיני_עבודה",
     "email": "office@example.com",
     "whatsapp": "972500000000"
   },
   {
     "id": "sample-lawyer-discount",
-    "name": "משרד לדוגמה, הנחה גדולה",
+    "name": "משרד עורכי דין הנחה גדולה",
     "kind": "Lawyer",
-    "summary": "בלי שיתוף פעולה. ההנחה הגדולה שמה אותו אחרי שותפים ולפני הנחה קטנה.",
+    "specialty": "תביעות שכר ופיצויי פיטורים",
+    "summary": "בלי שיתוף פעולה. ההנחה הגדולה מוצגת ראשונה בתוך הקבוצה הזו.",
+    "recommendations": [
+      "מתאים לבדיקת פערים בסכומים שחושבו",
+      "ניתן לפנות גם במייל וגם בוואטסאפ"
+    ],
     "cooperation": false,
     "discountPercent": 25,
+    "website": "https://www.gov.il/he/departments/ministry_of_labor",
     "email": "office@example.com",
     "whatsapp": "972500000000"
   },
   {
     "id": "sample-lawyer-small",
-    "name": "משרד לדוגמה, הנחה קטנה",
+    "name": "משרד עורכי דין הנחה קטנה",
     "kind": "Lawyer",
+    "specialty": "ייעוץ ראשוני בדיני עבודה",
     "summary": "הנחה קטנה, בלי שיתוף פעולה. מופיע אחרון.",
+    "recommendations": [
+      "מתאים לפנייה ראשונית ובירור אפשרויות"
+    ],
     "cooperation": false,
     "discountPercent": 5,
     "email": "office@example.com",
@@ -31,21 +48,33 @@
   },
   {
     "id": "sample-pro-partner",
-    "name": "משרד שכר לדוגמה, שותף",
+    "name": "משרד בודק שכר שותף",
     "kind": "Professional",
-    "summary": "בדיקת שכר וזכויות. דוגמה להחלפה בשם אמיתי.",
+    "specialty": "בדיקת תלושים וזכויות בסיום עבודה",
+    "summary": "בודקים שכר ותלושים. שותף רשמי של האפליקציה.",
+    "recommendations": [
+      "מתאים כשרוצים מישהו שיעבור על התלוש וההערכה",
+      "לא מחליף ייעוץ משפטי כשיש מחלוקת"
+    ],
     "cooperation": true,
     "discountPercent": 0,
+    "website": "https://www.kolzchut.org.il/he/תלוש_שכר",
     "email": "office@example.com",
     "whatsapp": "972500000000"
   },
   {
     "id": "sample-pro-discount",
-    "name": "ייעוץ שכר לדוגמה",
+    "name": "יועץ שכר לדוגמה",
     "kind": "Professional",
-    "summary": "הנחה גדולה, בלי שיתוף פעולה. מופיע אחרי שותפים.",
+    "specialty": "הפרשות לפנסיה וקרן השתלמות",
+    "summary": "הנחה גדולה, בלי שיתוף פעולה. מופיע אחרי השותף.",
+    "recommendations": [
+      "מתאים לבדיקת קופות והפרשות",
+      "מקבלים הצעת מחיר לפני תחילת העבודה"
+    ],
     "cooperation": false,
     "discountPercent": 20,
+    "website": "https://www.kolzchut.org.il/he/פנסיה",
     "email": "office@example.com",
     "whatsapp": "972500000000"
   }

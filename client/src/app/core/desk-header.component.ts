@@ -2,10 +2,11 @@ import { Component, inject, input } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline } from 'ionicons/icons';
+import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline } from 'ionicons/icons';
 import { WizardStore } from './wizard.store';
 import { AuthService } from './auth/auth.service';
 import { LogoComponent } from './logo.component';
+import { WorkspaceService } from './workspace.service';
 
 /** Brand bar shown on desktop only (hidden by CSS below 992px). */
 @Component({
@@ -57,16 +58,13 @@ import { LogoComponent } from './logo.component';
       }
 
       /* Progress on its own row so it never collides with actions */
-      .steps, .tabs {
+      .steps {
         grid-column: 1 / -1; grid-row: 2;
         justify-self: stretch;
-        padding-top: 2px;
+        padding-top: 12px;
         border-top: 1px solid var(--rs-line);
-      }
-      .steps {
         display: flex; align-items: center; justify-content: center; gap: 4px;
         font-size: 13.5px; color: var(--ion-color-medium); font-weight: 500;
-        padding-top: 12px;
       }
       .steps span {
         display: inline-flex; align-items: center; gap: 7px;
@@ -87,14 +85,8 @@ import { LogoComponent } from './logo.component';
         color: var(--ion-color-primary-contrast);
       }
 
-      .tabs {
-        display: flex; gap: 6px; padding-top: 10px; justify-content: center;
-      }
-      .tabs a {
-        padding: 8px 14px; border-radius: 10px; color: var(--ion-text-color);
-        text-decoration: none; font-weight: 600; font-size: 15px;
-      }
-      .tabs a.active { background: var(--rs-soft); color: var(--ion-color-primary); }
+      .save-status { font-size: 12.5px; color: var(--ion-color-medium); white-space: nowrap; }
+      .save-status.err { color: var(--ion-color-danger); }
     }
   `],
   template: `
@@ -102,12 +94,27 @@ import { LogoComponent } from './logo.component';
       <button class="brand" (click)="home()" aria-label="יוצאים בראש שקט – לדף הבית"><app-logo [size]="30"></app-logo></button>
 
       <div class="end">
+        @if (auth.isSignedIn() && workspaces.saveStatus() !== 'idle') {
+          <span class="save-status" [class.err]="workspaces.saveStatus() === 'error'" aria-live="polite">
+            @switch (workspaces.saveStatus()) {
+              @case ('saving') { שומרים… }
+              @case ('saved') { נשמר }
+              @case ('error') { {{ workspaces.saveError() || 'שגיאת שמירה' }} }
+            }
+          </span>
+        }
         <nav class="actions" aria-label="פעולות קבועות">
           @if (step() > 1) {
             <button type="button" class="action" (click)="home()">
               <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
               להתחיל מחדש
             </button>
+          }
+          @if (tabs()) {
+            <a class="action" routerLink="/results/reports" routerLinkActive="active">
+              <ion-icon name="stats-chart-outline" aria-hidden="true"></ion-icon>
+              דוחות
+            </a>
           }
           <a class="action" routerLink="/checklist" routerLinkActive="active">
             <ion-icon name="checkbox-outline" aria-hidden="true"></ion-icon>
@@ -132,21 +139,12 @@ import { LogoComponent } from './logo.component';
         </nav>
       </div>
 
-      @if (tabs()) {
-        <nav class="tabs" aria-label="תוצאות">
-          <a routerLink="/results/summary" routerLinkActive="active">מה מגיע לי</a>
-          <a routerLink="/results/reports" routerLinkActive="active">דוחות</a>
-          <a routerLink="/checklist" routerLinkActive="active">צ'קליסט</a>
-          <a routerLink="/sources" routerLinkActive="active">מקורות</a>
-        </nav>
-      } @else {
-        <nav class="steps" aria-label="שלבי התהליך">
-          <span [class.on]="step() === 1"><span class="n" aria-hidden="true">1</span>תלוש שכר</span>
-          <span [class.on]="step() === 2"><span class="n" aria-hidden="true">2</span>סיבת העזיבה</span>
-          <span [class.on]="step() === 3"><span class="n" aria-hidden="true">3</span>פרטים</span>
-          <span [class.on]="step() === 4"><span class="n" aria-hidden="true">4</span>מה מגיע לי</span>
-        </nav>
-      }
+      <nav class="steps" aria-label="שלבי התהליך">
+        <span [class.on]="step() === 1"><span class="n" aria-hidden="true">1</span>תלוש שכר</span>
+        <span [class.on]="step() === 2"><span class="n" aria-hidden="true">2</span>סיבת העזיבה</span>
+        <span [class.on]="step() === 3"><span class="n" aria-hidden="true">3</span>פרטים</span>
+        <span [class.on]="step() === 4"><span class="n" aria-hidden="true">4</span>מה מגיע לי</span>
+      </nav>
     </div>
   `
 })
@@ -156,28 +154,33 @@ export class DeskHeaderComponent {
   private readonly router = inject(Router);
   private readonly store = inject(WizardStore);
   readonly auth = inject(AuthService);
+  readonly workspaces = inject(WorkspaceService);
 
   constructor() {
-    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline });
+    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
   }
 
   initial(): string {
     return (this.auth.displayName() ?? '?').charAt(0).toUpperCase();
   }
 
-  signOut(): void {
+  async signOut(): Promise<void> {
+    await this.workspaces.flushSave().catch(() => undefined);
+    this.workspaces.clearLocal();
     this.auth.signOut();
     this.store.reset();
-    this.router.navigateByUrl('/login');
+    void this.router.navigateByUrl('/login');
   }
 
   signIn(): void {
     this.auth.signOut();
-    this.router.navigateByUrl('/login');
+    this.workspaces.clearLocal();
+    void this.router.navigateByUrl('/login');
   }
 
-  home(): void {
+  async home(): Promise<void> {
+    await this.workspaces.flushSave().catch(() => undefined);
     this.store.reset();
-    this.router.navigateByUrl('/start');
+    void this.router.navigateByUrl('/start');
   }
 }

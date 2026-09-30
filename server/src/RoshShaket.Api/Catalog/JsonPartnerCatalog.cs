@@ -52,12 +52,30 @@ public sealed class JsonPartnerCatalog(string path, ILogger<JsonPartnerCatalog> 
             row.Cooperation,
             row.DiscountPercent,
             CleanEmail(row.Email),
-            CleanWhatsapp(row.Whatsapp));
+            CleanWhatsapp(row.Whatsapp),
+            CleanUrl(row.Website),
+            string.IsNullOrWhiteSpace(row.Specialty) ? null : row.Specialty.Trim(),
+            CleanRecommendations(row.Recommendations));
         return true;
     }
 
     private static string? CleanEmail(string? value) =>
         !string.IsNullOrWhiteSpace(value) && MailAddress.TryCreate(value.Trim(), out var address) ? address.Address : null;
+
+    private static string? CleanUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)) return null;
+        if (uri.Scheme is not ("http" or "https")) return null;
+        return uri.AbsoluteUri;
+    }
+
+    private static IReadOnlyList<string>? CleanRecommendations(IReadOnlyList<string>? values)
+    {
+        if (values is null || values.Count == 0) return null;
+        var cleaned = values.Select(v => (v ?? "").Trim()).Where(v => v.Length > 0).Take(8).ToList();
+        return cleaned.Count == 0 ? null : cleaned;
+    }
 
     private static string? CleanWhatsapp(string? value)
     {
@@ -77,5 +95,8 @@ public sealed class JsonPartnerCatalog(string path, ILogger<JsonPartnerCatalog> 
         public int DiscountPercent { get; set; }
         public string? Email { get; set; }
         public string? Whatsapp { get; set; }
+        public string? Website { get; set; }
+        public string? Specialty { get; set; }
+        public List<string>? Recommendations { get; set; }
     }
 }

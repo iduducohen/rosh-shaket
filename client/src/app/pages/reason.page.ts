@@ -6,6 +6,7 @@ import { closeOutline } from 'ionicons/icons';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { ExitChoice } from '../core/models';
 import { WizardStore } from '../core/wizard.store';
+import { WorkspaceService } from '../core/workspace.service';
 
 interface InfoSection { title: string; paragraphs: string[]; }
 interface Option {
@@ -127,6 +128,7 @@ interface Option {
 export class ReasonPage {
   readonly store = inject(WizardStore);
   private readonly router = inject(Router);
+  private readonly workspaces = inject(WorkspaceService);
   readonly info = signal<Option | null>(null);
 
   constructor() {
@@ -277,6 +279,7 @@ export class ReasonPage {
   }
 
   async next(): Promise<void> {
+    this.workspaces.scheduleSave(true);
     await this.router.navigateByUrl('/details');
   }
 }

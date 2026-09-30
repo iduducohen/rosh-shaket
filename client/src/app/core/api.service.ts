@@ -84,6 +84,9 @@ export interface PartnerOffer {
   discountPercent: number;
   email: string | null;
   whatsapp: string | null;
+  website?: string | null;
+  specialty?: string | null;
+  recommendations?: string[] | null;
 }
 
 export interface PaidHelpRequest {

@@ -10,6 +10,7 @@ import { PhotoService, isUserCancel } from '../core/photo.service';
 import { WizardStore } from '../core/wizard.store';
 import { AuthService } from '../core/auth/auth.service';
 import { LogoComponent } from '../core/logo.component';
+import { WorkspaceService } from '../core/workspace.service';
 
 @Component({
   selector: 'app-welcome',
@@ -54,7 +55,7 @@ import { LogoComponent } from '../core/logo.component';
         <div class="up">
         <div class="upload">
           <b>הדרך המהירה: העלו את התלוש האחרון</b>
-          <span class="muted small">תלוש אחרון אחד מספיק: השכר והיתרות כבר מסוכמים בו. נבדוק שהוא תקין, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF. הקבצים לא נשמרים.</span>
+          <span class="muted small">תלוש אחרון אחד מספיק: השכר והיתרות כבר מסוכמים בו. נבדוק שהוא תקין, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF.{{ auth.isSignedIn() ? ' כשאתם מחוברים המסמך נשמר בחשבון שלכם.' : ' כאורחים הקבצים לא נשמרים אחרי הקריאה.' }}</span>
           <div class="row">
             @if (native) {
               <ion-button (click)="pickCamera()" [disabled]="busy()">
@@ -98,6 +99,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   private readonly store = inject(WizardStore);
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly workspaces = inject(WorkspaceService);
 
   readonly busy = signal(false);
   readonly status = signal('');
@@ -185,6 +187,14 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
       }
       this.store.reset();
       this.store.applyDraft(draft);
+      if (this.auth.isSignedIn()) {
+        for (let i = 0; i < images.length; i++) {
+          try {
+            await this.workspaces.uploadDocument(images[i], `payslip-${i + 1}.jpg`, 'payslip');
+          } catch { /* OCR already succeeded; document persist is best-effort */ }
+        }
+        this.workspaces.scheduleSave(true);
+      }
       this.verdict.set('ok');
       this.status.set('התלוש תקין');
       accepted = true;

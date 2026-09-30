@@ -10,7 +10,10 @@ public sealed record PartnerOffer(
     bool Cooperation,
     int DiscountPercent,
     string? Email = null,
-    string? Whatsapp = null);
+    string? Whatsapp = null,
+    string? Website = null,
+    string? Specialty = null,
+    IReadOnlyList<string>? Recommendations = null);
 
 /// <summary>
 /// A cooperation agreement is shown before everyone else.

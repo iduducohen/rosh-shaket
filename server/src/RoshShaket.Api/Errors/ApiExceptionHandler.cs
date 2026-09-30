@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RoshShaket.Application.Auth;
 using RoshShaket.Application.Payslips;
+using RoshShaket.Application.Workspaces;
 using RoshShaket.Domain;
 
 namespace RoshShaket.Api.Errors;
@@ -17,13 +18,17 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
             DomainValidationException v => (StatusCodes.Status400BadRequest, "נתונים לא תקינים", v.Errors),
             PayslipExtractionException p => (StatusCodes.Status422UnprocessableEntity, p.Message, (IReadOnlyDictionary<string, string>?)null),
             AuthenticationFailedException a => (StatusCodes.Status401Unauthorized, a.Message, (IReadOnlyDictionary<string, string>?)null),
+            NotFoundException n => (StatusCodes.Status404NotFound, n.Message, (IReadOnlyDictionary<string, string>?)null),
+            ForbiddenException f => (StatusCodes.Status403Forbidden, f.Message, (IReadOnlyDictionary<string, string>?)null),
+            ConcurrencyConflictException => (StatusCodes.Status409Conflict, "המצב עודכן במכשיר אחר. רעננו והמשיכו.", (IReadOnlyDictionary<string, string>?)null),
             BadHttpRequestException => (StatusCodes.Status400BadRequest, "בקשה לא תקינה", (IReadOnlyDictionary<string, string>?)null),
             _ => (StatusCodes.Status500InternalServerError, "שגיאה בשרת", (IReadOnlyDictionary<string, string>?)null)
         };
 
-        // Attach correlation id from header (if present) to the log message for easier correlation
         var correlationId = context.Request.Headers.TryGetValue("X-Correlation-ID", out var cid) ? cid.ToString() : null;
         if (status >= 500) log.LogError(exception, "Unhandled exception while processing {Path} CorrelationId={CorrelationId}", context.Request.Path, correlationId);
+        else if (status == StatusCodes.Status409Conflict)
+            log.LogWarning("Concurrency conflict on {Path} CorrelationId={CorrelationId}", context.Request.Path, correlationId);
 
         var details = new ProblemDetails { Status = status, Title = title };
         if (errors is not null) details.Extensions["errors"] = errors;

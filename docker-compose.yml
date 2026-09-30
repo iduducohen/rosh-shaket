@@ -52,8 +52,10 @@ services:
       Auth__Smtp__User: ${SMTP_USER:-}
       Auth__Smtp__Password: ${SMTP_PASSWORD:-}
       Auth__Smtp__From: ${SMTP_FROM:-}
+      FileStorage__LocalRoot: /data/documents
     volumes:
       - dpkeys:/keys
+      - docstore:/data/documents
     depends_on:
       postgres: { condition: service_healthy }
       mongo: { condition: service_healthy }
@@ -63,3 +65,4 @@ volumes:
   pgdata:
   mongodata:
   dpkeys:
+  docstore:

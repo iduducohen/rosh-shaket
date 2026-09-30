@@ -12,6 +12,8 @@ using RoshShaket.Infrastructure.Claude;
 using RoshShaket.Infrastructure.Common;
 using RoshShaket.Infrastructure.Mongo;
 using RoshShaket.Infrastructure.Postgres;
+using RoshShaket.Infrastructure.Storage;
+using RoshShaket.Application.Workspaces;
 
 namespace RoshShaket.Infrastructure;
 
@@ -23,6 +25,7 @@ public static class DependencyInjection
         services.Configure<CacheOptions>(config.GetSection(CacheOptions.Section));
         services.Configure<MongoOptions>(config.GetSection(MongoOptions.Section));
         services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
+        services.Configure<FileStorageOptions>(config.GetSection(FileStorageOptions.Section));
         services.PostConfigure<AuthOptions>(static o =>
         {
             o.Google.AdditionalAudiences = Merge(o.Google.AdditionalAudiences, o.Google.IosClientId);
@@ -74,6 +77,10 @@ public static class DependencyInjection
         services.AddTransient<IExternalIdentityVerifier, AppleIdentityVerifier>();
         services.AddTransient<IExternalIdentityVerifier, MicrosoftIdentityVerifier>();
         services.AddScoped<IUserRepository, PostgresUserRepository>();
+        services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
+        services.AddScoped<IDocumentRepository, PostgresDocumentRepository>();
+        services.AddScoped<IWorkspaceAudit, PostgresWorkspaceAudit>();
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
         if (!string.IsNullOrWhiteSpace(config[$"{AuthOptions.Section}:Smtp:Host"]))
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
         else
@@ -107,6 +114,7 @@ public static class DependencyInjection
             {
                 logger.LogInformation("Ensuring Postgres database is created (attempt {Attempt}/{Max}).", attempt, maxAttempts);
                 await db.Database.EnsureCreatedAsync();
+                await WorkspaceSchema.EnsureAsync(db, logger);
                 logger.LogInformation("Postgres database ensured.");
                 return;
             }

@@ -13,6 +13,11 @@ services:
       ConnectionStrings__Mongo: mongodb://mongo:27017
       ConnectionStrings__Redis: redis:6379
       Mongo__Database: rosh_shaket
+      FileStorage__LocalRoot: /data/documents
+      DataProtection__KeysPath: /keys
+    volumes:
+      - dpkeys:/keys
+      - docstore:/data/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +66,5 @@ services:
 volumes:
   rosh_pg:
   rosh_mongo:
+  dpkeys:
+  docstore:

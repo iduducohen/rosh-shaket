@@ -94,6 +94,7 @@ app.UseSwaggerUI();
 app.MapHealthChecks("/health");
 app.MapCalculationEndpoints();
 app.MapReportEndpoints();
+app.MapWorkspaceEndpoints();
 app.MapPayslipEndpoints();
 app.MapContentEndpoints();
 app.MapAuthEndpoints();

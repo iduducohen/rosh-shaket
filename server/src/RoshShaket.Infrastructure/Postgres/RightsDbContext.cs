@@ -3,13 +3,17 @@ using RoshShaket.Domain;
 
 namespace RoshShaket.Infrastructure.Postgres;
 
-/// <summary>Relational data: annual legal values (with validity dates) and anonymous calculation stats.</summary>
+/// <summary>Relational data: annual legal values, anonymous calculation stats, users, and workspaces.</summary>
 public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) : DbContext(options)
 {
     public DbSet<AnnualValuesRow> AnnualValues => Set<AnnualValuesRow>();
     public DbSet<CalculationLogRow> CalculationLog => Set<CalculationLogRow>();
     public DbSet<UserRow> Users => Set<UserRow>();
     public DbSet<UserIdentityRow> UserIdentities => Set<UserIdentityRow>();
+    public DbSet<WorkspaceRow> Workspaces => Set<WorkspaceRow>();
+    public DbSet<WorkflowStateRow> WorkflowStates => Set<WorkflowStateRow>();
+    public DbSet<DocumentRow> Documents => Set<DocumentRow>();
+    public DbSet<WorkspaceAuditRow> WorkspaceAudits => Set<WorkspaceAuditRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -22,7 +26,6 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.Property(x => x.SeveranceTaxExemptCapPerYear).HasPrecision(12, 2);
             e.Property(x => x.FullSeveranceRatePercent).HasPrecision(5, 2);
             e.Property(x => x.Note).HasMaxLength(500);
-            // Seed values — VERIFY against official publications before production.
             e.HasData(new AnnualValuesRow
             {
                 Id = 1,
@@ -62,6 +65,64 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasIndex(x => new { x.Provider, x.Subject }).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
+
+        b.Entity<WorkspaceRow>(e =>
+        {
+            e.ToTable("user_workspaces");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.CurrentStep).HasMaxLength(64);
+            e.Property(x => x.CurrentRoute).HasMaxLength(200);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => new { x.UserId, x.IsActive });
+            e.HasIndex(x => x.UpdatedAt);
+            e.HasIndex(x => x.Status);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Workflow).WithOne(x => x.Workspace!).HasForeignKey<WorkflowStateRow>(x => x.WorkspaceId);
+            e.HasMany(x => x.Documents).WithOne(x => x.Workspace!).HasForeignKey(x => x.WorkspaceId);
+        });
+
+        b.Entity<WorkflowStateRow>(e =>
+        {
+            e.ToTable("workspace_workflow_states");
+            e.HasKey(x => x.WorkspaceId);
+            e.Property(x => x.CurrentStep).HasMaxLength(64);
+            e.Property(x => x.PreviousStep).HasMaxLength(64);
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.StateJson).HasColumnType("jsonb");
+        });
+
+        b.Entity<DocumentRow>(e =>
+        {
+            e.ToTable("workspace_documents");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DocumentType).HasMaxLength(64);
+            e.Property(x => x.OriginalFileName).HasMaxLength(260);
+            e.Property(x => x.StoredFileName).HasMaxLength(260);
+            e.Property(x => x.ContentType).HasMaxLength(120);
+            e.Property(x => x.StorageProvider).HasMaxLength(32);
+            e.Property(x => x.StorageKey).HasMaxLength(500);
+            e.Property(x => x.HashSha256).HasMaxLength(64);
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.MetadataJson).HasColumnType("jsonb");
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.WorkspaceId);
+            e.HasIndex(x => x.UploadedAt);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.StorageKey).IsUnique();
+        });
+
+        b.Entity<WorkspaceAuditRow>(e =>
+        {
+            e.ToTable("workspace_audit");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).HasMaxLength(64);
+            e.Property(x => x.EntityType).HasMaxLength(64);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.WorkspaceId);
+            e.HasIndex(x => x.CreatedAt);
+        });
     }
 }
 
@@ -92,7 +153,9 @@ public sealed class UserRow
     public string? Email { get; set; }
     public string? Name { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset LastLoginAt { get; set; }
+    public DateTimeOffset LastActiveAt { get; set; }
 }
 
 public sealed class UserIdentityRow

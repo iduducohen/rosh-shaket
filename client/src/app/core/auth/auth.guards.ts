@@ -12,10 +12,10 @@ export const sessionGuard: CanActivateFn = async () => {
   return auth.isSignedIn() || auth.hasSession() || auth.guest() ? true : router.parseUrl('/login');
 };
 
-/** Login screen: skip it when already signed in. */
+/** Login screen: skip it when already signed in — resume workspace. */
 export const loginGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   await auth.init();
-  return auth.isSignedIn() || auth.hasSession() ? router.parseUrl('/details') : true;
+  return auth.isSignedIn() || auth.hasSession() ? router.parseUrl('/resume') : true;
 };

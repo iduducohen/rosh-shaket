@@ -23,7 +23,7 @@ public sealed class PostgresUserRepository(RightsDbContext db) : IUserRepository
             user = (identity.EmailVerified && email is not null
                        ? await db.Users.FirstOrDefaultAsync(u => u.Email == email, ct)
                        : null)
-                   ?? db.Users.Add(new UserRow { Id = Guid.NewGuid(), Email = identity.EmailVerified ? email : null, CreatedAt = now }).Entity;
+                   ?? db.Users.Add(new UserRow { Id = Guid.NewGuid(), Email = identity.EmailVerified ? email : null, CreatedAt = now, UpdatedAt = now, LastActiveAt = now }).Entity;
 
             db.UserIdentities.Add(new UserIdentityRow
             {
@@ -32,6 +32,8 @@ public sealed class PostgresUserRepository(RightsDbContext db) : IUserRepository
         }
 
         user.LastLoginAt = now;
+        user.LastActiveAt = now;
+        user.UpdatedAt = now;
         if (string.IsNullOrWhiteSpace(user.Name) && !string.IsNullOrWhiteSpace(identity.Name)) user.Name = identity.Name;
         await db.SaveChangesAsync(ct);
         return new AppUser(user.Id, user.Email, user.Name);

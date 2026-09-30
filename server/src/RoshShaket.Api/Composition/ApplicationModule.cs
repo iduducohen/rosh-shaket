@@ -4,6 +4,7 @@ using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Reports;
 using RoshShaket.Application.Rules;
 using RoshShaket.Application.UseCases;
+using RoshShaket.Application.Workspaces;
 
 namespace RoshShaket.Api.Composition;
 
@@ -33,6 +34,7 @@ public static class ApplicationModule
         services.AddScoped<GetPartnersHandler>();
         services.AddScoped<ExternalSignInHandler>();
         services.AddScoped<EmailCodeSignInHandler>();
+        services.AddScoped<WorkspaceHandlers>();
         return services;
     }
 }

@@ -60,6 +60,49 @@ export class WizardStore {
     this.results.set([]);
     this.activeIndex.set(0);
   }
+
+  /** Restore from a server workspace snapshot (no I/O). */
+  hydrate(snap: {
+    choice: ExitChoice | null;
+    profile: ProfileDto;
+    filledFields: string[];
+    funds: FundLine[] | null;
+    fromPayslip: boolean;
+    payslipMonth: string | null;
+    results: CalculationResponse[];
+    activeIndex: number;
+  }): void {
+    this.choice.set(snap.choice);
+    this.profile.set({ ...emptyProfile(), ...snap.profile });
+    this.filledFields.set(snap.filledFields ?? []);
+    this.funds.set(snap.funds ?? null);
+    this.fromPayslip.set(!!snap.fromPayslip);
+    this.payslipMonth.set(snap.payslipMonth ?? null);
+    this.results.set(snap.results ?? []);
+    this.activeIndex.set(snap.activeIndex ?? 0);
+  }
+
+  snapshot(): {
+    choice: ExitChoice | null;
+    profile: ProfileDto;
+    filledFields: string[];
+    funds: FundLine[] | null;
+    fromPayslip: boolean;
+    payslipMonth: string | null;
+    results: CalculationResponse[];
+    activeIndex: number;
+  } {
+    return {
+      choice: this.choice(),
+      profile: this.profile(),
+      filledFields: this.filledFields(),
+      funds: this.funds(),
+      fromPayslip: this.fromPayslip(),
+      payslipMonth: this.payslipMonth(),
+      results: this.results(),
+      activeIndex: this.activeIndex()
+    };
+  }
 }
 
 const WORK_WEEK_DAYS: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {

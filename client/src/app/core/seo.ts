@@ -27,6 +27,8 @@ export const SEO = {
   reports: { title: 'דוחות · יוצאים בראש שקט', index: false },
   checklist: { title: 'צ\'קליסט · יוצאים בראש שקט', index: false },
   sources: { title: 'מקורות · יוצאים בראש שקט', index: false },
+  professionals: { title: 'אנשי מקצוע · יוצאים בראש שקט', index: false },
+  lawyers: { title: 'עורכי דין · יוצאים בראש שקט', index: false },
   terms: {
     title: 'תנאי השימוש · יוצאים בראש שקט',
     description: 'תנאי השימוש של יוצאים בראש שקט: הערכה של זכויות בסיום עבודה, לא ייעוץ משפטי.',
