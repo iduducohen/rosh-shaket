@@ -1,9 +1,8 @@
 {
-  "framework": null,
-  "installCommand": "npm install --prefix client",
-  "buildCommand": "npm run build --prefix client",
-  "outputDirectory": "client/www",
   "rewrites": [
-    { "source": "/((?!_vercel/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|_next/|favicon.ico|.*\.js|.*\.mjs|.*\.css|.*\.wasm|.*\.map).*)",
+      "destination": "/index.html"
+    }
   ]
 }
