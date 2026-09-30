@@ -1,15 +1,4 @@
 {
   "buildCommand": "cd client && npm run build:prod",
-  "outputDirectory": "client/www",
-  "headers": [
-    {
-      "source": "/pdfjs-dist/**",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
-    }
-  ]
+  "outputDirectory": "client/www"
 }
