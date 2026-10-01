@@ -36,6 +36,22 @@ describe('AuthService session restore', () => {
     expect(auth.isSignedIn()).toBeTrue();
   });
 
+  it('calls logout then clears local session', async () => {
+    const auth = setup(Date.now() + 60_000);
+    const pending = auth.init();
+    http.expectOne('http://localhost:5080/api/auth/me').flush({ id: '1', email: 'a@b.co', name: null, provider: 'Email' });
+    await pending;
+    await Promise.resolve();
+
+    const done = auth.signOut();
+    const logout = http.expectOne('http://localhost:5080/api/auth/logout');
+    expect(logout.request.body).toEqual({ refreshToken: 'r' });
+    logout.flush(null);
+    await done;
+    expect(auth.hasSession()).toBeFalse();
+    expect(localStorage.getItem('rs-auth')).toBeNull();
+  });
+
   it('waits for the profile when the access token is expired', async () => {
     const auth = setup(Date.now() - 1000);
     let settled = false;

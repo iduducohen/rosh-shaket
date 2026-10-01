@@ -8,6 +8,24 @@ export const routes: Routes = [
   { path: 'login', canActivate: [loginGuard], loadComponent: () => import('./pages/login.page').then(m => m.LoginPage), data: { seo: SEO.login } },
   { path: 'resume', canActivate: [sessionGuard], loadComponent: () => import('./pages/resume.page').then(m => m.ResumePage), data: { seo: SEO.start } },
   { path: 'start', canActivate: [sessionGuard], loadComponent: () => import('./pages/welcome.page').then(m => m.WelcomePage), data: { seo: SEO.start } },
+  {
+    path: 'review',
+    canActivate: [sessionGuard],
+    loadComponent: () => import('./pages/review/review-shell.page').then(m => m.ReviewShellPage),
+    data: { seo: SEO.review },
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'employment' },
+      { path: 'employment', loadComponent: () => import('./pages/review/review-employment.page').then(m => m.ReviewEmploymentPage) },
+      { path: 'documents', loadComponent: () => import('./pages/review/review-documents.page').then(m => m.ReviewDocumentsPage) },
+      { path: 'salary', loadComponent: () => import('./pages/review/review-salary.page').then(m => m.ReviewSalaryPage) },
+      { path: 'funds', loadComponent: () => import('./pages/review/review-funds.page').then(m => m.ReviewFundsPage) },
+      { path: 'dashboard', loadComponent: () => import('./pages/review/review-dashboard.page').then(m => m.ReviewDashboardPage) },
+      { path: 'reconciliation', loadComponent: () => import('./pages/review/review-reconciliation.page').then(m => m.ReviewReconciliationPage) },
+      { path: 'simulation', loadComponent: () => import('./pages/review/review-simulation.page').then(m => m.ReviewSimulationPage) },
+      { path: 'termination', loadComponent: () => import('./pages/review/review-termination.page').then(m => m.ReviewTerminationPage) },
+      { path: 'report', loadComponent: () => import('./pages/review/review-report.page').then(m => m.ReviewReportPage) }
+    ]
+  },
   { path: 'reason', canActivate: [sessionGuard], loadComponent: () => import('./pages/reason.page').then(m => m.ReasonPage), data: { seo: SEO.reason } },
   { path: 'details', canActivate: [sessionGuard], loadComponent: () => import('./pages/details.page').then(m => m.DetailsPage), data: { seo: SEO.details } },
   { path: 'checklist', canActivate: [sessionGuard], loadComponent: () => import('./pages/checklist.page').then(m => m.ChecklistPage), data: { seo: SEO.checklist } },

@@ -20,6 +20,7 @@ interface DayCell {
   host: { '[class.filled]': 'filled()' },
   styles: [`
     :host { display: block; position: relative; margin-bottom: 10px; }
+    :host(.in-row) { margin-bottom: 0; }
     .date-trigger {
       width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto;
       align-items: center; column-gap: 12px; text-align: start; cursor: pointer; font: inherit; color: inherit;

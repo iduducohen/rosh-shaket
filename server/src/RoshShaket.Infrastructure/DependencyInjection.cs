@@ -14,6 +14,8 @@ using RoshShaket.Infrastructure.Mongo;
 using RoshShaket.Infrastructure.Postgres;
 using RoshShaket.Infrastructure.Storage;
 using RoshShaket.Application.Workspaces;
+using RoshShaket.Application.EmploymentReview;
+using RoshShaket.Application.Rules.Contribution;
 
 namespace RoshShaket.Infrastructure;
 
@@ -24,19 +26,48 @@ public static class DependencyInjection
         services.Configure<ClaudeOptions>(config.GetSection(ClaudeOptions.Section));
         services.Configure<CacheOptions>(config.GetSection(CacheOptions.Section));
         services.Configure<MongoOptions>(config.GetSection(MongoOptions.Section));
-        services.Configure<AuthOptions>(config.GetSection(AuthOptions.Section));
+        services.Configure<AuthOptions>(o =>
+        {
+            // Legacy Auth__* first, then Authentication__* wins (User Secrets / Railway preferred).
+            config.GetSection(AuthOptions.LegacySection).Bind(o);
+            config.GetSection(AuthOptions.Section).Bind(o);
+        });
+        services.Configure<OtpOptions>(o =>
+        {
+            var auth = new AuthOptions();
+            config.GetSection(AuthOptions.LegacySection).Bind(auth);
+            config.GetSection(AuthOptions.Section).Bind(auth);
+            o.Pepper = auth.Otp.Pepper;
+            o.SendCooldownSeconds = auth.Otp.SendCooldownSeconds;
+            o.MaxSendsPerHour = auth.Otp.MaxSendsPerHour;
+            var flat = config["AUTH_OTP_PEPPER"];
+            if (!string.IsNullOrWhiteSpace(flat)) o.Pepper = flat;
+        });
         services.Configure<FileStorageOptions>(config.GetSection(FileStorageOptions.Section));
-        services.PostConfigure<AuthOptions>(static o =>
+        services.PostConfigure<AuthOptions>(o =>
         {
             o.Google.AdditionalAudiences = Merge(o.Google.AdditionalAudiences, o.Google.IosClientId);
             o.Apple.AdditionalAudiences = Merge(o.Apple.AdditionalAudiences, o.Apple.BundleId);
+            var origin = System.Environment.GetEnvironmentVariable("AUTH_REDIRECT_ORIGIN");
+            if (!string.IsNullOrWhiteSpace(origin) && string.IsNullOrWhiteSpace(o.RedirectOrigin))
+                o.RedirectOrigin = origin;
         });
 
         // Postgres — annual values + anonymous stats
         services.AddDbContext<RightsDbContext>(o => o.UseNpgsql(config.GetConnectionString("Postgres")));
 
-        // Mongo — editorial content
-        services.AddSingleton<IMongoClient>(_ => new MongoClient(config.GetConnectionString("Mongo")));
+        // Mongo — editorial content (short timeouts so a down DB fails fast instead of ~30s 500s)
+        services.AddSingleton<IMongoClient>(_ =>
+        {
+            var cs = config.GetConnectionString("Mongo");
+            if (string.IsNullOrWhiteSpace(cs))
+                cs = "mongodb://localhost:27017";
+            var settings = MongoClientSettings.FromConnectionString(cs);
+            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+            settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+            settings.SocketTimeout = TimeSpan.FromSeconds(10);
+            return new MongoClient(settings);
+        });
         services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>()
             .GetDatabase(sp.GetRequiredService<IOptions<MongoOptions>>().Value.Database));
 
@@ -77,11 +108,15 @@ public static class DependencyInjection
         services.AddTransient<IExternalIdentityVerifier, AppleIdentityVerifier>();
         services.AddTransient<IExternalIdentityVerifier, MicrosoftIdentityVerifier>();
         services.AddScoped<IUserRepository, PostgresUserRepository>();
+        services.AddSingleton<IRefreshTokenDenylist, RefreshTokenDenylist>();
         services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
         services.AddScoped<IDocumentRepository, PostgresDocumentRepository>();
         services.AddScoped<IWorkspaceAudit, PostgresWorkspaceAudit>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
-        if (!string.IsNullOrWhiteSpace(config[$"{AuthOptions.Section}:Smtp:Host"]))
+        services.AddSingleton<IContributionRuleProvider, StaticContributionRuleProvider>();
+        services.AddScoped<IEmploymentReviewStore, PostgresEmploymentReviewStore>();
+        if (!string.IsNullOrWhiteSpace(config[$"{AuthOptions.Section}:Smtp:Host"]) ||
+            !string.IsNullOrWhiteSpace(config[$"{AuthOptions.LegacySection}:Smtp:Host"]))
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
         else
             services.AddSingleton<IEmailSender, LoggingEmailSender>();
@@ -115,6 +150,7 @@ public static class DependencyInjection
                 logger.LogInformation("Ensuring Postgres database is created (attempt {Attempt}/{Max}).", attempt, maxAttempts);
                 await db.Database.EnsureCreatedAsync();
                 await WorkspaceSchema.EnsureAsync(db, logger);
+                await EmploymentReviewSchema.EnsureAsync(db, logger);
                 logger.LogInformation("Postgres database ensured.");
                 return;
             }

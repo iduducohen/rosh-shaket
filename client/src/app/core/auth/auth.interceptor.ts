@@ -10,7 +10,8 @@ const withToken = (req: HttpRequest<unknown>, token: string | null) =>
 /** Adds the bearer token to API calls and retries once after a silent refresh on 401. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
-  if (!req.url.startsWith(environment.apiBaseUrl) || req.url.includes('/api/auth/refresh')) return next(req);
+  if (!req.url.startsWith(environment.apiBaseUrl) || req.url.includes('/api/auth/refresh') || req.url.includes('/api/auth/logout'))
+    return next(req);
 
   return next(withToken(req, auth.accessToken)).pipe(
     catchError((err: unknown) => {

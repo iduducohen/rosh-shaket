@@ -49,10 +49,20 @@ import { WorkspaceService } from '../core/workspace.service';
           <app-logo class="mobile-only" [size]="30" [wordmark]="false"></app-logo>
           @if (auth.displayName(); as name) { <p class="hello">שלום {{ name }},</p> }
           <h1>יוצאים בראש שקט</h1>
-          <p class="muted lead">עוזבים עבודה? העלו תלוש, ענו על שאלה אחת, ותדעו מה מגיע לכם ומה לעשות לפני היום האחרון.</p>
+          <p class="muted lead">בחרו איך לבדוק: הערכה מהירה לסיום העבודה, או בדיקה רב־שנתית של הפקדות וקופות.</p>
         </div>
 
         <div class="up">
+        <div class="upload">
+          <b>מה תרצו לבדוק?</b>
+          <div class="row">
+            <ion-button expand="block" (click)="showQuick.set(true)">הערכה מהירה לסיום עבודה</ion-button>
+            <ion-button expand="block" fill="outline" (click)="goReview()">בדיקת כל תקופת ההעסקה</ion-button>
+          </div>
+          <p class="muted small">הערכה מהירה = תלוש אחרון. בדיקה מלאה = היסטוריית שכר והפקדות לאורך השנים (צפוי / מדווח / בפועל).</p>
+        </div>
+
+        @if (showQuick()) {
         <div class="upload">
           <b>הדרך המהירה: העלו את התלוש האחרון</b>
           <span class="muted small">תלוש אחרון אחד מספיק: השכר והיתרות כבר מסוכמים בו. נבדוק שהוא תקין, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF.{{ auth.isSignedIn() ? ' כשאתם מחוברים המסמך נשמר בחשבון שלכם.' : ' כאורחים הקבצים לא נשמרים אחרי הקריאה.' }}</span>
@@ -79,13 +89,14 @@ import { WorkspaceService } from '../core/workspace.service';
         </div>
 
         <ion-button expand="block" fill="clear" (click)="manual()">בלי תלוש, למלא ידנית</ion-button>
+        }
         </div>
 
         <div class="promises">
         <ul class="promise">
           <li><b>מה מגיע לי</b><span class="muted">פיצויים, חופשה, הבראה והודעה מוקדמת, עם הסבר לכל סכום</span></li>
-          <li><b>מה לבקש לפני שעוזבים</b><span class="muted">צ'קליסט שמתאים לסיבת העזיבה</span></li>
-          <li><b>מה עושים אחרי</b><span class="muted">אבטלה, פנסיה, קרן השתלמות, עם קישור למקור הרשמי</span></li>
+          <li><b>הפקדות לאורך השנים</b><span class="muted">השוואה בין צפוי, מדווח ובפועל — עם סימון אי־ודאות</span></li>
+          <li><b>מה לבקש לפני שעוזבים</b><span class="muted">צ'קליסט ומסמכים חסרים לפי מה שסיפקתם</span></li>
         </ul>
         <p class="foot muted">הערכה בלבד, לא ייעוץ משפטי. מותאם לעובד בשכר חודשי. חוזה אישי או הסכם קיבוצי יכולים להיטיב.</p>
         </div>
@@ -104,12 +115,17 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   readonly busy = signal(false);
   readonly status = signal('');
   readonly verdict = signal<'ok' | 'bad' | ''>('');
+  readonly showQuick = signal(false);
   readonly native = Capacitor.isNativePlatform();
   private readonly alerts = inject(AlertController);
   private continueTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     addIcons({ cameraOutline, documentTextOutline, checkmarkOutline, closeOutline });
+  }
+
+  goReview(): void {
+    void this.router.navigateByUrl('/review/employment');
   }
 
   ionViewWillEnter(): void {

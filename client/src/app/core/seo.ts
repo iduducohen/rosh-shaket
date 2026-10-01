@@ -20,7 +20,8 @@ export interface SeoConfig {
 export const SEO = {
   home: { title: HOME_TITLE, description: HOME_DESCRIPTION, index: true },
   login: { title: 'כניסה · יוצאים בראש שקט', index: false },
-  start: { title: 'צילום תלוש · יוצאים בראש שקט', index: false },
+  start: { title: 'בחירת מסלול · יוצאים בראש שקט', index: false },
+  review: { title: 'בדיקת תקופת העסקה · יוצאים בראש שקט', index: false },
   reason: { title: 'סיבת העזיבה · יוצאים בראש שקט', index: false },
   details: { title: 'פרטים · יוצאים בראש שקט', index: false },
   results: { title: 'התוצאה · יוצאים בראש שקט', index: false },
@@ -63,7 +64,11 @@ export const FAQ: readonly FaqItem[] = [
   },
   {
     question: 'מה קורה לתמונת התלוש?',
-    answer: 'התמונה משמשת לקריאת הנתונים ולא נשמרת באפליקציה. לפני השליחה היא מקודדת מחדש ל-JPEG, בלי נתוני מיקום.'
+    answer: 'התמונה מקודדת מחדש ל-JPEG בלי נתוני מיקום. אורחים: הקובץ נשלח לקריאה ולא נשמר בשרת אחרי החילוץ. משתמשים מחוברים: אפשר לשמור מסמכים בחשבון (workspace) כדי לחזור אליהם — אפשר למחוק דרך החשבון.'
+  },
+  {
+    question: 'מה ההבדל בין הערכה מהירה לבדיקת תקופת העסקה?',
+    answer: 'הערכה מהירה מבוססת על תלוש/פרטים אחרונים ומחשבת מה עשוי להגיע בסיום. בדיקת תקופת העסקה בונה היסטוריית שכר והפקדות לאורך שנים, משווה צפוי/מדווח/בפועל, ומסמנת פערים ואי-ודאות.'
   },
   {
     question: 'כמה זה עולה?',

@@ -135,7 +135,7 @@ export class LoginPage implements OnInit, OnDestroy {
 
   private startCooldown(): void {
     clearInterval(this.timer);
-    this.resendIn.set(30);
+    this.resendIn.set(60);
     this.timer = setInterval(() => {
       this.resendIn.update(s => Math.max(0, s - 1));
       if (this.resendIn() === 0) clearInterval(this.timer);

@@ -1,8 +1,10 @@
 using RoshShaket.Application.Auth;
 using RoshShaket.Application.Calculation;
+using RoshShaket.Application.EmploymentReview;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Reports;
 using RoshShaket.Application.Rules;
+using RoshShaket.Application.Rules.Contribution;
 using RoshShaket.Application.UseCases;
 using RoshShaket.Application.Workspaces;
 
@@ -34,7 +36,11 @@ public static class ApplicationModule
         services.AddScoped<GetPartnersHandler>();
         services.AddScoped<ExternalSignInHandler>();
         services.AddScoped<EmailCodeSignInHandler>();
+        services.AddScoped<AccountLinkingHandler>();
         services.AddScoped<WorkspaceHandlers>();
+        services.AddSingleton<ContributionRulesEngine>();
+        services.AddScoped<EmploymentReviewHandlers>();
+        services.AddSingleton<ReconciliationReportBuilder>();
         return services;
     }
 }

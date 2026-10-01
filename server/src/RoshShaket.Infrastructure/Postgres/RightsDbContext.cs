@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RoshShaket.Domain;
 
 namespace RoshShaket.Infrastructure.Postgres;
 
-/// <summary>Relational data: annual legal values, anonymous calculation stats, users, and workspaces.</summary>
-public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) : DbContext(options)
+/// <summary>Relational data: annual legal values, anonymous calculation stats, users, workspaces, and Data Protection keys.</summary>
+public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) : DbContext(options), IDataProtectionKeyContext
 {
     public DbSet<AnnualValuesRow> AnnualValues => Set<AnnualValuesRow>();
     public DbSet<CalculationLogRow> CalculationLog => Set<CalculationLogRow>();
@@ -14,6 +15,9 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
     public DbSet<WorkflowStateRow> WorkflowStates => Set<WorkflowStateRow>();
     public DbSet<DocumentRow> Documents => Set<DocumentRow>();
     public DbSet<WorkspaceAuditRow> WorkspaceAudits => Set<WorkspaceAuditRow>();
+    public DbSet<EmploymentReviewRow> EmploymentReviews => Set<EmploymentReviewRow>();
+    /// <summary>ASP.NET Data Protection key ring — survives Railway container replacements.</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -64,6 +68,12 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.Property(x => x.Subject).HasMaxLength(254);
             e.HasIndex(x => new { x.Provider, x.Subject }).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<DataProtectionKey>(e =>
+        {
+            e.ToTable("data_protection_keys");
+            e.Property(x => x.FriendlyName).HasMaxLength(200);
         });
 
         b.Entity<WorkspaceRow>(e =>
@@ -122,6 +132,13 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.WorkspaceId);
             e.HasIndex(x => x.CreatedAt);
+        });
+
+        b.Entity<EmploymentReviewRow>(e =>
+        {
+            e.ToTable("employment_reviews");
+            e.HasKey(x => x.WorkspaceId);
+            e.Property(x => x.PayloadJson).HasColumnType("jsonb");
         });
     }
 }

@@ -38,13 +38,26 @@ builder.Services.AddAuthentication(BearerTokenDefaults.AuthenticationScheme)
         o.RefreshTokenExpiration = TimeSpan.FromDays(30);
     });
 builder.Services.AddAuthorization();
-// Tokens are protected with Data Protection keys: persist them so a restart doesn't sign everyone out.
-var keysPath = builder.Configuration["DataProtection:KeysPath"];
-builder.Services.AddDataProtection()
-    .SetApplicationName("rosh-shaket")
-    .PersistKeysToFileSystem(new DirectoryInfo(string.IsNullOrWhiteSpace(keysPath)
+// BearerToken payloads are protected by ASP.NET Data Protection.
+// Keys MUST outlive the container: on Railway every deploy replaces the filesystem,
+// so we store the key ring in Postgres (same DB as users). Optional KeysPath is a local/dev fallback only.
+var dpBuilder = builder.Services.AddDataProtection().SetApplicationName("rosh-shaket");
+var postgres = builder.Configuration.GetConnectionString("Postgres");
+if (!string.IsNullOrWhiteSpace(postgres))
+{
+    dpBuilder.PersistKeysToDbContext<RoshShaket.Infrastructure.Postgres.RightsDbContext>();
+    builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection", LogLevel.Information);
+    Console.WriteLine("DataProtection: persisting keys to Postgres (data_protection_keys).");
+}
+else
+{
+    var keysPath = builder.Configuration["DataProtection:KeysPath"];
+    var dir = string.IsNullOrWhiteSpace(keysPath)
         ? Path.Combine(Path.GetTempPath(), "rosh-shaket-dp-keys")
-        : keysPath));
+        : keysPath;
+    dpBuilder.PersistKeysToFileSystem(new DirectoryInfo(dir));
+    Console.WriteLine($"DataProtection: WARNING — no ConnectionStrings:Postgres; keys at {dir} (ephemeral on Railway).");
+}
 
 builder.Services.AddCors(o => o.AddPolicy("app", p =>
 {
@@ -67,6 +80,9 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(AuthEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy(AuthEndpoints.EmailStartRateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
     o.AddPolicy(HelpEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
@@ -100,6 +116,7 @@ app.MapContentEndpoints();
 app.MapAuthEndpoints();
 app.MapHelpEndpoints();
 app.MapReviewEndpoints();
+app.MapEmploymentReviewEndpoints();
 
 await app.Services.InitializeDatabasesAsync();
 app.Run();

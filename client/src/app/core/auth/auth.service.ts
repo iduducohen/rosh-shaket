@@ -61,7 +61,17 @@ export class AuthService {
     try { localStorage.setItem(GUEST_KEY, '1'); } catch { /* ignore */ }
   }
 
-  signOut(): void {
+  async signOut(): Promise<void> {
+    const refreshToken = this.tokens?.refreshToken ?? null;
+    try {
+      if (refreshToken || this.tokens?.accessToken) {
+        await firstValueFrom(this.http.post<void>(`${this.base}/logout`, { refreshToken }));
+      }
+    } catch { /* always clear local session */ }
+    this.clearLocalSession();
+  }
+
+  private clearLocalSession(): void {
     this.tokens = null;
     this.hasSession.set(false);
     this.user.set(null);
@@ -82,7 +92,7 @@ export class AuthService {
       this.store(res);
       return true;
     } catch {
-      this.signOut();
+      this.clearLocalSession();
       return false;
     }
   }
@@ -113,7 +123,7 @@ export class AuthService {
     try {
       await this.loadMe(); // the interceptor refreshes an expired access token
     } catch (err) {
-      if (!(err instanceof HttpErrorResponse) || err.status === 401) this.signOut();
+      if (!(err instanceof HttpErrorResponse) || err.status === 401) this.clearLocalSession();
     }
   }
 
@@ -123,7 +133,7 @@ export class AuthService {
       await this.loadMe();
     } catch (err) {
       if (!(err instanceof HttpErrorResponse) || err.status === 401) {
-        this.signOut();
+        this.clearLocalSession();
         void this.router.navigateByUrl('/login');
       }
     }

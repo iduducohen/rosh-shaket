@@ -167,13 +167,13 @@ export class DeskHeaderComponent {
   async signOut(): Promise<void> {
     await this.workspaces.flushSave().catch(() => undefined);
     this.workspaces.clearLocal();
-    this.auth.signOut();
+    await this.auth.signOut();
     this.store.reset();
     void this.router.navigateByUrl('/login');
   }
 
-  signIn(): void {
-    this.auth.signOut();
+  async signIn(): Promise<void> {
+    await this.auth.signOut();
     this.workspaces.clearLocal();
     void this.router.navigateByUrl('/login');
   }

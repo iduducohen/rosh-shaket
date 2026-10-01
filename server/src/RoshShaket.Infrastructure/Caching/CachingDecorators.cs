@@ -52,9 +52,23 @@ public sealed class CachedContentRepository(
 
     public async Task<IReadOnlyList<ChecklistItem>> GetChecklistAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:checklist", Ttl,
-            async () => (await inner.GetChecklistAsync(ct)).ToList(), ct);
+            () => LoadOrEmptyAsync(() => inner.GetChecklistAsync(ct), "checklist", ct), ct);
 
     public async Task<IReadOnlyList<RightsSource>> GetSourcesAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:sources", Ttl,
-            async () => (await inner.GetSourcesAsync(ct)).ToList(), ct);
+            () => LoadOrEmptyAsync(() => inner.GetSourcesAsync(ct), "sources", ct), ct);
+
+    private async Task<List<T>> LoadOrEmptyAsync<T>(Func<Task<IReadOnlyList<T>>> load, string name, CancellationToken ct)
+    {
+        try
+        {
+            return (await load()).ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Mongo outage must not take down the whole API (partners/auth still work from other stores).
+            log.LogError(ex, "Mongo content load failed for {Name}; returning empty list", name);
+            return [];
+        }
+    }
 }

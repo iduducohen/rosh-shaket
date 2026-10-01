@@ -41,20 +41,22 @@ services:
       ConnectionStrings__Mongo: mongodb://mongo:27017
       ConnectionStrings__Redis: redis:6379
       Claude__ApiKey: ${ANTHROPIC_API_KEY:-}
-      DataProtection__KeysPath: /keys
-      Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
-      Auth__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
-      Auth__Google__AdditionalAudiences__0: ${GOOGLE_IOS_CLIENT_ID:-}
-      Auth__Apple__AdditionalAudiences__0: il.roshshaket.app
-      Auth__Apple__ClientId: ${APPLE_SERVICES_ID:-}
-      Auth__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
-      Auth__Smtp__Host: ${SMTP_HOST:-}
-      Auth__Smtp__User: ${SMTP_USER:-}
-      Auth__Smtp__Password: ${SMTP_PASSWORD:-}
-      Auth__Smtp__From: ${SMTP_FROM:-}
+      # Prefer Authentication__* (same as User Secrets). Legacy Auth__* still binds if set.
+      Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Authentication__Google__IosClientId: ${GOOGLE_IOS_CLIENT_ID:-}
+      Authentication__Apple__ClientId: ${APPLE_SERVICES_ID:-}
+      Authentication__Apple__BundleId: il.roshshaket.app
+      Authentication__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
+      Authentication__Microsoft__TenantId: ${MICROSOFT_TENANT_ID:-common}
+      Authentication__Smtp__Host: ${SMTP_HOST:-}
+      Authentication__Smtp__User: ${SMTP_USER:-}
+      Authentication__Smtp__Password: ${SMTP_PASSWORD:-}
+      Authentication__Smtp__From: ${SMTP_FROM:-}
+      Authentication__RedirectOrigin: ${AUTH_REDIRECT_ORIGIN:-http://localhost:5051}
+      Authentication__Otp__Pepper: ${AUTH_OTP_PEPPER:-dev-insecure-otp-pepper-change-me}
       FileStorage__LocalRoot: /data/documents
     volumes:
-      - dpkeys:/keys
       - docstore:/data/documents
     depends_on:
       postgres: { condition: service_healthy }
@@ -64,5 +66,4 @@ services:
 volumes:
   pgdata:
   mongodata:
-  dpkeys:
   docstore:
