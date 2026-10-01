@@ -154,7 +154,8 @@ public static class DependencyInjection
 
                 await db.Database.ExecuteSqlRawAsync(
                     """
-                    CREATE TABLE IF NOT EXISTS data_protection_keys (
+                    DROP TABLE IF EXISTS data_protection_keys CASCADE;
+                    CREATE TABLE data_protection_keys (
                         "Id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                         "FriendlyName" text,
                         "Xml" text NOT NULL
