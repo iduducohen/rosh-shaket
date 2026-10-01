@@ -5,8 +5,8 @@ namespace RoshShaket.Infrastructure.Common;
 public sealed class SystemClock : IClock
 {
     private static readonly TimeZoneInfo Israel = ResolveIsraelTimeZone();
-    public DateTimeOffset Now => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Israel);
-    public DateOnly Today => DateOnly.FromDateTime(Now.DateTime);
+    public DateTimeOffset Now => DateTimeOffset.UtcNow;
+    public DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Israel).DateTime);
 
     private static TimeZoneInfo ResolveIsraelTimeZone()
     {
