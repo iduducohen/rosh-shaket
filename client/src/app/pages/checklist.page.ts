@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
-  IonBackButton, IonButton, IonButtons, IonCheckbox, IonContent, IonHeader, IonItem, IonLabel, IonList, IonListHeader,
+  IonBackButton, IonButtons, IonCheckbox, IonContent, IonHeader, IonItem, IonLabel, IonList, IonListHeader,
   IonToolbar, ViewWillEnter
 } from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
@@ -17,17 +17,25 @@ const STORAGE_KEY = 'rs-checked';
   standalone: true,
   imports: [
     DeskHeaderComponent, RouterLink,
-    IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel
+    IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel
   ],
   styles: [`
-    .back-row { margin: 0 0 16px; }
+    .title-row {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+      margin: 0 0 6px;
+    }
+    .title-row h2 { margin: 0; }
+    .back-to {
+      flex: none; font-size: 15px; font-weight: 700;
+      color: var(--ion-color-primary); text-decoration: none; white-space: nowrap;
+    }
+    .back-to:hover { text-decoration: underline; text-underline-offset: 3px; }
     .done { color: var(--ion-color-medium); text-decoration: line-through; }
     a.law {
       display: inline-block; margin-top: 6px; font-size: 13.5px; font-weight: 700;
       color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 2px;
     }
     @media (min-width: 992px) {
-      .back-row { display: none; }
       ion-list { border: 1px solid var(--rs-line); border-radius: 16px; padding: 6px 4px; margin: 0; }
     }
   `],
@@ -35,17 +43,17 @@ const STORAGE_KEY = 'rs-checked';
     <ion-header class="ion-no-border mobile-only">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button [defaultHref]="back().url" [text]="back().label"></ion-back-button>
+          <ion-back-button [defaultHref]="back().url" text="חזרה"></ion-back-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content>
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page ion-padding">
-        <div class="back-row">
-          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
+        <div class="title-row">
+          <h2>הצ'קליסט</h2>
+          <a class="back-to" [routerLink]="back().url">חזרה</a>
         </div>
-        <h2>הצ'קליסט</h2>
         <p class="muted small">
           @if (reasonLabel(); as label) {
             מותאם ל{{ label }}. הסימונים נשמרים במכשיר.

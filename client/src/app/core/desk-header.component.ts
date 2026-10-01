@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline, arrowForwardOutline } from 'ionicons/icons';
+import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline } from 'ionicons/icons';
 import { filter, map, startWith } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { WizardStore } from './wizard.store';
@@ -10,7 +10,7 @@ import { AuthService } from './auth/auth.service';
 import { LogoComponent } from './logo.component';
 import { ReviewStore } from './review.store';
 import { WorkspaceService } from './workspace.service';
-import { installReturnTracker, wizardReturn } from './wizard-nav';
+import { installReturnTracker } from './wizard-nav';
 
 /** Brand bar shown on desktop only (hidden by CSS below 992px). */
 @Component({
@@ -54,10 +54,6 @@ import { installReturnTracker, wizardReturn } from './wizard-nav';
       .action:hover { border-color: var(--ion-color-primary); color: var(--ion-color-primary); }
       .action.active {
         background: var(--rs-soft); border-color: var(--ion-color-primary); color: var(--ion-color-primary);
-      }
-      .action.back {
-        background: var(--rs-soft); border-color: var(--ion-color-primary); color: var(--ion-color-primary);
-        font-size: 14.5px; padding: 0 14px;
       }
       .who { display: flex; align-items: center; gap: 8px; font-size: 14px; }
       .avatar {
@@ -112,15 +108,10 @@ import { installReturnTracker, wizardReturn } from './wizard-nav';
           </span>
         }
         <nav class="actions" aria-label="פעולות קבועות">
-          @if (isSidePage()) {
-            <a class="action back" [routerLink]="back().url">
-              <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
-              {{ back().label }}
-            </a>
-          } @else if (step() > 1) {
+          @if (isSidePage() || step() > 1) {
             <button type="button" class="action" (click)="home()">
               <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
-              להתחיל מחדש
+              חזרה להתחלה
             </button>
           }
           @if (tabs() && !isSidePage()) {
@@ -181,17 +172,13 @@ export class DeskHeaderComponent {
   );
 
   constructor() {
-    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline, arrowForwardOutline });
+    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
     installReturnTracker(this.router);
   }
 
   isSidePage(): boolean {
     const u = this.path();
     return u.startsWith('/checklist') || u.startsWith('/sources');
-  }
-
-  back(): { url: string; label: string } {
-    return wizardReturn(this.store);
   }
 
   initial(): string {

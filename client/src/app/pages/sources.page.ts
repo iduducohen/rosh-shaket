@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
-  IonBackButton, IonButtons, IonButton, IonContent, IonHeader, IonToolbar, ViewWillEnter
+  IonBackButton, IonButtons, IonContent, IonHeader, IonToolbar, ViewWillEnter
 } from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
 import { RightsSource } from '../core/models';
@@ -15,10 +15,19 @@ import { WizardStore } from '../core/wizard.store';
   standalone: true,
   imports: [
     DeskHeaderComponent, PaidHelpComponent, RouterLink,
-    IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent
+    IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent
   ],
   styles: [`
-    .back-row { margin: 0 0 16px; }
+    .title-row {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+      margin: 0 0 6px;
+    }
+    .title-row h2 { margin: 0; }
+    .back-to {
+      flex: none; font-size: 15px; font-weight: 700;
+      color: var(--ion-color-primary); text-decoration: none; white-space: nowrap;
+    }
+    .back-to:hover { text-decoration: underline; text-underline-offset: 3px; }
     .lead { margin: 0 0 20px; }
     .source-list {
       list-style: none; margin: 0; padding: 0;
@@ -40,7 +49,6 @@ import { WizardStore } from '../core/wizard.store';
     }
     .source-list .desc { font-size: 14px; color: var(--ion-color-medium); line-height: 1.4; max-width: 52ch; }
     @media (min-width: 992px) {
-      .back-row { display: none; }
       .source-list {
         grid-template-columns: 1fr 1fr;
         column-gap: 40px;
@@ -55,17 +63,17 @@ import { WizardStore } from '../core/wizard.store';
     <ion-header class="ion-no-border mobile-only">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button [defaultHref]="back().url" [text]="back().label"></ion-back-button>
+          <ion-back-button [defaultHref]="back().url" text="חזרה"></ion-back-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content>
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page narrow ion-padding">
-        <div class="back-row">
-          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
+        <div class="title-row">
+          <h2>מקורות ועזרה</h2>
+          <a class="back-to" [routerLink]="back().url">חזרה</a>
         </div>
-        <h2>מקורות ועזרה</h2>
         <p class="lead muted small">כל המידע באפליקציה נשען על המקורות האלה.</p>
         @if (error()) { <div class="note">{{ error() }}</div> }
         <ul class="source-list">
