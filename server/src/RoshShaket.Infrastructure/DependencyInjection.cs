@@ -152,14 +152,29 @@ public static class DependencyInjection
                 await WorkspaceSchema.EnsureAsync(db, logger);
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
 
+                await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS data_protection_keys CASCADE");
+                await db.Database.ExecuteSqlRawAsync("DROP FUNCTION IF EXISTS set_data_protection_id() CASCADE");
                 await db.Database.ExecuteSqlRawAsync(
                     """
-                    DROP TABLE IF EXISTS data_protection_keys CASCADE;
                     CREATE TABLE data_protection_keys (
-                        "Id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                        "Id" uuid PRIMARY KEY,
                         "FriendlyName" text,
                         "Xml" text NOT NULL
-                    )
+                    );
+
+                    CREATE FUNCTION set_data_protection_id() RETURNS TRIGGER AS $$
+                    BEGIN
+                        IF NEW."Id" IS NULL THEN
+                            NEW."Id" := gen_random_uuid();
+                        END IF;
+                        RETURN NEW;
+                    END;
+                    $$ LANGUAGE plpgsql;
+
+                    CREATE TRIGGER set_data_protection_id_trigger
+                    BEFORE INSERT ON data_protection_keys
+                    FOR EACH ROW
+                    EXECUTE FUNCTION set_data_protection_id();
                     """);
 
                 logger.LogInformation("Postgres database ensured.");
