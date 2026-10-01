@@ -181,8 +181,32 @@ export class WorkspaceService {
     const ws = await firstValueFrom(this.http.post<WorkspaceDto>(`${this.base}`, { name }));
     this.workspace.set(ws);
     this.store.reset();
+    this.lastStep = 'start';
     this.ensureAutosave();
     return ws;
+  }
+
+  /**
+   * Full wizard restart: drop in-memory state and start a clean workspace.
+   * Do not flush-save before this — that would re-persist the abandoned progress.
+   */
+  async restartFlow(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    this.store.reset();
+    this.saveStatus.set('idle');
+    this.saveError.set(null);
+    if (this.auth.isSignedIn() || this.auth.hasSession()) {
+      try {
+        await this.createNew();
+      } catch {
+        this.clearLocal();
+      }
+    } else {
+      this.clearLocal();
+    }
   }
 
   async uploadDocument(file: Blob, fileName: string, documentType = 'payslip'): Promise<WorkspaceDocument> {
