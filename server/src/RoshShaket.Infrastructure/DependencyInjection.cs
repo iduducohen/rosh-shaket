@@ -71,12 +71,28 @@ public static class DependencyInjection
         services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>()
             .GetDatabase(sp.GetRequiredService<IOptions<MongoOptions>>().Value.Database));
 
-        // Redis — cache (falls back to in-memory when not configured)
+        // Redis — cache (falls back to in-memory when not configured / misconfigured for Railway)
         var redis = config.GetConnectionString("Redis");
-        if (!string.IsNullOrWhiteSpace(redis))
-            services.AddStackExchangeRedisCache(o => { o.Configuration = redis; o.InstanceName = "rosh-shaket:"; });
+        var envName = config["ASPNETCORE_ENVIRONMENT"]
+            ?? System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? "Production";
+        var redisIsLoopback = !string.IsNullOrWhiteSpace(redis) &&
+            (redis.Contains("localhost", StringComparison.OrdinalIgnoreCase)
+             || redis.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(redis) && !(redisIsLoopback && !envName.Equals("Development", StringComparison.OrdinalIgnoreCase)))
+        {
+            services.AddStackExchangeRedisCache(o =>
+            {
+                o.Configuration = redis;
+                o.InstanceName = "rosh-shaket:";
+            });
+        }
         else
+        {
+            if (redisIsLoopback)
+                Console.WriteLine("Redis: ignoring localhost connection string outside Development; using in-memory cache.");
             services.AddDistributedMemoryCache();
+        }
         services.AddSingleton<ICacheStore, DistributedCacheStore>();
 
         // Ports -> adapters, with caching decorators
