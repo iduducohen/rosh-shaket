@@ -121,13 +121,22 @@ No separate `SESSION_SECRET` env var is required.
 
 Editorial sources live in MongoDB. If `ConnectionStrings__Mongo` is wrong, unreachable, or the plugin is sleeping, those endpoints used to hang ~30s and return 500.
 
-The API now uses short Mongo timeouts and returns an **empty list** (with an error log) instead of failing the request. `/api/partners` is unaffected (JSON file).
+The API now uses short Mongo timeouts and serves an **embedded fallback** (checklist/sources still work in the app). Using the wizard or uploading a payslip does **not** create Mongo collections — only a successful API Mongo seed does.
 
-On Railway, verify:
+On Railway, set on the **API** service (Variables → Variable Reference from the Mongo service):
 
-1. A Mongo service (or Atlas) is linked.
-2. `ConnectionStrings__Mongo` is the **private/internal** Railway URL when both services are in the same project (or a working public URI with auth).
-3. Database name matches `Mongo__Database` (default `rosh_shaket`) and collections `sources` / `checklist_items` are seeded.
+| Variable | Value |
+|----------|--------|
+| `ConnectionStrings__Mongo` | `${{MongoDB.MONGO_URL}}` (internal) — not a pasted public URI with wrong password |
+| `Mongo__Database` | `rosh_shaket` |
+| `ConnectionStrings__Redis` | Redis plugin URL, or delete if pointing at `localhost` |
+
+After redeploy, open `GET /api/content-status`:
+
+- `"mongo":"ok"` + non-zero `sources`/`checklist` → Compass should show database `rosh_shaket` (Refresh in Compass).
+- `"mongo":"unavailable"` → auth/URL still wrong; check API deploy logs for `Mongo content seed failed` / `SCRAM`.
+
+Compass uses the **public** Mongo URL + password from the Mongo service. The API should use the **private** `MONGO_URL` via Variable Reference.
 
 ---
 

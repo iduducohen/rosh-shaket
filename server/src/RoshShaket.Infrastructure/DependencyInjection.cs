@@ -59,13 +59,14 @@ public static class DependencyInjection
         // Mongo — editorial content (short timeouts so a down DB fails fast instead of ~30s 500s)
         services.AddSingleton<IMongoClient>(_ =>
         {
-            var cs = config.GetConnectionString("Mongo");
+            var cs = NormalizeMongoConnectionString(config.GetConnectionString("Mongo"));
             if (string.IsNullOrWhiteSpace(cs))
                 cs = "mongodb://localhost:27017";
+            Console.WriteLine($"Mongo: connecting with {RedactMongoConnectionString(cs)}");
             var settings = MongoClientSettings.FromConnectionString(cs);
-            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(2);
-            settings.ConnectTimeout = TimeSpan.FromSeconds(2);
-            settings.SocketTimeout = TimeSpan.FromSeconds(5);
+            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(3);
+            settings.ConnectTimeout = TimeSpan.FromSeconds(3);
+            settings.SocketTimeout = TimeSpan.FromSeconds(8);
             return new MongoClient(settings);
         });
         services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>()
@@ -146,6 +147,39 @@ public static class DependencyInjection
         if (!string.IsNullOrWhiteSpace(extra) && !list.Contains(extra.Trim(), StringComparer.Ordinal))
             list.Add(extra.Trim());
         return [.. list];
+    }
+
+    /// <summary>Railway root users authenticate against admin; ensure authSource is set.</summary>
+    internal static string? NormalizeMongoConnectionString(string? cs)
+    {
+        if (string.IsNullOrWhiteSpace(cs)) return cs;
+        cs = cs.Trim();
+        if (cs.Contains("authSource=", StringComparison.OrdinalIgnoreCase)) return cs;
+        // Credentials present → prefer authSource=admin (Railway Mongo plugin default).
+        if (cs.Contains('@') && (cs.StartsWith("mongodb://", StringComparison.OrdinalIgnoreCase)
+                                 || cs.StartsWith("mongodb+srv://", StringComparison.OrdinalIgnoreCase)))
+        {
+            return cs.Contains('?', StringComparison.Ordinal)
+                ? cs + "&authSource=admin"
+                : cs + "/?authSource=admin";
+        }
+        return cs;
+    }
+
+    internal static string RedactMongoConnectionString(string cs)
+    {
+        try
+        {
+            var uri = new Uri(cs.Replace("mongodb+srv://", "https://", StringComparison.OrdinalIgnoreCase)
+                .Replace("mongodb://", "http://", StringComparison.OrdinalIgnoreCase));
+            var user = uri.UserInfo.Contains(':') ? uri.UserInfo.Split(':')[0] : uri.UserInfo;
+            var auth = string.IsNullOrEmpty(user) ? "" : user + ":***@";
+            return $"mongodb://{auth}{uri.Host}:{uri.Port}{uri.PathAndQuery}";
+        }
+        catch
+        {
+            return "(unparseable mongo connection string)";
+        }
     }
 
     /// <summary>Creates the Postgres schema and seeds Mongo editorial content on first run.</summary>
