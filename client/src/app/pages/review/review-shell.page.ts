@@ -1,61 +1,123 @@
-import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { IonButton, IonContent, IonSpinner } from '@ionic/angular/standalone';
+import { Component, inject, OnInit } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { IonContent, IonSpinner } from '@ionic/angular/standalone';
+import { filter } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DeskHeaderComponent } from '../../core/desk-header.component';
 import { ReviewStore } from '../../core/review.store';
 
 @Component({
   selector: 'app-review-shell',
   standalone: true,
-  imports: [IonContent, IonButton, IonSpinner, RouterOutlet, RouterLink, RouterLinkActive, DeskHeaderComponent],
+  imports: [IonContent, IonSpinner, RouterOutlet, RouterLink, RouterLinkActive, DeskHeaderComponent],
   styles: [`
-    .bar { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 16px; }
-    .bar a, .bar button { font-size: 13px; }
-    .nav { display:flex; flex-wrap:wrap; gap:6px; margin-bottom: 12px; }
-    .nav a { padding:6px 10px; border-radius: 999px; background: var(--ion-color-light); text-decoration:none; color: inherit; font-size: 13px; }
-    .nav a.active { background: var(--ion-color-primary); color: #fff; }
     .note { font-size: 13px; color: var(--ion-color-medium); margin-bottom: 12px; }
+    .busy-row { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
+
+    /* Same language as desk-header wizard steps */
+    .steps {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px;
+      margin: 0 0 16px; padding: 12px 0;
+      border-top: 1px solid var(--rs-line); border-bottom: 1px solid var(--rs-line);
+      font-size: 13.5px; color: var(--ion-color-medium); font-weight: 500;
+    }
+    .steps a {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 4px 8px; white-space: nowrap;
+      text-decoration: none; color: inherit; border-radius: 8px;
+    }
+    .steps a + a::before {
+      content: ""; width: 18px; height: 1px; background: var(--rs-line);
+      margin-inline-end: 8px; flex: none;
+    }
+    .steps .n {
+      width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--rs-line);
+      display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none;
+      color: var(--ion-color-medium); background: transparent;
+    }
+    .steps a.on { color: var(--ion-color-primary); font-weight: 700; }
+    .steps a.on .n {
+      background: var(--ion-color-primary); border-color: var(--ion-color-primary);
+      color: var(--ion-color-primary-contrast, #fff);
+    }
+    .steps a:hover { color: var(--ion-color-primary); }
+    .steps a:hover .n { border-color: var(--ion-color-primary); }
+
+    @media (max-width: 720px) {
+      .steps {
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 2px;
+        font-size: 12.5px;
+      }
+      .steps a + a::before { width: 12px; margin-inline-end: 4px; }
+    }
   `],
   template: `
     <ion-content>
       <app-desk-header [step]="1"></app-desk-header>
       <div class="page ion-padding">
         <h1>בדיקת תקופת העסקה</h1>
-        <p class="note">הערכה ואומדן בלבד — לא ייעוץ משפטי. חודש בלי מידע מוצג כ״לא ידוע״, לא כ־0.</p>
-        <div class="nav">
-          @for (s of steps; track s.path) {
-            <a [routerLink]="s.path" routerLinkActive="active">{{ s.label }}</a>
+        <p class="note">הערכה ואומדן בלבד — לא ייעוץ משפטי. חודש בלי מידע מוצג כ״לא ידוע״, לא כ־0. ההתקדמות נשמרת אוטומטית.</p>
+        <nav class="steps" aria-label="שלבי הבדיקה">
+          @for (s of steps; track s.path; let i = $index) {
+            <a [routerLink]="s.path" routerLinkActive="on">
+              <span class="n" aria-hidden="true">{{ i + 1 }}</span>{{ s.label }}
+            </a>
           }
-        </div>
-        <div class="bar">
-          <ion-button size="small" fill="outline" (click)="demo()" [disabled]="store.busy()">טען הדגמה (10 שנים)</ion-button>
-          <ion-button size="small" fill="clear" routerLink="/start">חזרה לבחירת מסלול</ion-button>
-          @if (store.busy()) { <ion-spinner name="crescent"></ion-spinner> }
-        </div>
+        </nav>
+        @if (store.busy()) {
+          <div class="busy-row"><ion-spinner name="crescent"></ion-spinner> שומר / מחשב…</div>
+        }
         @if (store.error()) { <p class="muted" style="color:var(--ion-color-danger)">{{ store.error() }}</p> }
         <router-outlet></router-outlet>
       </div>
     </ion-content>
   `
 })
-export class ReviewShellPage {
+export class ReviewShellPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
+  private resumed = false;
 
   readonly steps = [
-    { path: '/review/employment', label: '1. העסקה' },
-    { path: '/review/documents', label: '2. מסמכים' },
-    { path: '/review/salary', label: '3. שכר' },
-    { path: '/review/funds', label: '4. קופות' },
-    { path: '/review/dashboard', label: '5. לוח מצב' },
-    { path: '/review/reconciliation', label: '6. הפקדות' },
-    { path: '/review/simulation', label: '7. צבירה' },
-    { path: '/review/termination', label: '8. סיום' },
-    { path: '/review/report', label: '9. דוח' }
+    { path: '/review/employment', label: 'העסקה' },
+    { path: '/review/documents', label: 'מסמכים' },
+    { path: '/review/salary', label: 'שכר' },
+    { path: '/review/funds', label: 'קופות' },
+    { path: '/review/dashboard', label: 'לוח מצב' },
+    { path: '/review/reconciliation', label: 'הפקדות' },
+    { path: '/review/simulation', label: 'צבירה' },
+    { path: '/review/termination', label: 'סיום' },
+    { path: '/review/report', label: 'דוח' }
   ];
 
-  async demo(): Promise<void> {
-    await this.store.loadDemo();
-    await this.router.navigateByUrl('/review/dashboard');
+  constructor() {
+    this.store.setCurrentStep(this.normalize(this.router.url));
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      takeUntilDestroyed()
+    ).subscribe(e => {
+      this.store.setCurrentStep(this.normalize(e.urlAfterRedirects));
+    });
+  }
+
+  async ngOnInit(): Promise<void> {
+    const savedStep = await this.store.hydrateFromServer();
+    this.store.setCurrentStep(this.normalize(this.router.url));
+    if (this.resumed) return;
+    this.resumed = true;
+    const here = this.normalize(this.router.url);
+    if (savedStep && savedStep !== here && savedStep.startsWith('/review/') && here === '/review/employment') {
+      const known = this.steps.some(s => s.path === savedStep);
+      if (known) void this.router.navigateByUrl(savedStep);
+    }
+  }
+
+  private normalize(url: string): string {
+    const path = url.split('?')[0];
+    return path.startsWith('/review') ? path : '/review/employment';
   }
 }

@@ -5,7 +5,6 @@ import { IonButton, IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { AuthService } from '../core/auth/auth.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
-import { WizardStore } from '../core/wizard.store';
 
 @Component({
   selector: 'app-resume',
@@ -55,7 +54,6 @@ import { WizardStore } from '../core/wizard.store';
 export class ResumePage {
   private readonly workspaces = inject(WorkspaceService);
   private readonly auth = inject(AuthService);
-  private readonly store = inject(WizardStore);
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
@@ -89,9 +87,8 @@ export class ResumePage {
   }
 
   async startFresh(): Promise<void> {
-    this.store.reset();
-    await this.workspaces.createNew();
-    await this.router.navigateByUrl('/start');
+    await this.workspaces.restartFlow();
+    await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 
   stepLabel(step: string): string {

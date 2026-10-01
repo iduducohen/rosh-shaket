@@ -51,6 +51,21 @@ export class ApiService {
     return firstValueFrom(this.http.post<ProfileDraft>(`${this.base}/api/payslips/extract`, form));
   }
 
+  /** Verify employment-review document type/year/(month) via OCR/AI. */
+  verifyDocument(body: {
+    images: Blob[];
+    expectedType: string;
+    expectedYear: number;
+    expectedMonth?: number | null;
+  }): Promise<DocumentVerificationResult> {
+    const form = new FormData();
+    body.images.forEach((img, i) => form.append('files', img, `doc-${i + 1}.jpg`));
+    form.append('expectedType', body.expectedType);
+    form.append('expectedYear', String(body.expectedYear));
+    if (body.expectedMonth != null) form.append('expectedMonth', String(body.expectedMonth));
+    return firstValueFrom(this.http.post<DocumentVerificationResult>(`${this.base}/api/documents/verify`, form));
+  }
+
   checklist(reason?: ExitReason | null): Promise<ChecklistItem[]> {
     return firstValueFrom(this.http.get<ChecklistItem[]>(
       `${this.base}/api/checklist`,
@@ -105,6 +120,31 @@ export interface ExperienceReview {
   systemRating: number;
   experienceRating: number;
   text: string | null;
+}
+
+export interface DocumentVerificationResult {
+  readable: boolean;
+  detectedType: string;
+  detectedYear: number | null;
+  detectedMonth: number | null;
+  periodLabel: string | null;
+  typeMatches: boolean;
+  yearMatches: boolean;
+  monthMatches: boolean;
+  overallOk: boolean;
+  messageHe: string;
+  summaryHe: string | null;
+  grossSalary?: number | null;
+  annualGross?: number | null;
+  funds?: Array<{
+    kind: string;
+    provider: string | null;
+    balance: number | null;
+    asOf: string | null;
+    feeAnnualPercent: number | null;
+    returnAnnualPercent: number | null;
+    track: string | null;
+  }> | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */

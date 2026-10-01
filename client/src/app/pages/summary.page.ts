@@ -8,6 +8,8 @@ import { RightsSource } from '../core/models';
 import { PaidHelpComponent } from '../core/paid-help.component';
 import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
+import { ReviewStore } from '../core/review.store';
+import { WorkspaceService } from '../core/workspace.service';
 
 @Component({
   selector: 'app-summary',
@@ -115,9 +117,11 @@ import { WizardStore } from '../core/wizard.store';
 })
 export class SummaryPage implements ViewWillEnter {
   readonly store = inject(WizardStore);
-  private readonly api = inject(ApiService);
+  private readonly workspaces = inject(WorkspaceService);
+  private readonly review = inject(ReviewStore);
   private readonly router = inject(Router);
-  private readonly sources = signal<RightsSource[]>([]);
+  private readonly api = inject(ApiService);
+  readonly sources = signal<RightsSource[]>([]);
 
   constructor() {
     void this.loadSources();
@@ -136,7 +140,12 @@ export class SummaryPage implements ViewWillEnter {
   }
 
   edit(): void { void this.router.navigateByUrl('/details'); }
-  restart(): void { this.store.reset(); void this.router.navigateByUrl('/start'); }
+
+  async restart(): Promise<void> {
+    this.review.clear();
+    await this.workspaces.restartFlow();
+    await this.router.navigateByUrl('/start', { replaceUrl: true });
+  }
 
   private async loadSources(): Promise<void> {
     try {

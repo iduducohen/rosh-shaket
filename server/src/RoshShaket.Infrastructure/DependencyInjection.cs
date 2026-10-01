@@ -114,6 +114,12 @@ public static class DependencyInjection
             http.BaseAddress = new Uri(o.BaseUrl);
             http.Timeout = TimeSpan.FromSeconds(o.TimeoutSeconds);
         });
+        services.AddHttpClient<IDocumentVerifier, ClaudeDocumentVerifier>((sp, http) =>
+        {
+            var o = sp.GetRequiredService<IOptions<ClaudeOptions>>().Value;
+            http.BaseAddress = new Uri(o.BaseUrl);
+            http.Timeout = TimeSpan.FromSeconds(o.TimeoutSeconds);
+        });
 
         // Sign-in: one verifier per provider, users in Postgres, email codes through SMTP (or the log in development)
         services.AddMemoryCache();

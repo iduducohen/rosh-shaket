@@ -6,6 +6,11 @@
 
 ## מבנה
 
+תיעוד נוסף:
+
+- [`docs/user-flow-and-calculation.md`](docs/user-flow-and-calculation.md) — זרימת משתמש, איך החישוב עובד, ואילו מסמכים נדרשים
+- [`docs/authentication-setup.md`](docs/authentication-setup.md) — התחברות (Google / Apple / Microsoft / Email OTP)
+
 ```
 server/
   src/RoshShaket.Domain          ישויות, value objects, מדיניות חוקית טהורה (בלי I/O)

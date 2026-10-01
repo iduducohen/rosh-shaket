@@ -108,7 +108,7 @@ import { installReturnTracker } from './wizard-nav';
           </span>
         }
         <nav class="actions" aria-label="פעולות קבועות">
-          @if (isSidePage() || step() > 1) {
+          @if (isSidePage() || isReviewFlow() || step() > 1) {
             <button type="button" class="action" (click)="home()">
               <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
               חזרה להתחלה
@@ -143,7 +143,7 @@ import { installReturnTracker } from './wizard-nav';
         </nav>
       </div>
 
-      @if (!isSidePage()) {
+      @if (!isSidePage() && !isReviewFlow()) {
         <nav class="steps" aria-label="שלבי התהליך">
           <span [class.on]="step() === 1"><span class="n" aria-hidden="true">1</span>תלוש שכר</span>
           <span [class.on]="step() === 2"><span class="n" aria-hidden="true">2</span>סיבת העזיבה</span>
@@ -179,6 +179,11 @@ export class DeskHeaderComponent {
   isSidePage(): boolean {
     const u = this.path();
     return u.startsWith('/checklist') || u.startsWith('/sources');
+  }
+
+  /** Full employment review has its own step nav — hide the single-payslip wizard. */
+  isReviewFlow(): boolean {
+    return this.path().startsWith('/review');
   }
 
   initial(): string {

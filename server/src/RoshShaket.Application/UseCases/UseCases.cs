@@ -1,5 +1,6 @@
 using RoshShaket.Application.Abstractions;
 using RoshShaket.Application.Calculation;
+using RoshShaket.Application.Documents;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Rules;
 using RoshShaket.Domain;
@@ -46,6 +47,20 @@ public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUp
         policy.Validate(images);
         var extraction = await extractor.ExtractAsync(images, ct);
         return PayslipMapper.ToDraft(extraction);
+    }
+}
+
+public sealed class VerifyDocumentHandler(IDocumentVerifier verifier, DocumentVerifyUploadPolicy policy)
+{
+    public async Task<DocumentVerificationResult> HandleAsync(
+        IReadOnlyList<PayslipImage> images,
+        DocumentVerifyRequest request,
+        CancellationToken ct)
+    {
+        var normalized = request with { ExpectedType = ReviewDocumentTypes.Normalize(request.ExpectedType) };
+        policy.Validate(images, normalized);
+        var extraction = await verifier.ExtractAsync(images, normalized, ct);
+        return DocumentVerificationMapper.Compare(extraction, normalized);
     }
 }
 

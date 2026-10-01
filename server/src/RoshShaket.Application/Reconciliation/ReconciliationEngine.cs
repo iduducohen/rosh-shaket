@@ -78,12 +78,12 @@ public static class ReconciliationEngine
                 if (line.Expected is { } exp && line.Actual is { } act && act < exp - 0.01m)
                 {
                     list.Add(A(workspaceId, m, line.Fund, AnomalyKind.LowContribution, "high",
-                        $"הפקדה בפועל ({act:N0}) נמוכה מהצפוי ({exp:N0}) ב-{line.Code}.", DataConfidence.Medium));
+                        $"הפקדה בפועל ({act:N0}) נמוכה מהצפוי ({exp:N0}) ב־{LineLabelHe(line.Code)}.", DataConfidence.Medium));
                 }
                 if (line.Expected is not null && line.Actual is null && line.Reported is not null)
                 {
                     list.Add(A(workspaceId, m, line.Fund, AnomalyKind.PayrollVsFundGap, "medium",
-                        $"יש דיווח בתלוש ל-{line.Code} אך אין אישור מהקופה (בפועל = לא ידוע).", DataConfidence.Low));
+                        $"יש דיווח בתלוש ל־{LineLabelHe(line.Code)} אך אין אישור מהקופה (בפועל = לא ידוע).", DataConfidence.Low));
                 }
             }
 
@@ -161,6 +161,16 @@ public static class ReconciliationEngine
 
     private static Anomaly A(Guid ws, EmploymentMonth m, FundKind? fund, AnomalyKind kind, string severity, string text, DataConfidence c) =>
         new(Guid.NewGuid(), ws, m.Year, m.Month, fund, kind, severity, text, c);
+
+    private static string LineLabelHe(string code) => code switch
+    {
+        "EmployeePension" => "פנסיה עובד",
+        "EmployerPension" => "פנסיה מעסיק",
+        "EmployerCompensation" => "פיצויים",
+        "TrainingFundEmployee" => "השתלמות עובד",
+        "TrainingFundEmployer" => "השתלמות מעסיק",
+        _ => code
+    };
 
     private static decimal? SumNullable(IEnumerable<decimal?> values)
     {

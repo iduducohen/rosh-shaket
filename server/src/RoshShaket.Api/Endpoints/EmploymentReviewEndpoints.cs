@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using RoshShaket.Application.EmploymentReview;
 using RoshShaket.Application.Reconciliation;
 using RoshShaket.Application.Reports;
@@ -53,61 +52,54 @@ public static class EmploymentReviewEndpoints
             return TypedResults.Ok(demo);
         });
 
-        var auth = group.MapGroup("").RequireAuthorization();
+        // Workspace UUID acts as a capability token so guests also persist across steps.
+        group.MapGet("/{workspaceId:guid}", async (Guid workspaceId, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.GetOrCreateAsync(workspaceId, ct)));
 
-        auth.MapGet("/{workspaceId:guid}", async (Guid workspaceId, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+        group.MapPut("/{workspaceId:guid}", async (Guid workspaceId, EmploymentReviewCase body, EmploymentReviewHandlers handlers, CancellationToken ct) =>
         {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.GetOrCreateAsync(workspaceId, ct));
+            if (body.WorkspaceId != workspaceId && body.WorkspaceId != Guid.Empty)
+                return Results.BadRequest(new { error = "workspaceId mismatch" });
+            var fixedCase = body with { WorkspaceId = workspaceId };
+            return TypedResults.Ok(await handlers.SaveCaseAsync(fixedCase, ct));
         });
 
-        auth.MapPut("/{workspaceId:guid}/period", async (Guid workspaceId, PeriodBody body, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+        group.MapPut("/{workspaceId:guid}/step", async (Guid workspaceId, StepBody body, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.SetCurrentStepAsync(workspaceId, body.Step, ct)));
+
+        group.MapPut("/{workspaceId:guid}/period", async (Guid workspaceId, PeriodBody body, EmploymentReviewHandlers handlers, CancellationToken ct) =>
         {
-            EnsureUser(user);
             var saved = await handlers.SetPeriodAsync(new UpsertPeriodRequest(
                 workspaceId, body.EmployerName, body.StartDate, body.EndDate,
                 body.SameEmployerThroughout, body.ExitReason, body.HadWorkBreak, body.MultiplePeriods, body.Notes), ct);
             return TypedResults.Ok(saved);
         });
 
-        auth.MapPut("/{workspaceId:guid}/salary", async (Guid workspaceId, List<SalarySegmentDto> segments, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
-        {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.ApplySalaryAsync(workspaceId, segments, ct));
-        });
+        group.MapPut("/{workspaceId:guid}/salary", async (Guid workspaceId, List<SalarySegmentDto> segments, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.ApplySalaryAsync(workspaceId, segments, ct)));
 
-        auth.MapPost("/{workspaceId:guid}/expected", async (Guid workspaceId, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
-        {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.RecalculateExpectedAsync(workspaceId, ct));
-        });
+        group.MapPost("/{workspaceId:guid}/expected", async (Guid workspaceId, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.RecalculateExpectedAsync(workspaceId, ct)));
 
-        auth.MapPatch("/{workspaceId:guid}/months", async (Guid workspaceId, List<PatchMonthRequest> patches, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
-        {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.PatchMonthsAsync(workspaceId, patches, ct));
-        });
+        group.MapPatch("/{workspaceId:guid}/months", async (Guid workspaceId, List<PatchMonthRequest> patches, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.PatchMonthsAsync(workspaceId, patches, ct)));
 
-        auth.MapPut("/{workspaceId:guid}/funds", async (Guid workspaceId, List<FundAccount> funds, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
-        {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.SetFundsAsync(workspaceId, funds, ct));
-        });
+        group.MapPut("/{workspaceId:guid}/funds", async (Guid workspaceId, List<FundAccount> funds, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.SetFundsAsync(workspaceId, funds, ct)));
 
-        auth.MapPost("/{workspaceId:guid}/documents/meta", async (Guid workspaceId, ReviewDocumentMeta meta, ClaimsPrincipal user, EmploymentReviewHandlers handlers, CancellationToken ct) =>
-        {
-            EnsureUser(user);
-            return TypedResults.Ok(await handlers.AddDocumentMetaAsync(workspaceId, meta, ct));
-        });
+        group.MapPost("/{workspaceId:guid}/documents/meta", async (Guid workspaceId, ReviewDocumentMeta meta, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.AddDocumentMetaAsync(workspaceId, meta, ct)));
+
+        group.MapPut("/{workspaceId:guid}/documents/{documentId:guid}", async (Guid workspaceId, Guid documentId, ReviewDocumentMeta meta, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.UpdateDocumentMetaAsync(workspaceId, documentId, meta, ct)));
+
+        group.MapDelete("/{workspaceId:guid}/documents/{documentId:guid}", async (Guid workspaceId, Guid documentId, EmploymentReviewHandlers handlers, CancellationToken ct) =>
+            TypedResults.Ok(await handlers.RemoveDocumentMetaAsync(workspaceId, documentId, ct)));
 
         return app;
     }
 
-    private static void EnsureUser(ClaimsPrincipal user)
-    {
-        if (user.FindFirstValue(ClaimTypes.NameIdentifier) is null)
-            throw new UnauthorizedAccessException();
-    }
+    public sealed record StepBody(string? Step);
 
     public sealed record PeriodBody(
         string? EmployerName,

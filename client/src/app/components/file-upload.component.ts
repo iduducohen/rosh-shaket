@@ -157,7 +157,7 @@ export interface UploadedFile {
   `]
 })
 export class FileUploadComponent implements OnInit {
-  isNativeApp = !Capacitor.isWebPlatform();
+  isNativeApp = Capacitor.isNativePlatform();
   isUploading = false;
   errorMessage = '';
   uploadedFiles: UploadedFile[] = [];

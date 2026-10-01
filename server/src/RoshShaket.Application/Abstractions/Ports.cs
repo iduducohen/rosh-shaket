@@ -1,6 +1,7 @@
 using RoshShaket.Domain;
 using RoshShaket.Domain.Content;
 using RoshShaket.Application.Payslips;
+using RoshShaket.Application.Documents;
 
 namespace RoshShaket.Application.Abstractions;
 
@@ -29,6 +30,15 @@ public interface IPartnerCatalog
 public interface IPayslipExtractor
 {
     Task<PayslipExtraction> ExtractAsync(IReadOnlyList<PayslipImage> images, CancellationToken ct);
+}
+
+/// <summary>Checks that an uploaded employment-review document matches type/year/(month).</summary>
+public interface IDocumentVerifier
+{
+    Task<DocumentExtraction> ExtractAsync(
+        IReadOnlyList<PayslipImage> images,
+        DocumentVerifyRequest expected,
+        CancellationToken ct);
 }
 
 /// <summary>Anonymous statistics, written only with the user's consent (Postgres).</summary>

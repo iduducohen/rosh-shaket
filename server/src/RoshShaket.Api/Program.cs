@@ -77,6 +77,9 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(PayslipEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy(DocumentVerifyEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
     o.AddPolicy(AuthEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
@@ -112,6 +115,7 @@ app.MapCalculationEndpoints();
 app.MapReportEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapPayslipEndpoints();
+app.MapDocumentVerifyEndpoints();
 app.MapContentEndpoints();
 app.MapAuthEndpoints();
 app.MapHelpEndpoints();

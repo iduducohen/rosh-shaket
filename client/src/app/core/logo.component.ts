@@ -3,7 +3,8 @@ import { Component, input } from '@angular/core';
 let uid = 0;
 
 /**
- * Brand mark: a quiet head in profile – calm mind when leaving work.
+ * Brand mark: scattered paperwork settles into one clear answer —
+ * the product promise (payslip / docs → “מה מגיע לי”).
  * Original artwork. `tone` switches the wordmark for dark backgrounds.
  */
 @Component({
@@ -24,21 +25,21 @@ let uid = 0;
         </linearGradient>
       </defs>
       <rect width="40" height="40" rx="11" [attr.fill]="'url(#' + gid + ')'"/>
-      <!-- Head profile facing left (RTL) -->
-      <path
-        d="M25.2 31.5
-           C29.5 27.8 31.2 22.2 29.6 16.8
-           C28.2 11.8 23.6 9.2 18.4 9.8
-           C15.2 10.2 12.8 12 11.8 14.6
-           C11.2 16.2 10.2 17.2 9.6 18
-           L12.8 19.4
-           C11.8 21.2 11.6 23 12.8 24.8
-           C14.2 26.8 16.4 28.2 18.2 29.2
-           L19.2 31.5"
-        fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- Calm mind: line broken around a quiet point -->
-      <path d="M14 16.4h3.6M22.4 16.4H26" fill="none" stroke="#FFFFFF" stroke-width="1.55" stroke-linecap="round"/>
-      <circle cx="20" cy="16.4" r="1.9" fill="none" stroke="#FFFFFF" stroke-width="1.55"/>
+
+      <!-- Back sheet (tilted) -->
+      <rect x="9" y="10" width="18" height="22" rx="2.5"
+            fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity=".45"
+            transform="rotate(-8 18 21)"/>
+      <!-- Front sheet -->
+      <rect x="12" y="9" width="18" height="22" rx="2.5"
+            fill="none" stroke="#FFFFFF" stroke-width="1.65"/>
+      <!-- Line summary on the sheet -->
+      <path d="M16 15.5h10M16 19h8M16 22.5h6" fill="none" stroke="#FFFFFF"
+            stroke-width="1.45" stroke-linecap="round" opacity=".85"/>
+      <!-- Clear answer: check in a calm circle (בראש שקט) -->
+      <circle cx="27.5" cy="27.5" r="6.2" fill="#0B5F53" stroke="#FFFFFF" stroke-width="1.5"/>
+      <path d="M24.6 27.6l1.9 1.9 4.1-4.2" fill="none" stroke="#FFFFFF"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     @if (wordmark()) {
       <span class="word" [style.font-size.px]="size() * 0.55">יוצאים בראש שקט

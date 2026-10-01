@@ -24,20 +24,27 @@ interface DayCell {
     .date-trigger {
       width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto;
       align-items: center; column-gap: 12px; text-align: start; cursor: pointer; font: inherit; color: inherit;
-      background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 12px;
+      background: var(--rs-field, #F1EEE7); border: 1px solid var(--rs-line); border-radius: 12px;
       padding: 10px 14px 11px;
     }
-    :host(.filled) .date-trigger { background: var(--rs-warn-bg); border-color: var(--rs-accent); }
-    :host(.filled) .date-label::after { content: " · זוהה מהתלוש"; font-size: 12.5px; color: var(--rs-warn); font-weight: 700; }
+    :host(.filled) .date-trigger {
+      background: var(--rs-soft);
+      border-color: color-mix(in srgb, var(--ion-color-primary) 30%, var(--rs-line));
+    }
+    :host(.filled) .date-label::after {
+      content: " · מהתלוש";
+      font-size: 12px; color: var(--ion-color-primary); font-weight: 650; opacity: .9;
+    }
     .date-trigger:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
-    .date-trigger.open { border-color: var(--ion-color-primary); box-shadow: 0 0 0 4px rgba(var(--ion-color-primary-rgb), .15); }
+    .date-trigger.open { border-color: var(--ion-color-primary); box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), .12); }
     .date-trigger.field-invalid { border-color: var(--ion-color-danger); }
     .date-trigger.field-valid { border-color: var(--ion-color-primary); }
-    .date-trigger.open.field-invalid { box-shadow: 0 0 0 4px rgba(235, 68, 90, .18); }
+    .date-trigger.open.field-invalid { box-shadow: 0 0 0 3px rgba(235, 68, 90, .14); }
     .date-label { grid-column: 1; grid-row: 1; font-size: 12.5px; color: var(--ion-color-medium); }
     .date-value { grid-column: 1; grid-row: 2; font-size: 16px; font-weight: 650; margin-top: 2px; }
     .date-value.placeholder { color: var(--ion-color-medium); font-weight: 500; }
-    .date-trigger ion-icon { grid-column: 2; grid-row: 1 / span 2; font-size: 22px; color: var(--ion-color-primary); }
+    .date-trigger ion-icon { grid-column: 2; grid-row: 1 / span 2; font-size: 20px; color: var(--ion-color-medium); }
+    :host(.filled) .date-trigger ion-icon { color: var(--ion-color-primary); }
     .date-error { margin: 6px 4px 0; color: var(--ion-color-danger); font-size: 13px; }
     .cal-backdrop { position: fixed; inset: 0; z-index: 40; background: transparent; }
     .cal {

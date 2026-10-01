@@ -1,5 +1,7 @@
+using RoshShaket.Application.Abstractions;
 using RoshShaket.Application.Auth;
 using RoshShaket.Application.Calculation;
+using RoshShaket.Application.Documents;
 using RoshShaket.Application.EmploymentReview;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Reports;
@@ -26,11 +28,13 @@ public static class ApplicationModule
 
         services.AddSingleton<IRightsCalculator, RightsCalculator>();
         services.AddSingleton<PayslipUploadPolicy>();
+        services.AddSingleton<DocumentVerifyUploadPolicy>();
 
         services.AddScoped<CalculateRightsHandler>();
         services.AddScoped<CompareScenariosHandler>();
         services.AddScoped<BuildReportHandler>();
         services.AddScoped<ExtractPayslipHandler>();
+        services.AddScoped<VerifyDocumentHandler>();
         services.AddScoped<GetChecklistHandler>();
         services.AddScoped<GetSourcesHandler>();
         services.AddScoped<GetPartnersHandler>();

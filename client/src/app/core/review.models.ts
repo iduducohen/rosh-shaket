@@ -57,7 +57,29 @@ export interface FundAccount {
   returnAnnualPercent: number | null;
   track: string | null;
   confidence: DataConfidence;
+  /** How the row was filled. */
+  source?: 'document' | 'manual' | null;
+  sourceDocumentId?: string | null;
 }
+
+export interface ExtractedFundSnapshot {
+  kind: 'pension' | 'severance' | 'study' | 'managers' | string;
+  provider: string | null;
+  balance: number | null;
+  asOf: string | null;
+  feeAnnualPercent: number | null;
+  returnAnnualPercent: number | null;
+  track: string | null;
+}
+
+export type DocumentValidationStatus =
+  | 'pending'
+  | 'checking'
+  | 'ok'
+  | 'mismatch'
+  | 'unreadable'
+  | 'unavailable'
+  | 'manual';
 
 export interface ReviewDocumentMeta {
   id: string;
@@ -68,6 +90,29 @@ export interface ReviewDocumentMeta {
   parsedOk: boolean;
   extractedSummary: string | null;
   needsManualReview: boolean;
+  fileName?: string | null;
+  storageKey?: string | null;
+  /** OCR/AI verification against selected year/type/month. */
+  validationStatus?: DocumentValidationStatus | null;
+  validationMessage?: string | null;
+  detectedType?: string | null;
+  detectedYear?: number | null;
+  detectedMonth?: number | null;
+  detectedPeriodLabel?: string | null;
+  /** Gross monthly salary from payslip OCR. */
+  extractedGrossSalary?: number | null;
+  /** Annual gross from form 106 OCR. */
+  extractedAnnualGross?: number | null;
+  /** Fund balances extracted from pension / savings reports. */
+  extractedFunds?: ExtractedFundSnapshot[] | null;
+}
+
+/** User marked a required document slot as unobtainable — allows progress without pretending it exists. */
+export interface DocumentWaiver {
+  documentType: string;
+  year: number;
+  /** null = whole type for the year (106 / pension / all payslips). Set for a specific payslip month. */
+  month: number | null;
 }
 
 export interface EmploymentReviewCase {
@@ -76,7 +121,11 @@ export interface EmploymentReviewCase {
   months: EmploymentMonth[];
   funds: FundAccount[];
   documents: ReviewDocumentMeta[];
+  /** Slots the user marked as unavailable («אין לי»). */
+  documentWaivers?: DocumentWaiver[];
   updatedAt: string;
+  /** Last wizard step path, e.g. /review/documents — persisted so resume continues where left off. */
+  currentStep?: string | null;
 }
 
 export interface HealthScoreResult {
@@ -193,5 +242,24 @@ export function healthLabel(status: HealthStatus): string {
     case 'NeedsReview': return '🟡 דורש בדיקה';
     case 'GapsFound': return '🔴 נמצאו פערים';
     default: return '⚪ לא ניתן לקבוע';
+  }
+}
+
+export function confidenceLabel(c: DataConfidence | string | null | undefined): string {
+  switch ((c ?? '').toString()) {
+    case 'High': return 'גבוה';
+    case 'Medium': return 'בינוני';
+    case 'Low': return 'נמוך';
+    case 'Unknown': return 'לא ידוע';
+    default: return c ? String(c) : '—';
+  }
+}
+
+export function severityLabel(s: string | null | undefined): string {
+  switch ((s ?? '').toLowerCase()) {
+    case 'high': return 'גבוהה';
+    case 'medium': return 'בינונית';
+    case 'low': return 'נמוכה';
+    default: return s || '—';
   }
 }

@@ -1,11 +1,13 @@
 import { Component, computed, inject, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
 import { ReviewStore } from '../../core/review.store';
+import { ReviewStepNavComponent } from './review-step-nav.component';
 
 @Component({
   selector: 'app-review-simulation',
   standalone: true,
-  imports: [IonButton],
+  imports: [IonButton, ReviewStepNavComponent],
   styles: [`
     .charts { display:grid; gap:16px; }
     .bar-row { display:flex; align-items:flex-end; gap:2px; height:160px; overflow-x:auto; padding-bottom:4px; }
@@ -16,7 +18,7 @@ import { ReviewStore } from '../../core/review.store';
   `],
   template: `
     <h2>אומדן צבירה לאורך זמן</h2>
-    <p class="muted">כל הפקדה צוברת מתאריך אחר (לא סכום × (1+r)^n). תרחישים ניתנים להגדרה בשרת — לא hard-coded במסך.</p>
+    <p class="muted">כל הפקדה צוברת מתאריך אחר (לא סכום × (1+r)^n). התרחישים מוגדרים בשרת — לא קבועים במסך.</p>
     <ion-button size="small" (click)="run()">רענון</ion-button>
 
     @if (store.analysis()?.usedEstimates) {
@@ -39,10 +41,13 @@ import { ReviewStore } from '../../core/review.store';
         <p class="muted small">ציר X = זמן · גובה = יתרה משוערת (המחשה של ריבית דריבית)</p>
       </div>
     }
+
+    <app-review-step-nav nextLabel="המשך" (next)="goNext()" />
   `
 })
 export class ReviewSimulationPage implements OnInit {
   readonly store = inject(ReviewStore);
+  private readonly router = inject(Router);
   readonly sims = computed(() => this.store.analysis()?.simulations ?? []);
 
   async ngOnInit(): Promise<void> {
@@ -51,6 +56,10 @@ export class ReviewSimulationPage implements OnInit {
 
   async run(): Promise<void> {
     await this.store.analyze();
+  }
+
+  goNext(): void {
+    void this.router.navigateByUrl('/review/termination');
   }
 
   label(s: string): string {

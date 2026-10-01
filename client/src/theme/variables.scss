@@ -26,6 +26,7 @@
   --rs-accent: #F2A93B;       // amber: highlights only
   --rs-line: #E3DED3;
   --rs-soft: #E4F1ED;
+  --rs-field: #F1EEE7;        // field surface — softer than pure white on paper bg
   --rs-warn: #8A5A00;
   --rs-warn-bg: #FDF1DC;
 }
@@ -52,6 +53,7 @@
     --rs-accent: #F2B24F;
     --rs-line: #22393F;
     --rs-soft: #163631;
+    --rs-field: #1A2E34;
     --rs-warn: #F2C46B;
     --rs-warn-bg: #3A2F17;
   }

@@ -15,7 +15,8 @@ public sealed record EmploymentReviewCase(
     IReadOnlyList<EmploymentMonth> Months,
     IReadOnlyList<FundAccount> Funds,
     IReadOnlyList<ReviewDocumentMeta> Documents,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? CurrentStep = null);
 
 public sealed record ReviewDocumentMeta(
     Guid Id,
@@ -25,7 +26,9 @@ public sealed record ReviewDocumentMeta(
     string? Source,
     bool ParsedOk,
     string? ExtractedSummary,
-    bool NeedsManualReview);
+    bool NeedsManualReview,
+    string? FileName = null,
+    string? StorageKey = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,
@@ -191,6 +194,43 @@ public sealed class EmploymentReviewHandlers(
         var existing = await GetOrCreateAsync(workspaceId, ct);
         var docs = existing.Documents.Where(d => d.Id != meta.Id).Append(meta).ToList();
         var updated = existing with { Documents = docs, UpdatedAt = DateTimeOffset.UtcNow };
+        await store.SaveAsync(updated, ct);
+        return updated;
+    }
+
+    public async Task<EmploymentReviewCase> RemoveDocumentMetaAsync(Guid workspaceId, Guid documentId, CancellationToken ct)
+    {
+        var existing = await GetOrCreateAsync(workspaceId, ct);
+        var docs = existing.Documents.Where(d => d.Id != documentId).ToList();
+        var updated = existing with { Documents = docs, UpdatedAt = DateTimeOffset.UtcNow };
+        await store.SaveAsync(updated, ct);
+        return updated;
+    }
+
+    public async Task<EmploymentReviewCase> UpdateDocumentMetaAsync(Guid workspaceId, Guid documentId, ReviewDocumentMeta meta, CancellationToken ct)
+    {
+        var existing = await GetOrCreateAsync(workspaceId, ct);
+        if (existing.Documents.All(d => d.Id != documentId))
+            throw new Domain.DomainValidationException(new Dictionary<string, string> { ["document"] = "המסמך לא נמצא." });
+        var fixedMeta = meta with { Id = documentId };
+        var docs = existing.Documents.Select(d => d.Id == documentId ? fixedMeta : d).ToList();
+        var updated = existing with { Documents = docs, UpdatedAt = DateTimeOffset.UtcNow };
+        await store.SaveAsync(updated, ct);
+        return updated;
+    }
+
+    /// <summary>Full-case upsert used by the client to remember progress across steps / devices.</summary>
+    public async Task<EmploymentReviewCase> SaveCaseAsync(EmploymentReviewCase review, CancellationToken ct)
+    {
+        var updated = review with { UpdatedAt = DateTimeOffset.UtcNow };
+        await store.SaveAsync(updated, ct);
+        return updated;
+    }
+
+    public async Task<EmploymentReviewCase> SetCurrentStepAsync(Guid workspaceId, string? step, CancellationToken ct)
+    {
+        var existing = await GetOrCreateAsync(workspaceId, ct);
+        var updated = existing with { CurrentStep = step, UpdatedAt = DateTimeOffset.UtcNow };
         await store.SaveAsync(updated, ct);
         return updated;
     }

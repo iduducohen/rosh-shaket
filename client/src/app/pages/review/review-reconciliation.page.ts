@@ -1,12 +1,15 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
+import { confidenceLabel, severityLabel } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
+import { ReviewStepNavComponent } from './review-step-nav.component';
 
 @Component({
   selector: 'app-review-reconciliation',
   standalone: true,
-  imports: [IonButton, DecimalPipe],
+  imports: [IonButton, DecimalPipe, ReviewStepNavComponent],
   styles: [`
     table { width:100%; border-collapse:collapse; font-size:13px; }
     th, td { border-bottom:1px solid var(--rs-line,#ddd); padding:6px 4px; text-align:right; }
@@ -14,7 +17,7 @@ import { ReviewStore } from '../../core/review.store';
     .unk { color: var(--ion-color-medium); }
   `],
   template: `
-    <h2>התאמת הפקדות (Expected / Reported / Actual)</h2>
+    <h2>התאמת הפקדות (צפוי / מדווח / בפועל)</h2>
     <p class="muted">פנסיה, פיצויים וקרן השתלמות — בנפרד בתוך השורות. ״לא ידוע״ אינו 0.</p>
     <ion-button size="small" (click)="run()">רענון ניתוח</ion-button>
 
@@ -28,7 +31,7 @@ import { ReviewStore } from '../../core/review.store';
         <p class="muted">חלון פערים: {{ a.summary.firstGapMonth }} – {{ a.summary.lastGapMonth }}</p>
       }
 
-      <h3>Data Reconciliation לפי שנה</h3>
+      <h3>התאמת נתונים לפי שנה</h3>
       <table>
         <thead>
           <tr>
@@ -38,19 +41,19 @@ import { ReviewStore } from '../../core/review.store';
         </thead>
         <tbody>
           <tr>
-            <td>Payroll</td>
+            <td>תלושי שכר</td>
             @for (y of a.matrix.years; track y) { <td>{{ yearAmount(a.matrix.payroll, y) }}</td> }
           </tr>
           <tr>
-            <td>106</td>
+            <td>טופס 106</td>
             @for (y of a.matrix.years; track y) { <td>{{ yearAmount(a.matrix.form106, y) }}</td> }
           </tr>
           <tr>
-            <td>Pension</td>
+            <td>פנסיה</td>
             @for (y of a.matrix.years; track y) { <td>{{ yearAmount(a.matrix.pension, y) }}</td> }
           </tr>
           <tr>
-            <td>Study</td>
+            <td>קרן השתלמות</td>
             @for (y of a.matrix.years; track y) { <td>{{ yearAmount(a.matrix.study, y) }}</td> }
           </tr>
         </tbody>
@@ -63,9 +66,9 @@ import { ReviewStore } from '../../core/review.store';
           @for (x of a.anomalies.slice(0, 50); track x.id) {
             <tr>
               <td>{{ x.month | number:'2.0-0' }}/{{ x.year }}</td>
-              <td>{{ x.severity }}</td>
+              <td>{{ severityLabel(x.severity) }}</td>
               <td>{{ x.explanation }}</td>
-              <td>{{ x.confidence }}</td>
+              <td>{{ confidenceLabel(x.confidence) }}</td>
             </tr>
           }
         </tbody>
@@ -87,10 +90,15 @@ import { ReviewStore } from '../../core/review.store';
         </tbody>
       </table>
     }
+
+    <app-review-step-nav nextLabel="המשך" (next)="goNext()" />
   `
 })
 export class ReviewReconciliationPage implements OnInit {
   readonly store = inject(ReviewStore);
+  private readonly router = inject(Router);
+  readonly severityLabel = severityLabel;
+  readonly confidenceLabel = confidenceLabel;
 
   get analysis() { return this.store.analysis(); }
   get sampleMonths() {
@@ -106,6 +114,10 @@ export class ReviewReconciliationPage implements OnInit {
 
   async run(): Promise<void> {
     await this.store.analyze();
+  }
+
+  goNext(): void {
+    void this.router.navigateByUrl('/review/simulation');
   }
 
   yearAmount(rows: { year: number; amount: number | null }[], year: number): string {

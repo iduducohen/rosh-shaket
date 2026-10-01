@@ -6,7 +6,9 @@ import { IonButton, IonContent, IonSpinner, ViewWillEnter } from '@ionic/angular
 import { ApiService, describeError } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { ChartSlice, ExitReason, RightsReport } from '../core/models';
+import { ReviewStore } from '../core/review.store';
 import { WizardStore } from '../core/wizard.store';
+import { WorkspaceService } from '../core/workspace.service';
 
 const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A'];
 
@@ -176,6 +178,8 @@ export class ReportsPage implements ViewWillEnter {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly workspaces = inject(WorkspaceService);
+  private readonly review = inject(ReviewStore);
 
   readonly report = signal<RightsReport | null>(null);
   readonly busy = signal(false);
@@ -246,9 +250,11 @@ export class ReportsPage implements ViewWillEnter {
     window.print();
   }
 
-  restart(): void {
-    this.store.reset();
-    void this.router.navigateByUrl('/start');
+  async restart(): Promise<void> {
+    this.review.clear();
+    await this.workspaces.restartFlow();
+    this.report.set(null);
+    await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 
   color(i: number): string {

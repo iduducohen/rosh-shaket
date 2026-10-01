@@ -6,6 +6,7 @@ import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
 import { DateFieldComponent } from '../../core/date-field.component';
 import { ReviewStore } from '../../core/review.store';
+import { ReviewStepNavComponent } from './review-step-nav.component';
 
 interface InfoSection { title: string; paragraphs: string[]; }
 interface ReasonOption {
@@ -27,7 +28,7 @@ interface FlagOption {
 @Component({
   selector: 'app-review-employment',
   standalone: true,
-  imports: [FormsModule, IonButton, IonIcon, DateFieldComponent],
+  imports: [FormsModule, IonButton, IonIcon, DateFieldComponent, ReviewStepNavComponent],
   styles: [`
     .field { margin-bottom: 14px; }
     .field label { display:block; font-size:12.5px; color:var(--ion-color-medium); margin-bottom:6px; }
@@ -59,12 +60,17 @@ interface FlagOption {
     .structure-intro p:last-child { margin: 0; font-size: 13.5px; color: var(--ion-color-medium); }
     .option {
       background: var(--ion-item-background, var(--ion-background-color)); color: var(--ion-text-color);
-      border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 10px; margin: 0 0 10px;
+      border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 10px; margin: 0;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
     .option.selected { border-color: var(--ion-color-primary); background: var(--rs-soft); }
     .pick {
       display: block; width: 100%; text-align: start; font: inherit; color: inherit;
       background: none; border: 0; padding: 0; cursor: pointer;
+      flex: 1 1 auto;
     }
     .pick b { display: block; font-weight: 700; }
     .pick span { display: block; color: var(--ion-color-medium); font-size: 14px; margin-top: 4px; }
@@ -72,30 +78,48 @@ interface FlagOption {
       background: none; border: 0; padding: 8px 0 2px; cursor: pointer;
       color: var(--ion-color-primary); font: inherit; font-weight: 700; font-size: 14.5px;
       text-decoration: underline; text-underline-offset: 3px;
+      align-self: flex-start;
+      margin-top: auto;
+    }
+    .flag-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 0 0 4px;
+      align-items: stretch;
+    }
+    @media (min-width: 640px) {
+      .flag-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     }
     .flag {
-      border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 12px; margin: 0 0 10px;
+      border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 12px; margin: 0;
       background: var(--ion-item-background);
-      min-height: 118px;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
     }
     .flag.selected { border-color: var(--ion-color-primary); background: var(--rs-soft); }
     .flag-top {
       display:flex; gap:12px; align-items:flex-start; width:100%; text-align:start;
       background:none; border:0; padding:0; cursor:pointer; font:inherit; color:inherit;
+      flex: 1 1 auto;
     }
     .tick {
       width:22px; height:22px; border-radius:7px; border:1.5px solid var(--rs-line);
       display:grid; place-items:center; flex:none; margin-top:2px; background:#fff;
     }
     .flag.selected .tick { background: var(--ion-color-primary); border-color: var(--ion-color-primary); color:#fff; }
+    .flag-copy { min-width: 0; }
     .flag-copy b { display:block; font-weight:700; }
     .flag-copy span { display:block; color: var(--ion-color-medium); font-size: 14px; margin-top: 4px; line-height:1.45; }
     .flag-effect {
       margin: 10px 0 0; padding: 10px 12px; border-radius: 10px;
       background: rgba(var(--ion-color-primary-rgb), .06); font-size: 13.5px; line-height: 1.45;
-      min-height: 3.6em;
+      min-height: 4.2em;
       box-sizing: border-box;
+      margin-top: auto;
     }
     .flag-effect strong {
       display: inline; font-size: 12.5px; color: var(--ion-color-primary);
@@ -133,7 +157,12 @@ interface FlagOption {
     @media (min-width: 992px) {
       .option:hover, .flag:hover { border-color: var(--ion-color-primary); }
       .sheet-backdrop { align-items: center; }
-      .desk-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+      .desk-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-items: stretch;
+      }
     }
   `],
   template: `
@@ -185,23 +214,25 @@ interface FlagOption {
       <p>התשובות עוזרות לנו להבין אם חודש בלי הפקדה הוא «חשוד» או «הגיוני» (למשל אחרי הפסקה).</p>
     </div>
 
-    @for (f of flags; track f.key) {
-      <div class="flag" [class.selected]="isOn(f.key)">
-        <button type="button" class="flag-top" (click)="toggle(f.key)" [attr.aria-pressed]="isOn(f.key)">
-          <span class="tick" aria-hidden="true">@if (isOn(f.key)) { ✓ }</span>
-          <span class="flag-copy">
-            <b>{{ f.label }}</b>
-            <span>{{ f.hint }}</span>
-          </span>
-        </button>
-        <div class="flag-effect" aria-live="polite">
-          <strong>משמעות:</strong>{{ isOn(f.key) ? f.ifOn : f.ifOff }}
+    <div class="flag-grid">
+      @for (f of flags; track f.key) {
+        <div class="flag" [class.selected]="isOn(f.key)">
+          <button type="button" class="flag-top" (click)="toggle(f.key)" [attr.aria-pressed]="isOn(f.key)">
+            <span class="tick" aria-hidden="true">@if (isOn(f.key)) { ✓ }</span>
+            <span class="flag-copy">
+              <b>{{ f.label }}</b>
+              <span>{{ f.hint }}</span>
+            </span>
+          </button>
+          <div class="flag-effect" aria-live="polite">
+            <strong>משמעות:</strong>{{ isOn(f.key) ? f.ifOn : f.ifOff }}
+          </div>
         </div>
-      </div>
-    }
+      }
+    </div>
 
     @if (err) { <p class="err">{{ err }}</p> }
-    <ion-button expand="block" class="ion-margin-top" (click)="save()">המשך למסמכים</ion-button>
+    <app-review-step-nav nextLabel="המשך למסמכים" (next)="save()" />
 
     @if (info(); as current) {
       <div class="sheet-backdrop" (click)="info.set(null)">

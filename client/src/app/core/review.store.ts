@@ -4,9 +4,11 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   AnalyzeResponse,
+  DocumentWaiver,
   EmploymentMonth,
   EmploymentReviewCase,
   FundAccount,
+  FundKind,
   ReviewDocumentMeta,
   SalarySegmentDto,
   emptyTriplet,
@@ -15,6 +17,10 @@ import {
 
 const LS_KEY = 'rs-employment-review';
 const LS_WS = 'rs-review-workspace-id';
+/** Soft ceiling for monthly gross — blocks typos / bad OCR. */
+export const MAX_MONTHLY_GROSS_SALARY = 100_000;
+/** Monthly gross must be above this (cannot be 0 or tiny placeholders). */
+export const MIN_MONTHLY_GROSS_SALARY = 1000;
 
 @Injectable({ providedIn: 'root' })
 export class ReviewStore {
@@ -91,6 +97,7 @@ export class ReviewStore {
       months: merged,
       funds: existing?.funds ?? [],
       documents: existing?.documents ?? [],
+      documentWaivers: existing?.documentWaivers ?? [],
       updatedAt: new Date().toISOString()
     });
   }
@@ -103,10 +110,12 @@ export class ReviewStore {
       const key = `${m.year}-${String(m.month).padStart(2, '0')}-01`;
       const seg = [...ordered].reverse().find(s => s.from <= key && (!s.to || s.to >= key));
       if (!seg) return m;
+      const gross = this.clampGross(seg.grossSalary);
+      if (gross == null) return m;
       return {
         ...m,
-        grossSalary: seg.grossSalary,
-        pensionableSalary: seg.pensionableSalary ?? seg.grossSalary,
+        grossSalary: gross,
+        pensionableSalary: this.clampGross(seg.pensionableSalary ?? seg.grossSalary) ?? gross,
         confidence: m.confidence === 'Unknown' ? 'Low' as const : m.confidence
       };
     });
@@ -145,9 +154,137 @@ export class ReviewStore {
   addDocument(meta: Omit<ReviewDocumentMeta, 'id'> & { id?: string }): void {
     const r = this.review();
     if (!r) return;
-    const doc: ReviewDocumentMeta = { ...meta, id: meta.id ?? crypto.randomUUID() };
+    const doc: ReviewDocumentMeta = {
+      fileName: null,
+      storageKey: null,
+      ...meta,
+      id: meta.id ?? crypto.randomUUID()
+    };
     const documents = [...r.documents.filter(d => d.id !== doc.id), doc];
-    this.persist({ ...r, documents, updatedAt: new Date().toISOString() });
+    const documentWaivers = this.clearWaiversForDoc(r.documentWaivers ?? [], doc);
+    this.persist({ ...r, documents, documentWaivers, updatedAt: new Date().toISOString() });
+  }
+
+  removeDocument(id: string): void {
+    const r = this.review();
+    if (!r) return;
+    this.persist({
+      ...r,
+      documents: r.documents.filter(d => d.id !== id),
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  updateDocument(id: string, patch: Partial<Omit<ReviewDocumentMeta, 'id'>>): void {
+    const r = this.review();
+    if (!r) return;
+    const documents = r.documents.map(d => (d.id === id ? { ...d, ...patch } : d));
+    const updated = documents.find(d => d.id === id);
+    const documentWaivers = updated
+      ? this.clearWaiversForDoc(r.documentWaivers ?? [], updated)
+      : (r.documentWaivers ?? []);
+    this.persist({ ...r, documents, documentWaivers, updatedAt: new Date().toISOString() });
+  }
+
+  waiveDocument(documentType: string, year: number, month: number | null = null): void {
+    const r = this.review();
+    if (!r) return;
+    let waivers = [...(r.documentWaivers ?? [])];
+    if (month == null) {
+      // Type-level: drop month-level for same type/year, then add type waiver.
+      waivers = waivers.filter(w => !(w.documentType === documentType && w.year === year));
+      waivers.push({ documentType, year, month: null });
+    } else {
+      // Month-level: remove duplicate month; keep type-level only if not already covering.
+      waivers = waivers.filter(w => !(w.documentType === documentType && w.year === year && w.month === month));
+      if (!waivers.some(w => w.documentType === documentType && w.year === year && w.month == null)) {
+        waivers.push({ documentType, year, month });
+      }
+    }
+    this.persist({ ...r, documentWaivers: waivers, updatedAt: new Date().toISOString() });
+  }
+
+  unwaiveDocument(documentType: string, year: number, month: number | null = null): void {
+    const r = this.review();
+    if (!r) return;
+    const documentWaivers = (r.documentWaivers ?? []).filter(w => {
+      if (w.documentType !== documentType || w.year !== year) return true;
+      if (month == null) return false;
+      return w.month !== month;
+    });
+    this.persist({ ...r, documentWaivers, updatedAt: new Date().toISOString() });
+  }
+
+  isWaived(documentType: string, year: number, month: number | null = null): boolean {
+    const waivers = this.review()?.documentWaivers ?? [];
+    if (waivers.some(w => w.documentType === documentType && w.year === year && w.month == null)) return true;
+    if (month != null) return waivers.some(w => w.documentType === documentType && w.year === year && w.month === month);
+    return false;
+  }
+
+  hasAnyWaiver(): boolean {
+    return (this.review()?.documentWaivers?.length ?? 0) > 0;
+  }
+
+  private clearWaiversForDoc(waivers: DocumentWaiver[], doc: ReviewDocumentMeta): DocumentWaiver[] {
+    if (doc.year == null) return waivers;
+    return waivers.filter(w => {
+      if (w.documentType !== doc.documentType || w.year !== doc.year) return true;
+      if (w.month == null) return false; // uploading clears type-level waive
+      if (doc.documentType === 'payslip' && doc.month != null) return w.month !== doc.month;
+      return false;
+    });
+  }
+
+  /** Remember which review step the user is on (local + DB). */
+  setCurrentStep(step: string): void {
+    const r = this.review();
+    if (!r) {
+      this.persist({
+        workspaceId: this.workspaceId(),
+        period: null,
+        months: [],
+        funds: [],
+        documents: [],
+        documentWaivers: [],
+        updatedAt: new Date().toISOString(),
+        currentStep: step
+      });
+      return;
+    }
+    if (r.currentStep === step) return;
+    this.persist({ ...r, currentStep: step, updatedAt: new Date().toISOString() });
+  }
+
+  /**
+   * Load from Postgres when available. Prefer newer server payload; fall back to localStorage.
+   * Call once when entering the review shell.
+   */
+  async hydrateFromServer(): Promise<string | null> {
+    const id = this.workspaceId();
+    try {
+      const remote = await firstValueFrom(this.http.get<EmploymentReviewCase>(`${this.base}/${id}`));
+      const local = this.review();
+      const remoteTime = Date.parse(remote.updatedAt || '') || 0;
+      const localTime = Date.parse(local?.updatedAt || '') || 0;
+      const remoteHasData = !!(remote.period || remote.documents?.length || remote.months?.length || remote.funds?.length);
+      const localHasData = !!(local?.period || local?.documents?.length || local?.months?.length || local?.funds?.length);
+
+      if (remoteHasData && (!localHasData || remoteTime >= localTime)) {
+        localStorage.setItem(LS_WS, remote.workspaceId || id);
+        this.review.set(remote);
+        localStorage.setItem(LS_KEY, JSON.stringify(remote));
+        return remote.currentStep ?? null;
+      }
+      if (localHasData) {
+        this.scheduleSync();
+        return local?.currentStep ?? null;
+      }
+      return remote.currentStep ?? local?.currentStep ?? null;
+    } catch {
+      // Offline / API down — keep local draft.
+      return this.review()?.currentStep ?? null;
+    }
   }
 
   setFunds(funds: FundAccount[]): void {
@@ -156,11 +293,133 @@ export class ReviewStore {
     this.persist({ ...r, funds, updatedAt: new Date().toISOString() });
   }
 
+  /** Merge OCR fund lines from a pension report into the funds list (by kind). */
+  applyFundsFromDocument(
+    documentId: string,
+    lines: Array<{
+      kind: string;
+      provider: string | null;
+      balance: number | null;
+      asOf: string | null;
+      feeAnnualPercent: number | null;
+      returnAnnualPercent: number | null;
+      track: string | null;
+    }>
+  ): void {
+    const r = this.review();
+    if (!r || !lines.length) return;
+
+    const kindMap: Record<string, FundKind> = {
+      pension: 'Pension',
+      severance: 'Severance',
+      study: 'Study',
+      managers: 'Managers'
+    };
+
+    let funds = [...r.funds];
+    for (const line of lines) {
+      const kind = kindMap[line.kind?.toLowerCase?.() ?? ''];
+      if (!kind) continue;
+      if (line.balance == null && !line.provider) continue;
+      const next: FundAccount = {
+        id: crypto.randomUUID(),
+        workspaceId: r.workspaceId,
+        kind,
+        balance: line.balance,
+        asOf: line.asOf,
+        provider: line.provider,
+        feeAnnualPercent: line.feeAnnualPercent,
+        returnAnnualPercent: line.returnAnnualPercent,
+        track: line.track,
+        confidence: line.balance != null ? 'High' : 'Medium',
+        source: 'document',
+        sourceDocumentId: documentId
+      };
+      // Document data replaces any previous row of the same kind.
+      funds = [...funds.filter(f => f.kind !== kind), next];
+    }
+    this.persist({ ...r, funds, updatedAt: new Date().toISOString() });
+  }
+
+  /** Re-apply fund snapshots already stored on documents. */
+  syncFundsFromDocuments(): void {
+    const r = this.review();
+    if (!r) return;
+    for (const d of r.documents) {
+      if (d.documentType === 'pension_report' && d.extractedFunds?.length) {
+        this.applyFundsFromDocument(d.id, d.extractedFunds);
+      }
+    }
+  }
+
   patchMonthReported(year: number, month: number, patch: Partial<EmploymentMonth>): void {
     const r = this.review();
     if (!r) return;
     const months = r.months.map(m => (m.year === year && m.month === month ? { ...m, ...patch } : m));
     this.persist({ ...r, months, updatedAt: new Date().toISOString() });
+  }
+
+  /** Apply OCR salary from a payslip onto the matching employment month. */
+  applyPayslipSalary(year: number, month: number, gross: number, documentId: string | null): void {
+    const capped = this.clampGross(gross);
+    if (capped == null || month < 1 || month > 12) return;
+    this.patchMonthReported(year, month, {
+      grossSalary: capped,
+      pensionableSalary: capped,
+      sourceDocumentId: documentId,
+      confidence: 'High',
+      flags: 'from_payslip'
+    });
+  }
+
+  /** Manual salary for a gap month — does not overwrite payslip-sourced values unless forced. */
+  setManualMonthSalary(year: number, month: number, gross: number, force = false): boolean {
+    const r = this.review();
+    if (!r) return false;
+    const capped = this.clampGross(gross);
+    if (capped == null) return false;
+    const row = r.months.find(m => m.year === year && m.month === month);
+    if (!row) return false;
+    if (!force && row.flags === 'from_payslip' && row.grossSalary != null) return false;
+    this.patchMonthReported(year, month, {
+      grossSalary: capped,
+      pensionableSalary: capped,
+      confidence: 'Medium',
+      flags: 'manual',
+      sourceDocumentId: null
+    });
+    return true;
+  }
+
+  /** Returns amount if valid (above MIN … MAX), otherwise null. */
+  clampGross(value: number | null | undefined): number | null {
+    if (value == null || !Number.isFinite(value)) return null;
+    if (value <= MIN_MONTHLY_GROSS_SALARY || value > MAX_MONTHLY_GROSS_SALARY) return null;
+    return Math.round(value * 100) / 100;
+  }
+
+  clearMonthSalary(year: number, month: number): void {
+    this.patchMonthReported(year, month, {
+      grossSalary: null,
+      pensionableSalary: null,
+      sourceDocumentId: null,
+      confidence: 'Unknown',
+      flags: null
+    });
+  }
+
+  /** Pull salaries already extracted on documents into empty/manual months. */
+  syncSalariesFromDocuments(): void {
+    const r = this.review();
+    if (!r) return;
+    for (const d of r.documents) {
+      if (d.documentType === 'payslip' && d.year != null && d.month != null && d.extractedGrossSalary != null && d.extractedGrossSalary > 0) {
+        const row = r.months.find(m => m.year === d.year && m.month === d.month);
+        if (!row) continue;
+        if (row.flags === 'manual' && row.grossSalary != null) continue;
+        this.applyPayslipSalary(d.year, d.month, d.extractedGrossSalary, d.id);
+      }
+    }
   }
 
   async analyze(): Promise<AnalyzeResponse | null> {
@@ -204,13 +463,41 @@ export class ReviewStore {
     localStorage.removeItem(LS_KEY);
     this.review.set(null);
     this.analysis.set(null);
+    this.syncTimer = null;
   }
 
   fmt = money;
 
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+
   private persist(c: EmploymentReviewCase): void {
-    this.review.set(c);
-    localStorage.setItem(LS_KEY, JSON.stringify(c));
+    const withWs = { ...c, workspaceId: c.workspaceId || this.workspaceId() };
+    this.review.set(withWs);
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(withWs));
+      localStorage.setItem(LS_WS, withWs.workspaceId);
+    } catch { /* quota */ }
+    this.scheduleSync();
+  }
+
+  private scheduleSync(): void {
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => void this.pushToServer(), 450);
+  }
+
+  private async pushToServer(): Promise<void> {
+    const c = this.review();
+    if (!c) return;
+    try {
+      const saved = await firstValueFrom(
+        this.http.put<EmploymentReviewCase>(`${this.base}/${c.workspaceId}`, c)
+      );
+      // Keep local updatedAt aligned with server without re-queueing sync.
+      this.review.set(saved);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(saved)); } catch { /* ignore */ }
+    } catch {
+      // Soft-fail: local draft remains; next change retries.
+    }
   }
 
   private readLocal(): EmploymentReviewCase | null {

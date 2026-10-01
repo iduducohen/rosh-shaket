@@ -1,15 +1,16 @@
 import { Component, computed, inject, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
 import { DOC_CHECKLIST, healthLabel } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
 import { WizardStore } from '../../core/wizard.store';
 import { CalculationFacade } from '../../core/calculation.facade';
+import { ReviewStepNavComponent } from './review-step-nav.component';
 
 @Component({
   selector: 'app-review-termination',
   standalone: true,
-  imports: [IonButton, RouterLink],
+  imports: [IonButton, RouterLink, ReviewStepNavComponent],
   styles: [`
     .box { border-radius:12px; padding:12px; margin:10px 0; border:1px solid var(--rs-line,#ddd); }
     .ok { border-color: var(--ion-color-success); }
@@ -40,12 +41,15 @@ import { CalculationFacade } from '../../core/calculation.facade';
       <ul>
         @for (d of missingDocs(); track d) { <li>{{ d }}</li> }
       </ul>
+      @if (store.hasAnyWaiver()) {
+        <p class="muted small">חלק מהמסמכים סומנו כלא זמינים ולא נכללים ברשימת החסרים — החישוב ישתמש במה שיש.</p>
+      }
     </div>
 
     <div class="box">
       <b>אומדן מצב הקופות</b>
       <p>יתרות שהוזנו: {{ store.fmt(fundTotal()) }}</p>
-      <p>צבירה משוערת (Base): {{ store.fmt(baseSim()) }}</p>
+      <p>צבירה משוערת (בסיס): {{ store.fmt(baseSim()) }}</p>
       <p class="muted small">אומדן בלבד — תלוי בתשואות ודמי ניהול שהונחו.</p>
     </div>
 
@@ -61,13 +65,14 @@ import { CalculationFacade } from '../../core/calculation.facade';
     </div>
 
     <p><b>אין כאן קביעה משפטית.</b> על בסיס המידע שסיפקתם אנו מעריכים / מסמנים מה דורש בדיקה נוספת.</p>
-    <ion-button expand="block" routerLink="/review/report">לדוח המסכם</ion-button>
+    <app-review-step-nav nextLabel="לדוח המסכם" (next)="goNext()" />
   `
 })
 export class ReviewTerminationPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly wizard = inject(WizardStore);
   private readonly calc = inject(CalculationFacade);
+  private readonly router = inject(Router);
   readonly healthLabel = healthLabel;
   busy = false;
 
@@ -89,6 +94,10 @@ export class ReviewTerminationPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     if (!this.store.analysis()) await this.store.analyze();
+  }
+
+  goNext(): void {
+    void this.router.navigateByUrl('/review/report');
   }
 
   async runExitEstimate(): Promise<void> {

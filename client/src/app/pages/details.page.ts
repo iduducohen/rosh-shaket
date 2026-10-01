@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
   IonBackButton, IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonList,
-  IonSegment, IonSegmentButton, IonSpinner, IonToggle, IonToolbar, IonLabel, IonNote
+  IonSegment, IonSegmentButton, IonSpinner, IonToggle, IonToolbar, IonLabel
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
@@ -18,16 +18,37 @@ import { WizardStore } from '../core/wizard.store';
   selector: 'app-details',
   standalone: true,
   imports: [DateFieldComponent, DeskHeaderComponent, FormsModule, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonItem, IonInput,
-    IonSegment, IonSegmentButton, IonButton, IonIcon, IonSpinner, IonToggle, IonLabel, IonNote],
+    IonSegment, IonSegmentButton, IonButton, IonIcon, IonSpinner, IonToggle, IonLabel],
   styles: [`
-    ion-item { --background: transparent; }
-    ion-item.field-invalid, ion-item.field-valid { border-width: 1.5px; border-style: solid; border-radius: 12px; --border-width: 0; }
-    ion-item.field-invalid { border-color: var(--ion-color-danger); }
-    ion-item.field-valid { border-color: var(--ion-color-primary); }
-    .details-lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 14px; }
+    ion-item {
+      --background: var(--rs-field);
+      --border-width: 0;
+      --inner-padding-end: 12px;
+      --padding-start: 14px;
+      border: 1px solid var(--rs-line);
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    ion-item.filled {
+      --background: var(--rs-soft);
+      border-color: color-mix(in srgb, var(--ion-color-primary) 28%, var(--rs-line));
+    }
+    ion-item.filled ion-input, ion-item.filled ion-select { --background: transparent; }
+    ion-item.field-invalid { border-color: var(--ion-color-danger); border-width: 1.5px; }
+    ion-item.field-valid { border-color: var(--ion-color-primary); border-width: 1.5px; }
+    .details-lead { color: var(--ion-color-medium); font-weight: 500; margin: 0 0 10px; font-size: 15px; }
+    .slip-note { margin: 0 0 18px; line-height: 1.45; }
+    .field-hint {
+      margin: -2px 0 10px; padding: 0 4px;
+      font-size: 13px; color: var(--ion-color-medium); line-height: 1.35;
+    }
     .days-card {
-      background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 12px;
+      background: var(--rs-field); border: 1px solid var(--rs-line); border-radius: 12px;
       padding: 10px 12px 12px; margin-bottom: 10px;
+    }
+    .days-card.filled {
+      background: var(--rs-soft);
+      border-color: color-mix(in srgb, var(--ion-color-primary) 28%, var(--rs-line));
     }
     .days-card .lbl { display: block; font-size: 12.5px; color: var(--ion-color-medium); margin-bottom: 8px; }
     .days-row { display: flex; gap: 6px; }
@@ -38,21 +59,31 @@ import { WizardStore } from '../core/wizard.store';
     .days-row button.on { background: var(--ion-color-primary); border-color: var(--ion-color-primary); color: var(--ion-color-primary-contrast); }
     .days-row button:hover:not(.on) { background: var(--rs-soft); }
     .days-row button:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
-    .days-card.filled, .fund-row.filled { background: var(--rs-warn-bg); border-color: var(--rs-accent); }
-    .s14.filled { background: var(--rs-warn-bg); border: 1px solid var(--rs-accent); border-radius: 14px; padding: 8px 12px 12px; }
-    .slip-note { margin: 0 0 16px; }
-    .s14 { margin-top: 8px; }
+    .s14 {
+      margin-top: 14px; padding: 4px 0 0;
+      border: 1px solid transparent; border-radius: 14px;
+    }
+    .s14.filled {
+      background: var(--rs-soft);
+      border-color: color-mix(in srgb, var(--ion-color-primary) 28%, var(--rs-line));
+      padding: 8px 12px 12px;
+    }
     .s14-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-    .seg-label { font-weight: 600; margin: 16px 0 6px; display: block; }
+    .seg-label { font-weight: 600; margin: 12px 0 6px; display: block; }
+    .s14-note { display: block; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
     .more {
       background: none; border: 0; padding: 0; cursor: pointer;
-      color: var(--ion-color-primary); font: inherit; font-weight: 700; font-size: 14.5px;
+      color: var(--ion-color-primary); font: inherit; font-weight: 650; font-size: 14px;
       text-decoration: underline; text-underline-offset: 3px;
     }
     .fund-row {
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      margin-top: 22px; padding: 14px 16px; border: 1px solid var(--rs-line); border-radius: 14px;
-      background: var(--ion-item-background);
+      margin-top: 18px; padding: 14px 16px; border: 1px solid var(--rs-line); border-radius: 14px;
+      background: var(--rs-field);
+    }
+    .fund-row.filled {
+      background: var(--rs-soft);
+      border-color: color-mix(in srgb, var(--ion-color-primary) 28%, var(--rs-line));
     }
     .fund-row span { font-weight: 600; }
     .sheet-backdrop {
@@ -85,19 +116,20 @@ import { WizardStore } from '../core/wizard.store';
     .funds { margin-top: 22px; display: grid; gap: 10px; }
     .funds h3 { margin: 0; font-family: var(--ion-font-family); font-size: 18px; }
     .fund-card {
-      background: var(--rs-warn-bg); border: 1px solid var(--rs-accent); border-radius: 14px; padding: 12px 14px;
+      background: var(--rs-soft);
+      border: 1px solid color-mix(in srgb, var(--ion-color-primary) 22%, var(--rs-line));
+      border-radius: 14px; padding: 12px 14px;
     }
     .fund-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
     .fund-card header b { font-size: 16px; }
     .fund-card p { margin: 6px 0 0; }
     .fund-name { font-weight: 700; }
     @media (min-width: 992px) {
-      ion-list.desk-grid-2 { background: transparent; align-items: start; }
-      ion-list.desk-grid-2 ion-item { --background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 12px; --border-width: 0; }
-      ion-list.desk-grid-2 ion-item.filled { border-color: var(--rs-accent); }
-      ion-list.desk-grid-2 ion-item.field-invalid { border-color: var(--ion-color-danger); }
-      ion-list.desk-grid-2 ion-item.field-valid { border-color: var(--ion-color-primary); }
+      ion-list.desk-grid-2 { background: transparent; align-items: start; gap: 14px 18px; }
+      ion-list.desk-grid-2 ion-item { margin-bottom: 0; }
+      ion-list.desk-grid-2 app-date-field { margin-bottom: 0; }
       .days-card { margin-bottom: 0; }
+      .field-hint { margin: 6px 0 0; }
       .sheet-backdrop { align-items: center; }
     }
   `],
@@ -107,29 +139,31 @@ import { WizardStore } from '../core/wizard.store';
       <app-desk-header [step]="3"></app-desk-header>
       <div class="page narrow ion-padding">
         <h2>פרטי ההעסקה</h2>
-        <p class="details-lead">{{ store.fromPayslip() ? 'השדות בכתום נקראו מהתלוש האחרון. כדאי לוודא לפני שממשיכים.' : 'הכל מופיע בתלוש השכר האחרון.' }}</p>
+        <p class="details-lead">{{ store.fromPayslip() ? 'שדות שסומנו «מהתלוש» נקראו אוטומטית — כדאי לוודא לפני שממשיכים.' : 'הכל מופיע בתלוש השכר האחרון.' }}</p>
         @if (store.fromPayslip()) {
-          <p class="slip-note muted small">תלוש אחד, האחרון, מספיק להערכה: השכר, יתרת החופשה וימי ההבראה ששולמו כבר מסוכמים בו. הוא לא מוכיח שההפקדות של כל השנים הגיעו לפנסיה, לפיצויים ולקרן ההשתלמות. את זה בודקים בדוח מהמסלקה הפנסיונית.</p>
+          <p class="slip-note muted small">תלוש אחרון מספיק להערכה של שכר, חופשה והבראה. הפקדות לאורך השנים בודקים בדוח מהמסלקה הפנסיונית.</p>
         }
 
-        <ion-list lines="full" class="desk-grid-2">
+        <ion-list lines="none" class="desk-grid-2">
           <app-date-field label="תאריך התחלה" [value]="form.startDate" [max]="today" [filled]="isFilled('startDate')"
                           [state]="fieldState('startDate')" [error]="fieldErrors()['startDate'] ?? ''"
                           (valueChange)="setDate('startDate', $event)"></app-date-field>
           <app-date-field label="תאריך סיום" [value]="form.endDate" [filled]="isFilled('endDate')"
                           [state]="fieldState('endDate')" [error]="fieldErrors()['endDate'] ?? ''"
                           (valueChange)="setDate('endDate', $event)"></app-date-field>
-          <ion-item [class.filled]="isFilled('monthlySalary')" [class.field-invalid]="fieldState('monthlySalary') === 'invalid'" [class.field-valid]="fieldState('monthlySalary') === 'valid'">
-            <ion-input [label]="slipLabel('שכר חודשי ברוטו (₪)', 'monthlySalary')" labelPlacement="stacked" type="text" inputmode="numeric" [ngModel]="salaryText" name="salary"
-                       helperText="שכר היסוד, בלי שעות נוספות והחזרים"
-                       [class.ion-invalid]="!!fieldErrors()['monthlySalary']" [class.ion-touched]="!!fieldErrors()['monthlySalary']"
-                       [errorText]="fieldErrors()['monthlySalary'] ?? ''" (ngModelChange)="onSalary($event)"></ion-input>
-          </ion-item>
+          <div>
+            <ion-item [class.filled]="isFilled('monthlySalary')" [class.field-invalid]="fieldState('monthlySalary') === 'invalid'" [class.field-valid]="fieldState('monthlySalary') === 'valid'">
+              <ion-input [label]="slipLabel('שכר חודשי ברוטו (₪)', 'monthlySalary')" labelPlacement="stacked" type="text" inputmode="numeric" [ngModel]="salaryText" name="salary"
+                         [class.ion-invalid]="!!fieldErrors()['monthlySalary']" [class.ion-touched]="!!fieldErrors()['monthlySalary']"
+                         [errorText]="fieldErrors()['monthlySalary'] ?? ''" (ngModelChange)="onSalary($event)"></ion-input>
+            </ion-item>
+            <p class="field-hint">שכר יסוד בלבד — בלי שעות נוספות והחזרים</p>
+          </div>
           <ion-item [class.filled]="isFilled('jobPercent')">
             <ion-input [label]="slipLabel('היקף משרה (%)', 'jobPercent')" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
           </ion-item>
           <div class="days-card" [class.filled]="isFilled('workWeek')">
-            <span class="lbl" id="work-days-label">ימי עבודה בשבוע @if (isFilled('workWeek')) { <span class="from-slip">· זוהה מהתלוש</span> }</span>
+            <span class="lbl" id="work-days-label">ימי עבודה בשבוע @if (isFilled('workWeek')) { <span class="from-slip">· מהתלוש</span> }</span>
             <div class="days-row" role="group" aria-labelledby="work-days-label">
               @for (day of workDays; track day) {
                 <button type="button" [class.on]="form.workDaysPerWeek === day" [attr.aria-pressed]="form.workDaysPerWeek === day" (click)="form.workDaysPerWeek = day">{{ day }}</button>
@@ -138,7 +172,7 @@ import { WizardStore } from '../core/wizard.store';
           </div>
           <ion-item [class.filled]="isFilled('vacationBalanceDays')">
             <ion-input [label]="slipLabel('יתרת ימי חופשה', 'vacationBalanceDays')" labelPlacement="stacked" type="text" inputmode="decimal" [ngModel]="vacationText" name="vac"
-                       helperText="היתרה, לא מכסת הימים השנתית"
+                       helperText="היתרה, לא המכסה השנתית"
                        (ngModelChange)="onVacation($event)"></ion-input>
           </ion-item>
           <ion-item [class.filled]="isFilled('recuperationDaysPaidLastYear')">
@@ -150,10 +184,10 @@ import { WizardStore } from '../core/wizard.store';
 
         <div class="s14" [class.filled]="isFilled('section14')">
           <div class="s14-head">
-            <span class="seg-label">יש לכם סעיף 14? @if (isFilled('section14')) { <span class="from-slip">· זוהה מהתלוש</span> }</span>
+            <span class="seg-label">יש לכם סעיף 14? @if (isFilled('section14')) { <span class="from-slip">· מהתלוש</span> }</span>
             <button type="button" class="more" (click)="sectionInfo.set(true)">מידע נוסף</button>
           </div>
-          @if (isFilled('section14')) { <ion-note class="from-slip">לפי שיעור הפיצויים בתלוש. כדאי לאמת בחוזה.</ion-note> }
+          @if (isFilled('section14')) { <span class="s14-note">לפי שיעור הפיצויים בתלוש — כדאי לאמת בחוזה</span> }
           <ion-segment [(ngModel)]="form.section14" name="s14">
             <ion-segment-button value="Full"><ion-label>8.33%</ion-label></ion-segment-button>
             <ion-segment-button value="Partial6"><ion-label>6%</ion-label></ion-segment-button>
@@ -163,7 +197,7 @@ import { WizardStore } from '../core/wizard.store';
         </div>
 
         <div class="fund-row" [class.filled]="isFilled('hasStudyFund')">
-          <span>קרן השתלמות דרך העבודה @if (isFilled('hasStudyFund')) { <span class="from-slip">· זוהה מהתלוש</span> }</span>
+          <span>קרן השתלמות דרך העבודה @if (isFilled('hasStudyFund')) { <span class="from-slip">· מהתלוש</span> }</span>
           <ion-toggle [(ngModel)]="form.hasStudyFund" name="fund" aria-label="קרן השתלמות דרך העבודה"></ion-toggle>
         </div>
 
@@ -177,7 +211,7 @@ import { WizardStore } from '../core/wizard.store';
                 <article class="fund-card">
                   <header>
                     <b>{{ card.title }}</b>
-                    <span class="from-slip">זוהה מהתלוש</span>
+                    <span class="from-slip">מהתלוש</span>
                   </header>
                   @for (line of card.lines; track $index) {
                     <p class="fund-name">{{ line.name || 'שם הקופה לא מופיע' }}</p>
@@ -272,6 +306,26 @@ export class DetailsPage {
     addIcons({ closeOutline });
   }
 
+  /** Ionic keeps pages alive; re-sync local form after "התחל מחדש" cleared the store. */
+  ionViewWillEnter(): void {
+    this.syncFromStore();
+  }
+
+  private syncFromStore(): void {
+    this.form = { ...this.store.profile() };
+    this.salaryText = displayGrouped(this.form.monthlySalary, false);
+    this.vacationText = displayGrouped(this.form.vacationBalanceDays, true);
+    this.recText = recDisplay(
+      this.form.recuperationDaysPaidLastYear,
+      this.store.filledFields().includes('recuperationDaysPaidLastYear')
+    );
+    this.fieldErrors.set({});
+    this.checked.set(false);
+    this.error.set('');
+    this.busy.set(false);
+    this.sectionInfo.set(false);
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.sectionInfo.set(false);
@@ -282,7 +336,7 @@ export class DetailsPage {
   }
 
   slipLabel(text: string, field: string): string {
-    return this.isFilled(field) ? `${text} · זוהה מהתלוש` : text;
+    return this.isFilled(field) ? `${text} · מהתלוש` : text;
   }
 
   fundCards(rows: FundLine[]): { kind: FundKind; title: string; lines: FundLine[] }[] {
