@@ -151,6 +151,16 @@ public static class DependencyInjection
                 await db.Database.EnsureCreatedAsync();
                 await WorkspaceSchema.EnsureAsync(db, logger);
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
+
+                await db.Database.ExecuteSqlRawAsync(
+                    """
+                    CREATE TABLE IF NOT EXISTS data_protection_keys (
+                        "Id" uuid PRIMARY KEY,
+                        "FriendlyName" text,
+                        "Xml" text NOT NULL
+                    )
+                    """);
+
                 logger.LogInformation("Postgres database ensured.");
                 return;
             }
