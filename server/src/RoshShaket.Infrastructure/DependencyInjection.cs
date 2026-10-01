@@ -132,7 +132,7 @@ public static class DependencyInjection
         return [.. list];
     }
 
-    /// <summary>Creates the Postgres schema and seed on first run. Replace with EF migrations before production.</summary>
+    /// <summary>Creates the Postgres schema and seeds Mongo editorial content on first run.</summary>
     public static async Task InitializeDatabasesAsync(this IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -163,7 +163,7 @@ public static class DependencyInjection
                     """);
 
                 logger.LogInformation("Postgres database ensured.");
-                return;
+                break;
             }
             catch (Exception ex)
             {
@@ -173,13 +173,26 @@ public static class DependencyInjection
                 if (attempt == maxAttempts)
                 {
                     logger.LogError(ex, "Giving up ensuring Postgres database after {Max} attempts. Application will continue but DB operations may fail.", maxAttempts);
-                    return; // swallow error to allow the app to run; callers should handle DB unavailability.
+                    break;
                 }
 
                 // Exponential backoff
                 var delayMs = Math.Min(30_000, 500 * (int)Math.Pow(2, attempt));
                 await Task.Delay(delayMs);
             }
+        }
+
+        try
+        {
+            var mongo = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
+            logger.LogInformation("Ensuring Mongo content database {Database} is seeded.", mongo.DatabaseNamespace.DatabaseName);
+            await MongoContentSeed.EnsureAsync(mongo, logger);
+            logger.LogInformation("Mongo content database ready.");
+        }
+        catch (Exception ex)
+        {
+            // Soft-fail: app still serves embedded checklist/sources if Mongo is unreachable.
+            logger.LogError(ex, "Mongo content seed failed; API will use embedded fallback until Mongo is available.");
         }
     }
 }
