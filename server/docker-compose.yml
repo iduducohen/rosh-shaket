@@ -1,6 +1,8 @@
 services:
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
     image: rosh-shaket-api
     ports:
       - "5080:8080"

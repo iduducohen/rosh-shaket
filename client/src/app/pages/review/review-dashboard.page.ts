@@ -1,7 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { Capacitor } from '@capacitor/core';
+import { Router } from '@angular/router';
 import { IonButton, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
@@ -38,7 +37,7 @@ interface DashModal {
 @Component({
   selector: 'app-review-dashboard',
   standalone: true,
-  imports: [IonButton, IonIcon, RouterLink, DecimalPipe, ReviewStepNavComponent],
+  imports: [IonButton, IonIcon, DecimalPipe, ReviewStepNavComponent],
   styles: [`
     .health { font-size: 20px; margin: 8px 0 10px; font-weight: 700; color: var(--ion-color-primary); }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 14px; line-height: 1.45; }
@@ -58,39 +57,12 @@ interface DashModal {
     .card strong { font-size: 18px; font-weight: 700; }
     .card .tap { display: block; margin-top: 6px; font-size: 11px; color: var(--ion-color-primary); font-weight: 700; }
 
-    .nav-actions {
+    .modal-actions {
       display: flex; flex-wrap: wrap; gap: 8px;
-      justify-content: flex-end; /* שמאל במסך RTL */
-      margin-top: 18px;
+      justify-content: flex-end;
+      margin-top: 16px;
     }
-    .nav-actions ion-button { margin: 0; }
-    .tip-wrap { position: relative; display: inline-flex; }
-
-    @media (hover: hover) and (pointer: fine) {
-      .tip-wrap.has-tip::after,
-      .tip-wrap.has-tip::before {
-        position: absolute; opacity: 0; pointer-events: none;
-        transition: opacity .12s ease, transform .12s ease; z-index: 5;
-      }
-      .tip-wrap.has-tip::after {
-        content: attr(data-tip);
-        bottom: calc(100% + 10px); left: 50%;
-        transform: translateX(-50%) translateY(4px);
-        max-width: 240px; white-space: normal; text-align: center;
-        padding: 8px 10px; border-radius: 8px;
-        font-size: 12px; font-weight: 700; line-height: 1.35; color: #fff;
-        background: #0B1F26; box-shadow: 0 8px 20px rgba(11, 31, 38, .22);
-      }
-      .tip-wrap.has-tip::before {
-        content: ''; bottom: calc(100% + 4px); left: 50%;
-        transform: translateX(-50%) translateY(4px);
-        border: 6px solid transparent; border-top-color: #0B1F26;
-      }
-      .tip-wrap.has-tip:hover::after,
-      .tip-wrap.has-tip:hover::before {
-        opacity: 1; transform: translateX(-50%) translateY(0);
-      }
-    }
+    .modal-actions ion-button { margin: 0; }
 
     .sheet-backdrop {
       position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .48);
@@ -141,30 +113,9 @@ interface DashModal {
       @if (analysis.usedEstimates) {
         <p class="hint ion-margin-top">חלק מהסימולציה מבוסס על אומדן (מדווח/צפוי) כי חסר בפועל.</p>
       }
-
-      <div class="nav-actions">
-        <span class="tip-wrap" [class.has-tip]="showTooltips" [attr.data-tip]="showTooltips ? tipReconciliation : null">
-          <ion-button fill="outline" routerLink="/review/reconciliation"
-            [attr.aria-label]="'פירוט הפקדות — ' + tipReconciliation">
-            פירוט הפקדות
-          </ion-button>
-        </span>
-        <span class="tip-wrap" [class.has-tip]="showTooltips" [attr.data-tip]="showTooltips ? tipSimulation : null">
-          <ion-button fill="outline" routerLink="/review/simulation"
-            [attr.aria-label]="'סימולציית צבירה — ' + tipSimulation">
-            סימולציית צבירה
-          </ion-button>
-        </span>
-        <span class="tip-wrap" [class.has-tip]="showTooltips" [attr.data-tip]="showTooltips ? tipTermination : null">
-          <ion-button fill="outline" routerLink="/review/termination"
-            [attr.aria-label]="'סיום העסקה — ' + tipTermination">
-            סיום העסקה
-          </ion-button>
-        </span>
-      </div>
     }
 
-    <app-review-step-nav nextLabel="המשך" (next)="next()" />
+    <app-review-step-nav (next)="next()" />
 
     @if (modal(); as m) {
       <div class="sheet-backdrop" (click)="closeModal()">
@@ -210,7 +161,7 @@ interface DashModal {
             </div>
           }
 
-          <div class="nav-actions" style="margin-top:16px">
+          <div class="modal-actions">
             <ion-button fill="outline" (click)="closeModal()">סגירה</ion-button>
           </div>
         </div>
@@ -222,15 +173,7 @@ export class ReviewDashboardPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
   readonly healthLabel = healthLabel;
-  readonly showTooltips = !Capacitor.isNativePlatform();
   readonly modal = signal<DashModal | null>(null);
-
-  readonly tipReconciliation =
-    'טבלת צפוי / מדווח / בפועל לפי שנים — איפה יש פער בהפקדות.';
-  readonly tipSimulation =
-    'איך היתרה בקופות הייתה יכולה להיראות לפי תשואה ודמי ניהול (אומדן).';
-  readonly tipTermination =
-    'סיכום לקראת סיום העסקה: מה תקין, מה חסר, ואומדן רכיב פיצויים.';
 
   constructor() {
     addIcons({ closeOutline });

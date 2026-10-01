@@ -232,7 +232,7 @@ interface FlagOption {
     </div>
 
     @if (err) { <p class="err">{{ err }}</p> }
-    <app-review-step-nav nextLabel="המשך למסמכים" (next)="save()" />
+    <app-review-step-nav (next)="save()" />
 
     @if (info(); as current) {
       <div class="sheet-backdrop" (click)="info.set(null)">
@@ -432,6 +432,11 @@ export class ReviewEmploymentPage {
       hadWorkBreak: this.hadBreak,
       multiplePeriods: this.multiple
     });
+    // Navigate only after local period exists — documents year grid depends on it.
+    if (!this.store.review()?.period) {
+      this.err = 'שמירת התקופה נכשלה. נסו שוב.';
+      return;
+    }
     void this.router.navigateByUrl('/review/documents');
   }
 }

@@ -64,7 +64,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             ReviewDocumentTypes.PensionReport =>
                 $"המשתמש טוען שזה דוח פנסיה / דוח הפקדות / דוח קופה לשנת {expectedYear}. חלץ את שנת הדוח ואת יתרות הקופות אם מופיעות.",
             _ =>
-                $"המשתמש טוען שזה תלוש שכר לחודש {expectedMonth}/{expectedYear}. חלץ את חודש ושנת התלוש ואת שכר היסוד החודשי ברוטו."
+                $"המשתמש טוען שזה תלוש שכר לחודש {expectedMonth}/{expectedYear}. חלץ את חודש ושנת התלוש, שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה."
         };
 
         return $$"""
@@ -79,6 +79,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "summary_he": "משפט קצר בעברית על מה שזוהה, בלי פרטים מזהים",
              "gross_salary": מספר או null,
              "annual_gross": מספר או null,
+             "contribution_kinds": ["pension"|"severance"|"disability"|"study"],
              "funds": [{"kind":"pension"|"severance"|"study"|"managers","provider":"שם הגוף או null","balance":מספר או null,"as_of":"YYYY-MM-DD או null","fee_annual_percent":מספר או null,"return_annual_percent":מספר או null,"track":"מסלול או null"}]}
             כללים:
             - detected_type=payslip רק לתלוש שכר ישראלי.
@@ -86,8 +87,9 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             - detected_type=pension_report לדוח פנסיה, הפקדות, גמל, השתלמות או ביטוח מנהלים.
             - other / unknown אם לא ברור.
             - לתלוש: gross_salary = שכר יסוד חודשי ברוטו.
-            - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע.
-            - לדוח קופות: מלא funds לכל קופה ברורה. pension=פנסיה/תגמולים, severance=פיצויים, study=השתלמות, managers=ביטוח מנהלים. מערך ריק אם אין יתרות.
+            - לתלוש: contribution_kinds = סוגי שורות בטבלת ההפרשות. pension=תגמולי פנסיה, severance=פיצויים, disability=אובדן כושר עבודה, study=קרן השתלמות. מערך ריק אם אין טבלה.
+            - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע. contribution_kinds ריק.
+            - לדוח קופות: מלא funds לכל קופה ברורה. pension=פנסיה/תגמולים, severance=פיצויים, study=השתלמות, managers=ביטוח מנהלים. מערך ריק אם אין יתרות. contribution_kinds ריק.
             - readable=false אם מטושטש/חתוך/כהה.
             - אל תנחש. אל תחזיר מזהים אישיים.
             """;
@@ -174,8 +176,25 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 Clip(ReadString(raw, "summary_he")),
                 ReadDecimal(raw, "gross_salary"),
                 ReadDecimal(raw, "annual_gross"),
-                ReadFunds(raw));
+                ReadFunds(raw),
+                ReadContributionKinds(raw));
         }
+    }
+
+    private static IReadOnlyList<string> ReadContributionKinds(JsonElement raw)
+    {
+        if (!raw.TryGetProperty("contribution_kinds", out var kinds) || kinds.ValueKind != JsonValueKind.Array)
+            return [];
+        var list = new List<string>();
+        foreach (var row in kinds.EnumerateArray())
+        {
+            var kind = row.ValueKind == JsonValueKind.String
+                ? row.GetString()?.Trim().ToLowerInvariant()
+                : null;
+            if (kind is not ("pension" or "severance" or "disability" or "study")) continue;
+            if (!list.Contains(kind)) list.Add(kind);
+        }
+        return list;
     }
 
     private static IReadOnlyList<ExtractedFundLine> ReadFunds(JsonElement raw)
@@ -259,6 +278,10 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             "summary_he": { "type": ["string", "null"] },
             "gross_salary": { "type": ["number", "null"] },
             "annual_gross": { "type": ["number", "null"] },
+            "contribution_kinds": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["pension", "severance", "disability", "study"] }
+            },
             "funds": {
               "type": "array",
               "items": {
@@ -277,7 +300,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "gross_salary", "annual_gross", "funds"]
+          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "gross_salary", "annual_gross", "contribution_kinds", "funds"]
         }
         """;
 }

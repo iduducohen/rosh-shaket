@@ -74,11 +74,33 @@ export class ReviewStore {
     const periodId = crypto.randomUUID();
     const months = this.generateMonths(ws, periodId, input.startDate, input.endDate);
     const existing = this.review();
-    // Keep overlapping month data
+    // Keep only user-sourced month data (payslip / manual). Never keep orphan demo salaries.
     const map = new Map((existing?.months ?? []).map(m => [`${m.year}-${m.month}`, m]));
     const merged = months.map(m => {
       const old = map.get(`${m.year}-${m.month}`);
-      return old ? { ...old, id: m.id, periodId, workspaceId: ws } : m;
+      if (!old) return m;
+      const keepSalary = old.flags === 'from_payslip' || old.flags === 'manual';
+      if (!keepSalary) {
+        return { ...m };
+      }
+      return {
+        ...m,
+        grossSalary: old.grossSalary,
+        pensionableSalary: old.pensionableSalary,
+        flags: old.flags,
+        sourceDocumentId: old.sourceDocumentId,
+        confidence: old.confidence,
+        employeePension: old.employeePension,
+        employerPension: old.employerPension,
+        employeeCompensation: old.employeeCompensation,
+        employerCompensation: old.employerCompensation,
+        trainingFundEmployee: old.trainingFundEmployee,
+        trainingFundEmployer: old.trainingFundEmployer,
+        otherExpected: old.otherExpected,
+        otherReported: old.otherReported,
+        otherActual: old.otherActual,
+        contributionDate: old.contributionDate
+      };
     });
     this.persist({
       workspaceId: ws,
@@ -274,9 +296,11 @@ export class ReviewStore {
         localStorage.setItem(LS_WS, remote.workspaceId || id);
         this.review.set(remote);
         localStorage.setItem(LS_KEY, JSON.stringify(remote));
+        this.scrubOrphanSalaries();
         return remote.currentStep ?? null;
       }
       if (localHasData) {
+        this.scrubOrphanSalaries();
         this.scheduleSync();
         return local?.currentStep ?? null;
       }
@@ -422,6 +446,40 @@ export class ReviewStore {
     }
   }
 
+  /**
+   * Remove salaries that were never entered by the user (no payslip / manual flag).
+   * Fixes leftover demo / merged session data showing as "full" with zero uploads.
+   */
+  scrubOrphanSalaries(): void {
+    const r = this.review();
+    if (!r) return;
+    let changed = false;
+    const months = r.months.map(m => {
+      if (m.grossSalary == null && m.pensionableSalary == null) return m;
+      if (m.flags === 'from_payslip' || m.flags === 'manual') return m;
+      const hasPayslip = r.documents.some(
+        d => d.documentType === 'payslip'
+          && d.year === m.year
+          && d.month === m.month
+          && d.extractedGrossSalary != null
+          && d.extractedGrossSalary > 0
+      );
+      if (hasPayslip) return m;
+      changed = true;
+      return {
+        ...m,
+        grossSalary: null,
+        pensionableSalary: null,
+        sourceDocumentId: null,
+        confidence: 'Unknown' as const,
+        flags: null
+      };
+    });
+    if (changed) {
+      this.persist({ ...r, months, updatedAt: new Date().toISOString() });
+    }
+  }
+
   async analyze(): Promise<AnalyzeResponse | null> {
     const r = this.review();
     if (!r?.months.length) return null;
@@ -492,11 +550,42 @@ export class ReviewStore {
       const saved = await firstValueFrom(
         this.http.put<EmploymentReviewCase>(`${this.base}/${c.workspaceId}`, c)
       );
-      // Keep local updatedAt aligned with server without re-queueing sync.
-      this.review.set(saved);
-      try { localStorage.setItem(LS_KEY, JSON.stringify(saved)); } catch { /* ignore */ }
+      // Keep local as source of truth for fields the server model may not round-trip yet
+      // (e.g. documentWaivers), but adopt server timestamps/ids when present.
+      const merged: EmploymentReviewCase = {
+        ...c,
+        ...saved,
+        documentWaivers: c.documentWaivers ?? [],
+        documents: saved.documents?.length ? saved.documents : c.documents,
+        months: saved.months?.length ? saved.months : c.months,
+        period: saved.period ?? c.period,
+        funds: saved.funds?.length ? saved.funds : c.funds
+      };
+      this.review.set(merged);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
     } catch {
-      // Soft-fail: local draft remains; next change retries.
+      // Older API without full-case PUT (405) — sync period at least.
+      await this.pushPeriodFallback(c);
+    }
+  }
+
+  /** Fallback when PUT /{id} is not supported by the running API. */
+  private async pushPeriodFallback(c: EmploymentReviewCase): Promise<void> {
+    const p = c.period;
+    if (!p?.startDate || !p?.endDate) return;
+    try {
+      await firstValueFrom(this.http.put(`${this.base}/${c.workspaceId}/period`, {
+        employerName: p.employerName,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        sameEmployerThroughout: p.sameEmployerThroughout,
+        exitReason: p.exitReason,
+        hadWorkBreak: p.hadWorkBreak,
+        multiplePeriods: p.multiplePeriods,
+        notes: p.notes
+      }));
+    } catch {
+      // Soft-fail: local draft remains.
     }
   }
 

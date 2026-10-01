@@ -48,7 +48,9 @@ public sealed record DocumentExtraction(
     string? SummaryHe,
     decimal? GrossSalary = null,
     decimal? AnnualGross = null,
-    IReadOnlyList<ExtractedFundLine>? Funds = null);
+    IReadOnlyList<ExtractedFundLine>? Funds = null,
+    /// <summary>Payslip contribution kinds: pension, severance, disability, study.</summary>
+    IReadOnlyList<string>? ContributionKinds = null);
 
 /// <summary>Extraction + match against the user's selection.</summary>
 public sealed record DocumentVerificationResult(
@@ -65,7 +67,8 @@ public sealed record DocumentVerificationResult(
     string? SummaryHe,
     decimal? GrossSalary = null,
     decimal? AnnualGross = null,
-    IReadOnlyList<ExtractedFundLine>? Funds = null);
+    IReadOnlyList<ExtractedFundLine>? Funds = null,
+    IReadOnlyList<string>? ContributionKinds = null);
 
 public static class DocumentVerificationMapper
 {
@@ -101,7 +104,8 @@ public static class DocumentVerificationMapper
             x.SummaryHe,
             Positive(x.GrossSalary),
             Positive(x.AnnualGross),
-            x.Funds);
+            x.Funds,
+            x.ContributionKinds);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;

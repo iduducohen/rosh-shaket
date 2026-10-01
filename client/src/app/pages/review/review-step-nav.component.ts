@@ -21,21 +21,37 @@ const REVIEW_STEPS = [
   standalone: true,
   imports: [IonButton, IonIcon],
   styles: [`
-    :host { display: block; margin-top: 20px; }
+    :host {
+      display: block;
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--rs-line, #e5e5e5);
+    }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .nav ion-button {
+      margin: 0;
+      min-width: 132px;
+      flex: 0 0 auto;
+    }
   `],
   template: `
-    <div class="desk-actions">
+    <nav class="nav" aria-label="ניווט בין שלבי הבדיקה">
       <ion-button fill="outline" (click)="goBack()" [attr.aria-label]="'חזרה לשלב קודם'">
         <ion-icon slot="start" name="arrow-back-outline" aria-hidden="true"></ion-icon>
         חזרה
       </ion-button>
       @if (nextLabel()) {
-        <ion-button [disabled]="nextDisabled()" (click)="next.emit()" [attr.aria-label]="nextLabel()!">
+        <ion-button fill="outline" [disabled]="nextDisabled()" (click)="next.emit()" [attr.aria-label]="nextLabel()!">
           {{ nextLabel() }}
           <ion-icon slot="end" name="arrow-forward-outline" aria-hidden="true"></ion-icon>
         </ion-button>
       }
-    </div>
+    </nav>
   `
 })
 export class ReviewStepNavComponent {

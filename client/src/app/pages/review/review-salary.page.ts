@@ -1,7 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { IonButton, IonInput } from '@ionic/angular/standalone';
+import { IonButton, IonIcon, IonInput } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { calculatorOutline } from 'ionicons/icons';
 import { ReviewStore, MAX_MONTHLY_GROSS_SALARY, MIN_MONTHLY_GROSS_SALARY } from '../../core/review.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 
@@ -30,7 +32,7 @@ interface YearBlock {
 @Component({
   selector: 'app-review-salary',
   standalone: true,
-  imports: [FormsModule, IonButton, IonInput, ReviewStepNavComponent],
+  imports: [FormsModule, IonButton, IonIcon, IonInput, ReviewStepNavComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 14px; line-height: 1.45; }
@@ -84,7 +86,17 @@ interface YearBlock {
       border: 1px solid var(--rs-line); border-radius: 10px; min-height: 38px;
     }
     .gap-err { color: var(--ion-color-danger); font-size: 12.5px; margin: 4px 0 0; grid-column: 1 / -1; }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+    .tools {
+      display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;
+      margin: 10px 0 0;
+    }
+    .tools button {
+      background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+      font-size: 13px; font-weight: 700; color: var(--ion-color-primary);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .tools button:disabled { opacity: .45; cursor: default; }
+    .tools button ion-icon { font-size: 16px; }
   `],
   template: `
     <h2>היסטוריית שכר</h2>
@@ -166,14 +178,15 @@ interface YearBlock {
         }
       </div>
 
-      <div class="actions">
-        <ion-button fill="outline" (click)="fillExpected()" [disabled]="store.busy()">
+      <div class="tools">
+        <button type="button" (click)="fillExpected()" [disabled]="store.busy()">
+          <ion-icon name="calculator-outline" aria-hidden="true"></ion-icon>
           חישוב הפקדות צפויות
-        </ion-button>
+        </button>
       </div>
     }
 
-    <app-review-step-nav nextLabel="המשך לקופות" (next)="next()" />
+    <app-review-step-nav (next)="next()" />
   `
 })
 export class ReviewSalaryPage implements OnInit {
@@ -185,6 +198,10 @@ export class ReviewSalaryPage implements OnInit {
   readonly maxSalary = MAX_MONTHLY_GROSS_SALARY;
   draftSalary: Record<string, string> = {};
   draftError: Record<string, string> = {};
+
+  constructor() {
+    addIcons({ calculatorOutline });
+  }
 
   readonly monthNames = [
     '', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -205,11 +222,10 @@ export class ReviewSalaryPage implements OnInit {
         source = 'payslip';
       } else if (m.grossSalary != null && m.flags === 'manual') {
         source = 'manual';
-      } else if (m.grossSalary != null) {
-        source = payslip ? 'payslip' : 'manual';
       } else if (waived) {
         source = 'waived';
       }
+      // Orphan gross (no flag / no payslip) is treated as empty — see scrubOrphanSalaries.
 
       const row: MonthRow = {
         year: m.year,
@@ -227,7 +243,7 @@ export class ReviewSalaryPage implements OnInit {
       .sort((a, b) => a[0] - b[0])
       .map(([year, months]) => {
         months.sort((a, b) => a.month - b.month);
-        const withPay = months.filter(m => m.salary != null);
+        const withPay = months.filter(m => m.source === 'payslip' || m.source === 'manual');
         const gaps = months.filter(m => m.source === 'empty').length;
         const sum = withPay.length ? withPay.reduce((s, m) => s + (m.salary ?? 0), 0) : null;
         const avg = withPay.length && sum != null ? sum / withPay.length : null;
@@ -247,6 +263,7 @@ export class ReviewSalaryPage implements OnInit {
   });
 
   ngOnInit(): void {
+    this.store.scrubOrphanSalaries();
     this.store.syncSalariesFromDocuments();
     const blocks = this.yearBlocks();
     const firstGap = blocks.find(b => !b.ok)?.year ?? blocks[0]?.year ?? null;
@@ -301,7 +318,8 @@ export class ReviewSalaryPage implements OnInit {
     await this.store.fillExpectedFromServer();
   }
 
-  next(): void {
-    void this.router.navigateByUrl('/review/funds');
+  async next(): Promise<void> {
+    await this.store.fillExpectedFromServer();
+    await this.router.navigateByUrl('/review/funds');
   }
 }

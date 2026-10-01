@@ -1,13 +1,14 @@
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { IonButton, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { closeOutline, cloudUploadOutline, createOutline, trashOutline } from 'ionicons/icons';
+import { closeOutline, cloudUploadOutline, createOutline, trashOutline, downloadOutline, clipboardOutline, printOutline } from 'ionicons/icons';
 import { DOC_CHECKLIST, ReviewDocumentMeta } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
 import { DocumentValidationService } from '../../core/document-validation.service';
 import { ReviewStepNavComponent } from './review-step-nav.component';
+import { PENSION_GUIDE } from './pension-guide';
 
 /** Basic yearly coverage — not every document type in the catalog. */
 const CORE_TYPES = [
@@ -28,70 +29,6 @@ const CORE_TYPES = [
   }
 ] as const;
 
-/** Practical tips — prefer gov portals; company sites change often. */
-const PENSION_GUIDE = {
-  intro: 'דוח פנסיה / דוח הפקדות מגיע מהגוף שמנהל את הקופה. חלק מהנתונים מופיעים גם בתלוש. מומלץ להתחיל בשירות הממשלתי לאיתור חסכונות:',
-  gov: [
-    {
-      name: 'איתור חסכונות פנסיוניים (הר הכסף)',
-      tip: 'שירות משרד האוצר — איתור קרנות פנסיה / גמל / השתלמות על שמכם והורדת מידע, בחינם עם הזדהות.',
-      url: 'https://itur.mof.gov.il/',
-      urlLabel: 'itur.mof.gov.il'
-    },
-    {
-      name: 'הר הביטוח',
-      tip: 'ריכוז פוליסות ביטוח (כולל ביטוחי מנהלים) — שימושי אם יש חיסכון בחברת ביטוח.',
-      url: 'https://harb.cma.gov.il/Home',
-      urlLabel: 'harb.cma.gov.il'
-    }
-  ],
-  companies: [
-    {
-      name: 'מנורה מבטחים',
-      tip: 'אזור אישי → דוחות / פנסיה → הורדת דוח שנתי או דוח הפקדות.',
-      url: 'https://www.menoramivt.co.il/',
-      urlLabel: 'menoramivt.co.il'
-    },
-    {
-      name: 'מגדל',
-      tip: 'אזור אישי → חיסכון פנסיוני → דוחות להורדה.',
-      url: 'https://www.migdal.co.il/',
-      urlLabel: 'migdal.co.il'
-    },
-    {
-      name: 'הראל',
-      tip: 'אזור אישי → פנסיה וגמל → דוחות ומסמכים.',
-      url: 'https://www.harel-group.co.il/',
-      urlLabel: 'harel-group.co.il'
-    },
-    {
-      name: 'כלל',
-      tip: 'אזור אישי → חיסכון ארוך טווח → דוחות.',
-      url: 'https://www.clalbit.co.il/',
-      urlLabel: 'clalbit.co.il'
-    },
-    {
-      name: 'הפניקס',
-      tip: 'אזור אישי → פנסיה → דוחות להורדה.',
-      url: 'https://www.fnx.co.il/',
-      urlLabel: 'fnx.co.il'
-    },
-    {
-      name: 'מיטב',
-      tip: 'אזור אישי → קופות ופנסיה → דוחות.',
-      url: 'https://www.meitav.co.il/',
-      urlLabel: 'meitav.co.il'
-    },
-    {
-      name: 'אלטשולר שחם',
-      tip: 'אזור אישי → דוחות שנתיים / תנועות.',
-      url: 'https://www.as-invest.co.il/',
-      urlLabel: 'as-invest.co.il'
-    }
-  ],
-  note: 'אם לא בטוחים באיזו חברה הקופה — התחילו באיתור החסכונות של משרד האוצר. התפריטים באפליקציות משתנים, אבל החיפוש הוא תמיד: אזור אישי → דוחות.'
-};
-
 const ALLOWED_EXT = /\.(pdf|png|jpe?g|webp|heic)$/i;
 const ALLOWED_MIME = /^(application\/pdf|image\/)/i;
 
@@ -107,7 +44,7 @@ interface YearGap {
 @Component({
   selector: 'app-review-documents',
   standalone: true,
-  imports: [IonButton, IonIcon, ReviewStepNavComponent],
+  imports: [IonButton, IonIcon, RouterLink, ReviewStepNavComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 12px; line-height: 1.45; }
@@ -146,9 +83,19 @@ interface YearGap {
       border-color: var(--rs-line);
     }
     .toolbar {
-      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 8px;
+      display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;
+      margin: 4px 0 0; padding: 0;
     }
-    .toolbar ion-button { margin: 0; --padding-start: 16px; --padding-end: 16px; min-height: 40px; }
+    .toolbar button {
+      background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+      font-size: 13px; font-weight: 700; color: var(--ion-color-primary);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .toolbar button:disabled { opacity: .45; cursor: default; }
+    .toolbar button ion-icon { font-size: 16px; }
+    .toolbar .sep {
+      width: 1px; height: 14px; background: var(--rs-line); flex: none;
+    }
 
     .field { margin-bottom: 12px; }
     .field label { display: block; font-size: 12.5px; color: var(--ion-color-medium); margin-bottom: 6px; }
@@ -177,6 +124,13 @@ interface YearGap {
     .type-chip b { display: block; font-size: 13px; font-weight: 700; line-height: 1.3; }
     .type-chip .meta { display: block; font-size: 11.5px; margin-top: 3px; color: var(--ion-color-medium); }
     .type-chip.need:not(.have) .meta { color: var(--ion-color-danger); font-weight: 600; }
+    .type-chip .chip-waive {
+      background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+      font-size: 11.5px; font-weight: 700; color: var(--ion-color-danger);
+      text-decoration: underline; text-underline-offset: 2px; margin-top: 4px;
+      display: inline-block;
+    }
+    .type-chip.waived .chip-waive { color: var(--ion-color-medium-shade, #5E6F73); }
     .drop {
       border: 1.5px dashed var(--ion-color-primary); border-radius: 14px; padding: 18px 16px;
       text-align: center; margin: 0 0 10px; background: rgba(var(--ion-color-primary-rgb), .04);
@@ -398,6 +352,7 @@ interface YearGap {
     <p class="lead">לחצו על שנה כדי להוסיף או להשלים מסמכים.</p>
     @if (!periodYears().length) {
       <p class="hint">מלאו תאריכי העסקה בשלב הקודם — ואז יופיעו כאן השנים.</p>
+      <ion-button fill="outline" routerLink="/review/employment">לחזרה למילוי תקופת העסקה</ion-button>
     } @else {
       <div class="year-grid">
         @for (g of yearGaps(); track g.year) {
@@ -415,20 +370,25 @@ interface YearGap {
       @if (store.hasAnyWaiver()) {
         <p class="waiver-note">חלק מהמסמכים סומנו כלא זמינים — אפשר להמשיך לחישוב על בסיס מה שיש.</p>
       }
-      <div class="toolbar">
-        <ion-button fill="solid" size="default" [disabled]="!periodYears().length" (click)="exportMissing()">
+      <div class="toolbar" role="group" aria-label="ייצוא ורשימות">
+        <button type="button" [disabled]="!periodYears().length" (click)="exportMissing()">
+          <ion-icon name="download-outline" aria-hidden="true"></ion-icon>
           ייצוא לאקסל
-        </ion-button>
-        <ion-button fill="outline" size="default" [disabled]="!periodYears().length" (click)="copyChecklist()">
+        </button>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" [disabled]="!periodYears().length" (click)="copyChecklist()">
+          <ion-icon name="clipboard-outline" aria-hidden="true"></ion-icon>
           {{ copied() ? 'הועתק ✓' : 'העתקה ללוח' }}
-        </ion-button>
-        <ion-button fill="outline" size="default" [disabled]="!periodYears().length" (click)="printChecklist()">
+        </button>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" [disabled]="!periodYears().length" (click)="printChecklist()">
+          <ion-icon name="print-outline" aria-hidden="true"></ion-icon>
           הדפסה / PDF
-        </ion-button>
+        </button>
       </div>
     }
 
-    <app-review-step-nav nextLabel="המשך להיסטוריית שכר" (next)="next()" />
+    <app-review-step-nav (next)="next()" />
 
     @if (yearModal(); as y) {
       <div class="sheet-backdrop" (click)="closeYear()">
@@ -487,15 +447,32 @@ interface YearGap {
                 <label class="field" style="margin-bottom:6px">מה צריך לשנה הזו</label>
                 <div class="type-grid">
                   @for (t of coreTypes; track t.key) {
-                    <button type="button" class="type-chip"
+                    <div class="type-chip"
+                      role="button"
+                      tabindex="0"
                       [class.selected]="docType === t.key"
                       [class.have]="coverageState(y, t.key) === 'have'"
                       [class.waived]="coverageState(y, t.key) === 'waived'"
                       [class.need]="coverageState(y, t.key) === 'miss'"
-                      (click)="selectDocType(t.key)">
+                      (click)="selectDocType(t.key)"
+                      (keydown.enter)="selectDocType(t.key)">
                       <b>{{ t.label }}</b>
-                      <span class="meta">{{ coverageMeta(y, t.key) }}</span>
-                    </button>
+                      @if (t.key === 'payslip') {
+                        <span class="meta">{{ coverageMeta(y, t.key) }}</span>
+                      } @else if (coverageState(y, t.key) === 'have') {
+                        <span class="meta">יש</span>
+                      } @else if (coverageState(y, t.key) === 'waived') {
+                        <button type="button" class="chip-waive"
+                          (click)="unwaiveType(y, t.key); $event.stopPropagation()">
+                          ביטול דילוג
+                        </button>
+                      } @else {
+                        <button type="button" class="chip-waive"
+                          (click)="waiveType(y, t.key); $event.stopPropagation()">
+                          לחץ אם אין
+                        </button>
+                      }
+                    </div>
                   }
                 </div>
 
@@ -815,14 +792,15 @@ export class ReviewDocumentsPage {
   ];
 
   constructor() {
-    addIcons({ closeOutline, cloudUploadOutline, createOutline, trashOutline });
+    addIcons({ closeOutline, cloudUploadOutline, createOutline, trashOutline, downloadOutline, clipboardOutline, printOutline });
   }
 
   readonly periodYears = computed(() => {
     const p = this.store.review()?.period;
-    if (!p) return [] as number[];
-    const a = new Date(p.startDate).getFullYear();
-    const b = new Date(p.endDate).getFullYear();
+    if (!p?.startDate || !p?.endDate) return [] as number[];
+    const a = Number(String(p.startDate).slice(0, 4));
+    const b = Number(String(p.endDate).slice(0, 4));
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a > b) return [];
     const years: number[] = [];
     for (let y = a; y <= b; y++) years.push(y);
     return years;
@@ -1431,14 +1409,7 @@ export class ReviewDocumentsPage {
 
   private ensurePeriod(): void {
     if (this.store.review()?.period) return;
-    this.store.setPeriod({
-      employerName: '',
-      startDate: '2016-01-01',
-      endDate: '2025-12-31',
-      sameEmployerThroughout: true,
-      exitReason: 'Fired',
-      hadWorkBreak: false,
-      multiplePeriods: false
-    });
+    // Never invent a demo 2016–2025 range — send the user to set real dates first.
+    void this.router.navigateByUrl('/review/employment');
   }
 }

@@ -105,6 +105,8 @@ export interface ReviewDocumentMeta {
   extractedAnnualGross?: number | null;
   /** Fund balances extracted from pension / savings reports. */
   extractedFunds?: ExtractedFundSnapshot[] | null;
+  /** Contribution kinds seen on a payslip: pension, severance, disability, study. */
+  extractedContributionKinds?: string[] | null;
 }
 
 /** User marked a required document slot as unobtainable — allows progress without pretending it exists. */

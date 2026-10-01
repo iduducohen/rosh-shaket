@@ -126,11 +126,15 @@ export class DocumentValidationService {
       extractedGrossSalary: result.grossSalary ?? null,
       extractedAnnualGross: result.annualGross ?? null,
       extractedFunds: funds.length ? funds : null,
+      extractedContributionKinds: (result.contributionKinds ?? []).length
+        ? [...new Set(result.contributionKinds!.map(k => k.toLowerCase()))]
+        : null,
       parsedOk: status === 'ok',
       needsManualReview: status !== 'ok'
     });
 
-    if (status === 'ok' || funds.length || (result.grossSalary != null && result.grossSalary > 0)) {
+    if (status === 'ok' || funds.length || (result.grossSalary != null && result.grossSalary > 0)
+      || (result.contributionKinds?.length ?? 0) > 0) {
       this.syncFromDoc(docId);
     }
   }

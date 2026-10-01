@@ -65,7 +65,7 @@ import { ReviewStepNavComponent } from './review-step-nav.component';
     </div>
 
     <p><b>אין כאן קביעה משפטית.</b> על בסיס המידע שסיפקתם אנו מעריכים / מסמנים מה דורש בדיקה נוספת.</p>
-    <app-review-step-nav nextLabel="לדוח המסכם" (next)="goNext()" />
+    <app-review-step-nav (next)="goNext()" />
   `
 })
 export class ReviewTerminationPage implements OnInit {

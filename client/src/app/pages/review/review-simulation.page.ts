@@ -42,7 +42,7 @@ import { ReviewStepNavComponent } from './review-step-nav.component';
       </div>
     }
 
-    <app-review-step-nav nextLabel="המשך" (next)="goNext()" />
+    <app-review-step-nav (next)="goNext()" />
   `
 })
 export class ReviewSimulationPage implements OnInit {

@@ -145,6 +145,8 @@ export interface DocumentVerificationResult {
     returnAnnualPercent: number | null;
     track: string | null;
   }> | null;
+  /** Payslip contribution kinds: pension, severance, disability, study. */
+  contributionKinds?: string[] | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */

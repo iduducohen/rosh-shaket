@@ -91,7 +91,7 @@ import { ReviewStepNavComponent } from './review-step-nav.component';
       </table>
     }
 
-    <app-review-step-nav nextLabel="המשך" (next)="goNext()" />
+    <app-review-step-nav (next)="goNext()" />
   `
 })
 export class ReviewReconciliationPage implements OnInit {

@@ -11,7 +11,9 @@ public static class EmploymentReviewEndpoints
 {
     public static IEndpointRouteBuilder MapEmploymentReviewEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/employment-review").WithTags("EmploymentReview");
+        var group = app.MapGroup("/api/employment-review")
+            .WithTags("EmploymentReview")
+            .AllowAnonymous(); // guest capability-token workspace id — no login required
 
         group.MapGet("/rules", async (IContributionRuleProvider rules, CancellationToken ct) =>
             TypedResults.Ok(await rules.GetAllAsync(ct)));
