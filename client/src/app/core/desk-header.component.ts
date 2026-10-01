@@ -1,12 +1,16 @@
 import { Component, inject, input } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline } from 'ionicons/icons';
+import { filter, map, startWith } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { WizardStore } from './wizard.store';
 import { AuthService } from './auth/auth.service';
 import { LogoComponent } from './logo.component';
+import { ReviewStore } from './review.store';
 import { WorkspaceService } from './workspace.service';
+import { installReturnTracker, wizardReturn } from './wizard-nav';
 
 /** Brand bar shown on desktop only (hidden by CSS below 992px). */
 @Component({
@@ -104,11 +108,16 @@ import { WorkspaceService } from './workspace.service';
           </span>
         }
         <nav class="actions" aria-label="פעולות קבועות">
-          @if (step() > 1) {
+          @if (step() > 1 && !isSidePage()) {
             <button type="button" class="action" (click)="home()">
               <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
               להתחיל מחדש
             </button>
+          }
+          @if (isSidePage()) {
+            <a class="action active" [routerLink]="back().url">
+              {{ back().label }}
+            </a>
           }
           @if (tabs()) {
             <a class="action" routerLink="/results/reports" routerLinkActive="active">
@@ -153,11 +162,30 @@ export class DeskHeaderComponent {
   readonly tabs = input(false);
   private readonly router = inject(Router);
   private readonly store = inject(WizardStore);
+  private readonly review = inject(ReviewStore);
   readonly auth = inject(AuthService);
   readonly workspaces = inject(WorkspaceService);
+  private readonly path = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map(e => e.urlAfterRedirects.split('?')[0]),
+      startWith(this.router.url.split('?')[0])
+    ),
+    { initialValue: this.router.url.split('?')[0] }
+  );
 
   constructor() {
     addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
+    installReturnTracker(this.router);
+  }
+
+  isSidePage(): boolean {
+    const u = this.path();
+    return u.startsWith('/checklist') || u.startsWith('/sources');
+  }
+
+  back(): { url: string; label: string } {
+    return wizardReturn(this.store);
   }
 
   initial(): string {
@@ -165,6 +193,7 @@ export class DeskHeaderComponent {
   }
 
   async signOut(): Promise<void> {
+    this.review.clear();
     this.workspaces.clearLocal();
     this.store.reset();
     await this.auth.signOut();
@@ -178,8 +207,8 @@ export class DeskHeaderComponent {
   }
 
   async home(): Promise<void> {
-    await this.workspaces.flushSave().catch(() => undefined);
-    this.store.reset();
-    void this.router.navigateByUrl('/start');
+    this.review.clear();
+    await this.workspaces.restartFlow();
+    await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 }

@@ -10,25 +10,22 @@ import { briefcaseOutline, scaleOutline } from 'ionicons/icons';
   standalone: true,
   imports: [IonIcon],
   styles: [`
-    :host { display: block; margin-top: 22px; }
-    .card {
-      background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 16px; padding: 18px;
-    }
+    :host { display: block; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--rs-line); }
     h3 { margin: 0 0 6px; font-family: var(--rs-serif); font-size: 22px; }
     .kinds { display: grid; gap: 8px; margin-top: 14px; }
     @media (min-width: 640px) { .kinds { grid-template-columns: 1fr 1fr; } }
     .kind {
       display: flex; align-items: flex-start; gap: 10px; text-align: start; font: inherit; cursor: pointer;
-      background: var(--ion-background-color); color: var(--ion-text-color);
-      border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 12px 14px;
+      background: var(--rs-field); color: var(--ion-text-color);
+      border: 1px solid var(--rs-line); border-radius: 12px; padding: 12px 14px;
     }
-    .kind:hover { border-color: var(--ion-color-primary); }
+    .kind:hover { border-color: var(--ion-color-primary); background: var(--rs-soft); }
     .kind ion-icon { font-size: 22px; color: var(--ion-color-primary); flex: none; margin-top: 2px; }
     .kind b { display: block; }
     .kind small { display: block; color: var(--ion-color-medium); font-size: 13.5px; margin-top: 2px; }
   `],
   template: `
-    <section class="card" aria-labelledby="paid-help-title">
+    <section aria-labelledby="paid-help-title">
       <h3 id="paid-help-title">רוצים שמישהו יבדוק את זה?</h3>
       <p class="muted">ההערכה כאן נשארת בלי עלות. אפשר לבחור איש מקצוע או עורך דין, לקרוא עליו, ולהשאיר פרטים כדי שיחזרו אליכם.</p>
       <div class="kinds">

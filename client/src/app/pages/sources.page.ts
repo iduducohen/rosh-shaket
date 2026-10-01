@@ -1,38 +1,80 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonItem, IonLabel, IonList, ViewWillEnter } from '@ionic/angular/standalone';
+import {
+  IonBackButton, IonButtons, IonButton, IonContent, IonHeader, IonToolbar, ViewWillEnter
+} from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
 import { RightsSource } from '../core/models';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { PaidHelpComponent } from '../core/paid-help.component';
+import { installReturnTracker, wizardReturn } from '../core/wizard-nav';
 import { WizardStore } from '../core/wizard.store';
 
 @Component({
   selector: 'app-sources',
   standalone: true,
-  imports: [DeskHeaderComponent, PaidHelpComponent, RouterLink, IonContent, IonList, IonItem, IonLabel, IonButton],
+  imports: [
+    DeskHeaderComponent, PaidHelpComponent, RouterLink,
+    IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent
+  ],
   styles: [`
+    .back-row { margin: 0 0 14px; }
     .results-nav {
       display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
     }
     .results-nav a {
       padding: 8px 14px; border-radius: 10px; border: 1px solid var(--rs-line);
       color: var(--ion-text-color); text-decoration: none; font-weight: 700; font-size: 14.5px;
-      background: var(--ion-item-background);
+      background: var(--rs-field);
     }
     .results-nav a.on { border-color: var(--ion-color-primary); background: var(--rs-soft); color: var(--ion-color-primary); }
+    .lead { margin: 0 0 20px; }
+    .source-list {
+      list-style: none; margin: 0; padding: 0;
+      display: grid; gap: 0;
+      border-top: 1px solid var(--rs-line);
+    }
+    .source-list a {
+      display: grid; gap: 4px; padding: 14px 4px 15px;
+      border-bottom: 1px solid var(--rs-line);
+      color: inherit; text-decoration: none;
+    }
+    .source-list a:hover .title { color: var(--ion-color-primary); }
+    .source-list .title {
+      font-size: 16.5px; font-weight: 700; line-height: 1.3;
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    }
+    .source-list .title::after {
+      content: "↗"; font-size: 13px; font-weight: 500; color: var(--ion-color-medium); flex: none;
+    }
+    .source-list .desc { font-size: 14px; color: var(--ion-color-medium); line-height: 1.4; max-width: 52ch; }
+    .footer-back { margin: 28px 0 8px; }
     @media (min-width: 992px) {
       .results-nav { display: none; }
-      ion-list.desk-grid-3 { background: transparent; }
-      ion-list.desk-grid-3 ion-item { --background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 14px; --border-width: 0; --min-height: 96px; }
-      .bottom { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; margin-top: 24px; }
-      .bottom .note { margin: 0; }
+      .source-list {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 40px;
+        border-top: 0;
+      }
+      .source-list li:nth-child(1),
+      .source-list li:nth-child(2) { border-top: 1px solid var(--rs-line); }
+      .source-list a { padding: 16px 0; }
     }
   `],
   template: `
+    <ion-header class="ion-no-border mobile-only">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button [defaultHref]="back().url" [text]="back().label"></ion-back-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
     <ion-content>
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
-      <div class="page ion-padding">
+      <div class="page narrow ion-padding">
+        <div class="back-row">
+          <ion-button fill="outline" size="small" [routerLink]="back().url">{{ back().label }}</ion-button>
+        </div>
         <nav class="results-nav" aria-label="ניווט">
           @if (store.results().length) {
             <a routerLink="/results/summary">מה מגיע לי</a>
@@ -42,18 +84,21 @@ import { WizardStore } from '../core/wizard.store';
           <a routerLink="/sources" class="on">מקורות</a>
         </nav>
         <h2>מקורות ועזרה</h2>
-        <p class="muted small">כל המידע באפליקציה נשען על המקורות האלה.</p>
+        <p class="lead muted small">כל המידע באפליקציה נשען על המקורות האלה.</p>
         @if (error()) { <div class="note">{{ error() }}</div> }
-        <ion-list lines="full" class="desk-grid-3">
+        <ul class="source-list">
           @for (s of sources(); track s.key) {
-            <ion-item [href]="s.url" target="_blank" detail="true">
-              <ion-label class="ion-text-wrap"><h3>{{ s.title }}</h3><p>{{ s.description }}</p></ion-label>
-            </ion-item>
+            <li>
+              <a [href]="s.url" target="_blank" rel="noopener">
+                <span class="title">{{ s.title }}</span>
+                <span class="desc">{{ s.description }}</span>
+              </a>
+            </li>
           }
-        </ion-list>
+        </ul>
         <app-paid-help></app-paid-help>
-        <div class="bottom">
-        <ion-button expand="block" fill="outline" (click)="restart()">להתחיל מחדש</ion-button>
+        <div class="footer-back">
+          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
         </div>
       </div>
     </ion-content>
@@ -61,10 +106,11 @@ import { WizardStore } from '../core/wizard.store';
 })
 export class SourcesPage implements ViewWillEnter {
   private readonly api = inject(ApiService);
-  readonly store = inject(WizardStore);
   private readonly router = inject(Router);
+  readonly store = inject(WizardStore);
   readonly sources = signal<RightsSource[]>([]);
   readonly error = signal('');
+  readonly back = computed(() => wizardReturn(this.store));
   readonly headerStep = computed(() => {
     if (this.store.results().length) return 4;
     if (this.store.profile().startDate && this.store.profile().monthlySalary > 0) return 3;
@@ -73,16 +119,12 @@ export class SourcesPage implements ViewWillEnter {
   });
 
   constructor() {
+    installReturnTracker(this.router);
     void this.load();
   }
 
   ionViewWillEnter(): void {
     void this.load();
-  }
-
-  restart(): void {
-    this.store.reset();
-    void this.router.navigateByUrl('/start');
   }
 
   private async load(): Promise<void> {

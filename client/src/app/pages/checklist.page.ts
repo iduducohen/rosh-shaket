@@ -1,9 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { IonCheckbox, IonContent, IonItem, IonLabel, IonList, IonListHeader, ViewWillEnter } from '@ionic/angular/standalone';
+import { Router, RouterLink } from '@angular/router';
+import {
+  IonBackButton, IonButton, IonButtons, IonCheckbox, IonContent, IonHeader, IonItem, IonLabel, IonList, IonListHeader,
+  IonToolbar, ViewWillEnter
+} from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
 import { ChecklistItem, REASON_LABELS, RightsSource } from '../core/models';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { installReturnTracker, wizardReturn } from '../core/wizard-nav';
 import { WizardStore } from '../core/wizard.store';
 
 const STORAGE_KEY = 'rs-checked';
@@ -11,13 +15,18 @@ const STORAGE_KEY = 'rs-checked';
 @Component({
   selector: 'app-checklist',
   standalone: true,
-  imports: [DeskHeaderComponent, RouterLink, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel],
+  imports: [
+    DeskHeaderComponent, RouterLink,
+    IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel
+  ],
   styles: [`
     .done { color: var(--ion-color-medium); text-decoration: line-through; }
     a.law {
       display: inline-block; margin-top: 6px; font-size: 13.5px; font-weight: 700;
       color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 2px;
     }
+    .back-row { margin: 0 0 12px; }
+    .footer-back { margin: 28px 0 8px; }
     .results-nav {
       display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
     }
@@ -33,9 +42,19 @@ const STORAGE_KEY = 'rs-checked';
     }
   `],
   template: `
+    <ion-header class="ion-no-border mobile-only">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button [defaultHref]="back().url" [text]="back().label"></ion-back-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
     <ion-content>
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page ion-padding">
+        <div class="back-row">
+          <ion-button fill="outline" size="small" [routerLink]="back().url">{{ back().label }}</ion-button>
+        </div>
         <nav class="results-nav" aria-label="ניווט">
           @if (store.results().length) {
             <a routerLink="/results/summary">מה מגיע לי</a>
@@ -53,8 +72,10 @@ const STORAGE_KEY = 'rs-checked';
           }
         </p>
         @if (error()) { <div class="note">{{ error() }}</div> }
-        @if (!groups().length && !error()) {
+        @if (loading()) {
           <p class="muted">טוען את הצ'קליסט…</p>
+        } @else if (!groups().length) {
+          <p class="muted">לא נמצאו פריטים לצ'קליסט כרגע.</p>
         } @else {
           <div class="desk-grid-3">
           @for (g of groups(); track g.name) {
@@ -75,18 +96,24 @@ const STORAGE_KEY = 'rs-checked';
           }
           </div>
         }
+        <div class="footer-back">
+          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
+        </div>
       </div>
     </ion-content>
   `
 })
 export class ChecklistPage implements ViewWillEnter {
   private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
   readonly store = inject(WizardStore);
 
   readonly items = signal<ChecklistItem[]>([]);
   readonly sources = signal<RightsSource[]>([]);
   readonly error = signal('');
+  readonly loading = signal(true);
   readonly checked = signal<Record<string, boolean>>(load());
+  readonly back = computed(() => wizardReturn(this.store));
   readonly reason = computed(() => this.store.activeReason() ?? mapChoice(this.store.choice()));
   readonly reasonLabel = computed(() => {
     const r = this.reason();
@@ -108,7 +135,7 @@ export class ChecklistPage implements ViewWillEnter {
   private loadToken = 0;
 
   constructor() {
-    void this.api.sources().then(s => this.sources.set(s)).catch(() => undefined);
+    installReturnTracker(this.router);
   }
 
   ionViewWillEnter(): void {
@@ -128,20 +155,23 @@ export class ChecklistPage implements ViewWillEnter {
   private async reload(): Promise<void> {
     const reason = this.reason();
     const token = ++this.loadToken;
+    this.loading.set(true);
     this.error.set('');
     try {
-      const items = await this.api.checklist(reason);
+      const needSources = !this.sources().length;
+      const [items, sources] = await Promise.all([
+        this.api.checklist(reason),
+        needSources ? this.api.sources() : Promise.resolve(this.sources())
+      ]);
       if (token !== this.loadToken) return;
       this.items.set(items);
-      if (!this.sources().length) {
-        const sources = await this.api.sources();
-        if (token !== this.loadToken) return;
-        this.sources.set(sources);
-      }
+      if (needSources) this.sources.set(sources);
     } catch (err) {
       if (token !== this.loadToken) return;
       this.items.set([]);
       this.error.set(describeError(err).message);
+    } finally {
+      if (token === this.loadToken) this.loading.set(false);
     }
   }
 }
