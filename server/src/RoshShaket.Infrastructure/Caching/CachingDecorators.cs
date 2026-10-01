@@ -4,6 +4,7 @@ using RoshShaket.Application.Abstractions;
 using RoshShaket.Domain;
 using RoshShaket.Domain.Content;
 using RoshShaket.Infrastructure.Common;
+using RoshShaket.Infrastructure.Mongo;
 
 namespace RoshShaket.Infrastructure.Caching;
 
@@ -20,14 +21,14 @@ internal static class SafeCache
             var hit = await cache.GetAsync<T>(key, ct);
             if (hit is not null) return hit;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             log.LogWarning(ex, "Cache read failed for {Key}", key);
         }
 
         var value = await load();
         try { await cache.SetAsync(key, value, ttl, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             log.LogWarning(ex, "Cache write failed for {Key}", key);
         }
@@ -52,23 +53,30 @@ public sealed class CachedContentRepository(
 
     public async Task<IReadOnlyList<ChecklistItem>> GetChecklistAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:checklist", Ttl,
-            () => LoadOrEmptyAsync(() => inner.GetChecklistAsync(ct), "checklist", ct), ct);
+            () => LoadContentAsync(() => inner.GetChecklistAsync(ct), EmbeddedContent.Checklist, "checklist", ct), ct);
 
     public async Task<IReadOnlyList<RightsSource>> GetSourcesAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:sources", Ttl,
-            () => LoadOrEmptyAsync(() => inner.GetSourcesAsync(ct), "sources", ct), ct);
+            () => LoadContentAsync(() => inner.GetSourcesAsync(ct), EmbeddedContent.Sources, "sources", ct), ct);
 
-    private async Task<List<T>> LoadOrEmptyAsync<T>(Func<Task<IReadOnlyList<T>>> load, string name, CancellationToken ct)
+    private async Task<List<T>> LoadContentAsync<T>(
+        Func<Task<IReadOnlyList<T>>> load,
+        IReadOnlyList<T> fallback,
+        string name,
+        CancellationToken ct)
     {
         try
         {
-            return (await load()).ToList();
+            var items = await load();
+            if (items.Count > 0) return items.ToList();
+            log.LogWarning("Mongo content {Name} returned empty; using embedded fallback", name);
+            return fallback.ToList();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            // Mongo outage must not take down the whole API (partners/auth still work from other stores).
-            log.LogError(ex, "Mongo content load failed for {Name}; returning empty list", name);
-            return [];
+            // Mongo outage / timeout must not take down checklist & sources.
+            log.LogError(ex, "Mongo content load failed for {Name}; using embedded fallback", name);
+            return fallback.ToList();
         }
     }
 }
