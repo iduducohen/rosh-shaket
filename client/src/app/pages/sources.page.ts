@@ -39,7 +39,6 @@ import { WizardStore } from '../core/wizard.store';
       content: "↗"; font-size: 13px; font-weight: 500; color: var(--ion-color-medium); flex: none;
     }
     .source-list .desc { font-size: 14px; color: var(--ion-color-medium); line-height: 1.4; max-width: 52ch; }
-    .footer-back { margin: 28px 0 8px; }
     @media (min-width: 992px) {
       .back-row { display: none; }
       .source-list {
@@ -80,9 +79,6 @@ import { WizardStore } from '../core/wizard.store';
           }
         </ul>
         <app-paid-help></app-paid-help>
-        <div class="footer-back">
-          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
-        </div>
       </div>
     </ion-content>
   `

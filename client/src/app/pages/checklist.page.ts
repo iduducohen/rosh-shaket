@@ -21,7 +21,6 @@ const STORAGE_KEY = 'rs-checked';
   ],
   styles: [`
     .back-row { margin: 0 0 16px; }
-    .footer-back { margin: 28px 0 8px; }
     .done { color: var(--ion-color-medium); text-decoration: line-through; }
     a.law {
       display: inline-block; margin-top: 6px; font-size: 13.5px; font-weight: 700;
@@ -79,9 +78,6 @@ const STORAGE_KEY = 'rs-checked';
           }
           </div>
         }
-        <div class="footer-back">
-          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
-        </div>
       </div>
     </ion-content>
   `
