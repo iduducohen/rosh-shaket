@@ -20,24 +20,15 @@ const STORAGE_KEY = 'rs-checked';
     IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel
   ],
   styles: [`
+    .back-row { margin: 0 0 16px; }
+    .footer-back { margin: 28px 0 8px; }
     .done { color: var(--ion-color-medium); text-decoration: line-through; }
     a.law {
       display: inline-block; margin-top: 6px; font-size: 13.5px; font-weight: 700;
       color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 2px;
     }
-    .back-row { margin: 0 0 12px; }
-    .footer-back { margin: 28px 0 8px; }
-    .results-nav {
-      display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
-    }
-    .results-nav a {
-      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--rs-line);
-      color: var(--ion-text-color); text-decoration: none; font-weight: 700; font-size: 14.5px;
-      background: var(--ion-item-background);
-    }
-    .results-nav a.on { border-color: var(--ion-color-primary); background: var(--rs-soft); color: var(--ion-color-primary); }
     @media (min-width: 992px) {
-      .results-nav { display: none; }
+      .back-row { display: none; }
       ion-list { border: 1px solid var(--rs-line); border-radius: 16px; padding: 6px 4px; margin: 0; }
     }
   `],
@@ -53,16 +44,8 @@ const STORAGE_KEY = 'rs-checked';
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page ion-padding">
         <div class="back-row">
-          <ion-button fill="outline" size="small" [routerLink]="back().url">{{ back().label }}</ion-button>
+          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
         </div>
-        <nav class="results-nav" aria-label="ניווט">
-          @if (store.results().length) {
-            <a routerLink="/results/summary">מה מגיע לי</a>
-            <a routerLink="/results/reports">דוחות</a>
-          }
-          <a routerLink="/checklist" class="on">צ'קליסט</a>
-          <a routerLink="/sources">מקורות</a>
-        </nav>
         <h2>הצ'קליסט</h2>
         <p class="muted small">
           @if (reasonLabel(); as label) {

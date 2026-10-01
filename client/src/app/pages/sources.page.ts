@@ -18,16 +18,7 @@ import { WizardStore } from '../core/wizard.store';
     IonHeader, IonToolbar, IonButtons, IonBackButton, IonButton, IonContent
   ],
   styles: [`
-    .back-row { margin: 0 0 14px; }
-    .results-nav {
-      display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
-    }
-    .results-nav a {
-      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--rs-line);
-      color: var(--ion-text-color); text-decoration: none; font-weight: 700; font-size: 14.5px;
-      background: var(--rs-field);
-    }
-    .results-nav a.on { border-color: var(--ion-color-primary); background: var(--rs-soft); color: var(--ion-color-primary); }
+    .back-row { margin: 0 0 16px; }
     .lead { margin: 0 0 20px; }
     .source-list {
       list-style: none; margin: 0; padding: 0;
@@ -50,7 +41,7 @@ import { WizardStore } from '../core/wizard.store';
     .source-list .desc { font-size: 14px; color: var(--ion-color-medium); line-height: 1.4; max-width: 52ch; }
     .footer-back { margin: 28px 0 8px; }
     @media (min-width: 992px) {
-      .results-nav { display: none; }
+      .back-row { display: none; }
       .source-list {
         grid-template-columns: 1fr 1fr;
         column-gap: 40px;
@@ -73,16 +64,8 @@ import { WizardStore } from '../core/wizard.store';
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page narrow ion-padding">
         <div class="back-row">
-          <ion-button fill="outline" size="small" [routerLink]="back().url">{{ back().label }}</ion-button>
+          <ion-button expand="block" fill="outline" [routerLink]="back().url">{{ back().label }}</ion-button>
         </div>
-        <nav class="results-nav" aria-label="ניווט">
-          @if (store.results().length) {
-            <a routerLink="/results/summary">מה מגיע לי</a>
-            <a routerLink="/results/reports">דוחות</a>
-          }
-          <a routerLink="/checklist">צ'קליסט</a>
-          <a routerLink="/sources" class="on">מקורות</a>
-        </nav>
         <h2>מקורות ועזרה</h2>
         <p class="lead muted small">כל המידע באפליקציה נשען על המקורות האלה.</p>
         @if (error()) { <div class="note">{{ error() }}</div> }

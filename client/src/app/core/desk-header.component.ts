@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline } from 'ionicons/icons';
+import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline, arrowForwardOutline } from 'ionicons/icons';
 import { filter, map, startWith } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { WizardStore } from './wizard.store';
@@ -54,6 +54,10 @@ import { installReturnTracker, wizardReturn } from './wizard-nav';
       .action:hover { border-color: var(--ion-color-primary); color: var(--ion-color-primary); }
       .action.active {
         background: var(--rs-soft); border-color: var(--ion-color-primary); color: var(--ion-color-primary);
+      }
+      .action.back {
+        background: var(--rs-soft); border-color: var(--ion-color-primary); color: var(--ion-color-primary);
+        font-size: 14.5px; padding: 0 14px;
       }
       .who { display: flex; align-items: center; gap: 8px; font-size: 14px; }
       .avatar {
@@ -108,18 +112,18 @@ import { installReturnTracker, wizardReturn } from './wizard-nav';
           </span>
         }
         <nav class="actions" aria-label="פעולות קבועות">
-          @if (step() > 1 && !isSidePage()) {
+          @if (isSidePage()) {
+            <a class="action back" [routerLink]="back().url">
+              <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+              {{ back().label }}
+            </a>
+          } @else if (step() > 1) {
             <button type="button" class="action" (click)="home()">
               <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
               להתחיל מחדש
             </button>
           }
-          @if (isSidePage()) {
-            <a class="action active" [routerLink]="back().url">
-              {{ back().label }}
-            </a>
-          }
-          @if (tabs()) {
+          @if (tabs() && !isSidePage()) {
             <a class="action" routerLink="/results/reports" routerLinkActive="active">
               <ion-icon name="stats-chart-outline" aria-hidden="true"></ion-icon>
               דוחות
@@ -148,12 +152,14 @@ import { installReturnTracker, wizardReturn } from './wizard-nav';
         </nav>
       </div>
 
-      <nav class="steps" aria-label="שלבי התהליך">
-        <span [class.on]="step() === 1"><span class="n" aria-hidden="true">1</span>תלוש שכר</span>
-        <span [class.on]="step() === 2"><span class="n" aria-hidden="true">2</span>סיבת העזיבה</span>
-        <span [class.on]="step() === 3"><span class="n" aria-hidden="true">3</span>פרטים</span>
-        <span [class.on]="step() === 4"><span class="n" aria-hidden="true">4</span>מה מגיע לי</span>
-      </nav>
+      @if (!isSidePage()) {
+        <nav class="steps" aria-label="שלבי התהליך">
+          <span [class.on]="step() === 1"><span class="n" aria-hidden="true">1</span>תלוש שכר</span>
+          <span [class.on]="step() === 2"><span class="n" aria-hidden="true">2</span>סיבת העזיבה</span>
+          <span [class.on]="step() === 3"><span class="n" aria-hidden="true">3</span>פרטים</span>
+          <span [class.on]="step() === 4"><span class="n" aria-hidden="true">4</span>מה מגיע לי</span>
+        </nav>
+      }
     </div>
   `
 })
@@ -175,7 +181,7 @@ export class DeskHeaderComponent {
   );
 
   constructor() {
-    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
+    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline, arrowForwardOutline });
     installReturnTracker(this.router);
   }
 
