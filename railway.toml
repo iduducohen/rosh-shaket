@@ -1,8 +1,8 @@
-# .NET API on Railway — must use Dockerfile (monorepo root confuses Railpack).
+# .NET API — Dockerfile at repo root so Railway does not fall back to Railpack.
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "server/Dockerfile"
-watchPatterns = ["server/**"]
+dockerfilePath = "Dockerfile"
+watchPatterns = ["server/**", "Dockerfile", "railway.toml", "railway.json"]
 
 [deploy]
 healthcheckPath = "/health"
