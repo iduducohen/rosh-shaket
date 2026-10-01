@@ -49,32 +49,37 @@ public sealed class CachedContentRepository(
     IContentRepository inner, ICacheStore cache, IOptions<CacheOptions> options, ILogger<CachedContentRepository> log)
     : IContentRepository
 {
+    // Don't block the UI for a slow/unreachable Mongo — editorial copy has an embedded fallback.
+    private static readonly TimeSpan MongoBudget = TimeSpan.FromSeconds(1.2);
+
     private TimeSpan Ttl => TimeSpan.FromMinutes(options.Value.ContentMinutes);
 
     public async Task<IReadOnlyList<ChecklistItem>> GetChecklistAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:checklist", Ttl,
-            () => LoadContentAsync(() => inner.GetChecklistAsync(ct), EmbeddedContent.Checklist, "checklist", ct), ct);
+            () => LoadContentAsync(token => inner.GetChecklistAsync(token), EmbeddedContent.Checklist, "checklist", ct), ct);
 
     public async Task<IReadOnlyList<RightsSource>> GetSourcesAsync(CancellationToken ct) =>
         await SafeCache.GetOrLoadAsync(cache, log, "content:sources", Ttl,
-            () => LoadContentAsync(() => inner.GetSourcesAsync(ct), EmbeddedContent.Sources, "sources", ct), ct);
+            () => LoadContentAsync(token => inner.GetSourcesAsync(token), EmbeddedContent.Sources, "sources", ct), ct);
 
     private async Task<List<T>> LoadContentAsync<T>(
-        Func<Task<IReadOnlyList<T>>> load,
+        Func<CancellationToken, Task<IReadOnlyList<T>>> load,
         IReadOnlyList<T> fallback,
         string name,
         CancellationToken ct)
     {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(MongoBudget);
         try
         {
-            var items = await load();
+            var items = await load(budget.Token);
             if (items.Count > 0) return items.ToList();
             log.LogWarning("Mongo content {Name} returned empty; using embedded fallback", name);
             return fallback.ToList();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            // Mongo outage / timeout must not take down checklist & sources.
+            // Timeout / outage — serve embedded copy immediately.
             log.LogError(ex, "Mongo content load failed for {Name}; using embedded fallback", name);
             return fallback.ToList();
         }

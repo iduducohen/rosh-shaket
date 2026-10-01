@@ -63,9 +63,9 @@ public static class DependencyInjection
             if (string.IsNullOrWhiteSpace(cs))
                 cs = "mongodb://localhost:27017";
             var settings = MongoClientSettings.FromConnectionString(cs);
-            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
-            settings.ConnectTimeout = TimeSpan.FromSeconds(5);
-            settings.SocketTimeout = TimeSpan.FromSeconds(10);
+            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(2);
+            settings.ConnectTimeout = TimeSpan.FromSeconds(2);
+            settings.SocketTimeout = TimeSpan.FromSeconds(5);
             return new MongoClient(settings);
         });
         services.AddSingleton(sp => sp.GetRequiredService<IMongoClient>()
