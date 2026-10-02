@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { assessContributions, RateStatus } from '../core/payslip-contributions';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonLabel, IonSegment, IonSegmentButton, ViewWillEnter } from '@ionic/angular/standalone';
 import { ApiService } from '../core/api.service';
@@ -10,6 +11,8 @@ import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
 import { ReviewStore } from '../core/review.store';
 import { WorkspaceService } from '../core/workspace.service';
+
+const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 
 @Component({
   selector: 'app-summary',
@@ -29,6 +32,19 @@ import { WorkspaceService } from '../core/workspace.service';
       color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 3px;
     }
     .basis { margin: 18px 0 6px; padding: 12px 14px; border-radius: 12px; background: var(--rs-soft); font-size: 14.5px; }
+    .rates { margin: 26px 0 0; }
+    .rates h3 { margin: 0 0 6px; font-size: 18px; }
+    .rates ul { list-style: none; padding: 0; margin: 0 0 8px; }
+    .rates li { padding: 12px 0; border-bottom: 1px solid var(--rs-line); }
+    .tag { font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+    .tag.ok { background: rgba(var(--ion-color-success-rgb, 45, 170, 90), .12); color: var(--ion-color-success-shade, #1a7a3c); }
+    .tag.partial { background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), .18); color: var(--ion-color-warning-shade, #8a6d00); }
+    .tag.low, .tag.missing { background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), .1); color: var(--ion-color-danger); }
+    .tag.info { background: var(--rs-soft); color: var(--ion-color-medium-shade, #5E6F73); }
+    .full-cta { margin: 22px 0 6px; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--rs-line); background: var(--ion-item-background); }
+    .full-cta b { display: block; font-size: 16px; }
+    .full-cta p { margin: 6px 0 10px; font-size: 14px; color: var(--ion-color-medium); line-height: 1.45; }
+    .full-cta ion-button { margin: 0; }
     .results-nav {
       display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px;
     }
@@ -106,6 +122,30 @@ import { WorkspaceService } from '../core/workspace.service';
           <p class="muted small">ערך יום הבראה: ₪{{ r.recuperationDayValue }} (בתוקף מ-{{ r.valuesValidFrom }}). ברוטו, לפני מס. הערכה, לא ייעוץ משפטי.</p>
           </div>
           </div>
+
+          @if (rateChecks(); as checks) {
+            <section class="rates" aria-label="ההפרשות בתלוש">
+              <h3>ההפרשות בתלוש {{ payslipMonthLabel() ? 'של ' + payslipMonthLabel() : 'האחרון' }}</h3>
+              <ul>
+                @for (c of checks; track c.key) {
+                  <li>
+                    <div class="top">
+                      <span class="name">{{ c.title }}</span>
+                      <span class="tag" [class]="c.status">{{ c.rate != null ? c.rate + '%' : statusLabel(c.status) }}</span>
+                    </div>
+                    <div class="how">{{ c.note }}</div>
+                  </li>
+                }
+              </ul>
+              <p class="muted small">זו בדיקה של חודש אחד. היא לא מראה אם הופרש בכל החודשים, ואם הכסף הגיע בפועל לקופה.</p>
+            </section>
+          }
+
+          <section class="full-cta">
+            <b>רוצים לוודא שהכול הופקד לאורך כל התקופה?</b>
+            <p>בבדיקה המלאה מעלים את כל התלושים, טופסי 106 ודוחות הקופות — ובודקים חודש אחרי חודש מה הופרש, לאיזו קופה והאם חסר משהו.</p>
+            <ion-button fill="outline" (click)="fullReview()">לבדיקה המלאה</ion-button>
+          </section>
           <app-paid-help></app-paid-help>
           <app-experience-review></app-experience-review>
         } @else {
@@ -122,6 +162,27 @@ export class SummaryPage implements ViewWillEnter {
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
   readonly sources = signal<RightsSource[]>([]);
+
+  readonly rateChecks = computed(() => {
+    const funds = this.store.funds();
+    if (!this.store.fromPayslip() || funds == null) return null;
+    return assessContributions(funds, this.store.profile().monthlySalary);
+  });
+
+  readonly payslipMonthLabel = computed(() => {
+    const raw = this.store.payslipMonth();
+    const m = raw?.match(/^(\d{4})-(\d{1,2})/);
+    if (!m) return raw;
+    return `${MONTHS[Number(m[2])] ?? m[2]} ${m[1]}`;
+  });
+
+  statusLabel(s: RateStatus): string {
+    return s === 'missing' ? 'אין' : s === 'low' ? 'נמוך' : s === 'info' ? 'לא ידוע' : '';
+  }
+
+  fullReview(): void {
+    void this.router.navigateByUrl('/review/employment');
+  }
 
   constructor() {
     void this.loadSources();

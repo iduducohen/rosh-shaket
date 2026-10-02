@@ -20,9 +20,23 @@ import { WorkspaceService } from '../core/workspace.service';
     .promise { list-style: none; padding: 0; margin: 18px 0 22px; }
     .promise li { padding: 12px 0; border-bottom: 1px solid var(--rs-line); }
     .promise b { display: block; font-size: 17px; }
-    .upload { border: 1.5px dashed var(--ion-color-primary); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+    .upload { border: 1px solid var(--rs-line); border-radius: 14px; padding: 16px; margin-bottom: 12px;
               background: var(--ion-item-background); }
-    .upload b { display: block; font-size: 17px; }
+    .upload > b { display: block; font-size: 17px; }
+    .upload .sub { display: block; margin: 4px 0 12px; }
+    .drop {
+      border: 1.5px dashed var(--ion-color-primary); border-radius: 12px; padding: 22px 14px;
+      background: rgba(var(--ion-color-primary-rgb), .04); text-align: center; cursor: pointer;
+      display: grid; gap: 6px; justify-items: center; transition: background .12s ease;
+    }
+    .drop:hover, .drop:focus-visible { background: rgba(var(--ion-color-primary-rgb), .08); outline: none; }
+    .drop.over { background: rgba(var(--ion-color-primary-rgb), .14); border-style: solid; }
+    .drop.busy { cursor: wait; pointer-events: none; border-style: solid; }
+    .drop ion-icon { font-size: 30px; color: var(--ion-color-primary); }
+    .drop .t { font-weight: 700; font-size: 15.5px; }
+    .full .row { margin-top: 12px; }
+    .manual { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px; cursor: pointer;
+              font: inherit; font-size: 14px; color: var(--ion-color-medium); text-decoration: underline; text-underline-offset: 3px; }
     .row { display: flex; gap: 8px; margin-top: 10px; }
     .row ion-button { flex: 1; margin: 0; }
     .status { display: flex; gap: 10px; align-items: center; font-size: 15px; font-weight: 700; margin-top: 10px; }
@@ -34,8 +48,9 @@ import { WorkspaceService } from '../core/workspace.service';
     @media (min-width: 992px) {
       .welcome { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: "intro upload" "promises upload"; gap: 8px 64px; align-items: start; }
       .intro { grid-area: intro; } .up { grid-area: upload; position: sticky; top: 24px; } .promises { grid-area: promises; }
-      .upload { padding: 28px; border-radius: 18px; margin-bottom: 8px; }
-      .upload b { font-size: 22px; font-family: var(--rs-serif); margin-bottom: 6px; }
+      .upload { padding: 26px 28px; border-radius: 18px; margin-bottom: 12px; }
+      .upload > b { font-size: 22px; font-family: var(--rs-serif); }
+      .drop { padding: 34px 18px; }
       .row { flex-direction: column; gap: 10px; margin-top: 18px; }
       .row ion-button { --padding-top: 14px; --padding-bottom: 14px; font-size: 16px; }
       .promise { margin-top: 28px; } .promise li { padding: 16px 0; } .promise b { font-size: 19px; }
@@ -49,53 +64,61 @@ import { WorkspaceService } from '../core/workspace.service';
           <app-logo class="mobile-only" [size]="30" [wordmark]="false"></app-logo>
           @if (auth.displayName(); as name) { <p class="hello">שלום {{ name }},</p> }
           <h1>יוצאים בראש שקט</h1>
-          <p class="muted lead">בחרו איך לבדוק: הערכה מהירה לסיום העבודה, או בדיקה רב־שנתית של הפקדות וקופות.</p>
+          <p class="muted lead">עוזבים עבודה? העלו את התלוש האחרון ותוך דקה תדעו מה מגיע לכם — והאם ההפרשות לפנסיה תקינות.</p>
         </div>
 
         <div class="up">
         <div class="upload">
-          <b>מה תרצו לבדוק?</b>
-          <div class="row">
-            <ion-button expand="block" (click)="showQuick.set(true)">הערכה מהירה לסיום עבודה</ion-button>
-            <ion-button expand="block" fill="outline" (click)="goReview()">בדיקת כל תקופת ההעסקה</ion-button>
+          <b>העלו את התלוש האחרון</b>
+          <span class="muted small sub">
+            תלוש אחד מספיק — השכר, הוותק והיתרות כבר מופיעים בו.
+            {{ auth.isSignedIn() ? 'כשאתם מחוברים התלוש נשמר בחשבון שלכם.' : 'כאורחים הקובץ לא נשמר אחרי הקריאה.' }}
+          </span>
+          <div class="drop" role="button" tabindex="0"
+               [class.over]="dragOver() && !busy()" [class.busy]="busy()"
+               [attr.aria-label]="'בחירת תלוש שכר להעלאה'"
+               (click)="!busy() && fileInput.click()" (keydown.enter)="!busy() && fileInput.click()"
+               (dragover)="onDragOver($event)" (dragleave)="dragOver.set(false)" (drop)="onDrop($event)">
+            @if (busy()) {
+              <ion-spinner name="crescent"></ion-spinner>
+              <span class="t">קוראים את התלוש…</span>
+            } @else {
+              <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+              <span class="t">גררו לכאן את התלוש או לחצו לבחירה</span>
+              <span class="muted small">PDF או תמונה · אפשר כמה עמודים של אותו תלוש</span>
+            }
           </div>
-          <p class="muted small">הערכה מהירה = תלוש אחרון. בדיקה מלאה = היסטוריית שכר והפקדות לאורך השנים (צפוי / מדווח / בפועל).</p>
-        </div>
-
-        @if (showQuick()) {
-        <div class="upload">
-          <b>הדרך המהירה: העלו את התלוש האחרון</b>
-          <span class="muted small">תלוש אחרון אחד מספיק: השכר והיתרות כבר מסוכמים בו. נבדוק שהוא תקין, ואז נחשב הערכה. עד 5 תלושים, תמונה או PDF.{{ auth.isSignedIn() ? ' כשאתם מחוברים המסמך נשמר בחשבון שלכם.' : ' כאורחים הקבצים לא נשמרים אחרי הקריאה.' }}</span>
-          <div class="row">
-            @if (native) {
-              <ion-button (click)="pickCamera()" [disabled]="busy()">
+          @if (native) {
+            <div class="row">
+              <ion-button fill="outline" (click)="pickCamera()" [disabled]="busy()">
                 <ion-icon slot="start" name="camera-outline"></ion-icon>צילום במצלמה
               </ion-button>
-            }
-            <ion-button [fill]="native ? 'outline' : 'solid'" (click)="fileInput.click()" [disabled]="busy()">
-              <ion-icon slot="start" name="document-text-outline"></ion-icon>העלאת תמונה או PDF
-            </ion-button>
-          </div>
+            </div>
+          }
           <input #fileInput hidden type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple (change)="onFiles($event)">
-          @if (busy()) {
-            <div class="status" aria-live="polite"><ion-spinner name="crescent"></ion-spinner>בודק שהקובץ תלוש שכר תקין…</div>
-          } @else if (status()) {
+          @if (!busy() && status()) {
             <div class="status" [class.ok]="verdict() === 'ok'" [class.bad]="verdict() === 'bad'" aria-live="polite">
               @if (verdict() === 'ok') { <ion-icon name="checkmark-outline" aria-hidden="true"></ion-icon> }
               @if (verdict() === 'bad') { <ion-icon name="close-outline" aria-hidden="true"></ion-icon> }
               <span>{{ status() }}</span>
             </div>
           }
+          <button type="button" class="manual" (click)="manual()">אין תלוש בהישג יד? למלא ידנית</button>
         </div>
 
-        <ion-button expand="block" fill="clear" (click)="manual()">בלי תלוש, למלא ידנית</ion-button>
-        }
+        <div class="upload full">
+          <b>רוצים לוודא שהכול הופקד לאורך השנים?</b>
+          <span class="muted small sub">בבדיקה המלאה מעלים את כל התלושים, טפסי 106 ודוחות הקופות — ובודקים חודש אחרי חודש מה הופרש, לאיזו קופה, והאם זה לפי החוק.</span>
+          <div class="row">
+            <ion-button fill="outline" (click)="goReview()">לבדיקה המלאה</ion-button>
+          </div>
+        </div>
         </div>
 
         <div class="promises">
         <ul class="promise">
           <li><b>מה מגיע לי</b><span class="muted">פיצויים, חופשה, הבראה והודעה מוקדמת, עם הסבר לכל סכום</span></li>
-          <li><b>הפקדות לאורך השנים</b><span class="muted">השוואה בין צפוי, מדווח ובפועל — עם סימון אי־ודאות</span></li>
+          <li><b>האם ההפרשות תקינות</b><span class="muted">פנסיה, פיצויים וקרן השתלמות — מול השיעורים שבחוק</span></li>
           <li><b>מה לבקש לפני שעוזבים</b><span class="muted">צ'קליסט ומסמכים חסרים לפי מה שסיפקתם</span></li>
         </ul>
         <p class="foot muted">הערכה בלבד, לא ייעוץ משפטי. מותאם לעובד בשכר חודשי. חוזה אישי או הסכם קיבוצי יכולים להיטיב.</p>
@@ -115,7 +138,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   readonly busy = signal(false);
   readonly status = signal('');
   readonly verdict = signal<'ok' | 'bad' | ''>('');
-  readonly showQuick = signal(false);
+  readonly dragOver = signal(false);
   readonly native = Capacitor.isNativePlatform();
   private readonly alerts = inject(AlertController);
   private continueTimer: ReturnType<typeof setTimeout> | undefined;
@@ -144,6 +167,23 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
+    return this.readFiles(files);
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    this.dragOver.set(true);
+  }
+
+  onDrop(event: DragEvent): Promise<void> {
+    event.preventDefault();
+    this.dragOver.set(false);
+    if (this.busy()) return Promise.resolve();
+    return this.readFiles(Array.from(event.dataTransfer?.files ?? []));
+  }
+
+  private readFiles(files: File[]): Promise<void> {
     if (files.length === 0) return Promise.resolve();
     return this.read(
       () => this.photos.fromFiles(files, (name, wrong) => this.askPassword(name, wrong)),
@@ -172,7 +212,8 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   private async read(load: () => Promise<Blob[]>, fallback: string): Promise<void> {
     clearTimeout(this.continueTimer);
     this.verdict.set('');
-    this.status.set('בודק את איכות הקובץ…');
+    this.status.set('');
+    this.busy.set(true);
     let images: Blob[];
     try {
       images = await load();
@@ -189,7 +230,6 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
       return;
     }
 
-    this.busy.set(true);
     let accepted = false;
     try {
       const draft = await this.api.extractPayslips(images);
@@ -223,6 +263,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   }
 
   private fail(message: string): void {
+    this.busy.set(false);
     this.verdict.set('bad');
     this.status.set(message);
   }
