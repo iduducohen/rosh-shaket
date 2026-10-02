@@ -300,7 +300,7 @@ interface DocYearGap {
 
     .month-waive { margin: 0 0 14px; }
     .month-chip-row {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; direction: ltr;
     }
     @media (min-width: 520px) {
       .month-chip-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }

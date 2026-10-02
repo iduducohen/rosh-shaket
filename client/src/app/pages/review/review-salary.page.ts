@@ -196,7 +196,7 @@ export class ReviewSalaryPage implements OnInit {
   readonly openYear = signal<number | null>(null);
   readonly minSalary = MIN_MONTHLY_GROSS_SALARY;
   readonly maxSalary = MAX_MONTHLY_GROSS_SALARY;
-  draftSalary: Record<string, string> = {};
+  draftSalary: Record<string, string | undefined> = {};
   draftError: Record<string, string> = {};
 
   constructor() {
