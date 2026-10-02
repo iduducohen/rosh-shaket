@@ -324,12 +324,6 @@ export class ReviewStore {
     }
   }
 
-  setFunds(funds: FundAccount[]): void {
-    const r = this.review();
-    if (!r) return;
-    this.persist({ ...r, funds, updatedAt: new Date().toISOString() });
-  }
-
   /** Merge OCR fund lines from a pension report into the funds list (by kind). */
   applyFundsFromDocument(
     documentId: string,
@@ -409,40 +403,11 @@ export class ReviewStore {
     });
   }
 
-  /** Manual salary for a gap month — does not overwrite payslip-sourced values unless forced. */
-  setManualMonthSalary(year: number, month: number, gross: number, force = false): boolean {
-    const r = this.review();
-    if (!r) return false;
-    const capped = this.clampGross(gross);
-    if (capped == null) return false;
-    const row = r.months.find(m => m.year === year && m.month === month);
-    if (!row) return false;
-    if (!force && row.flags === 'from_payslip' && row.grossSalary != null) return false;
-    this.patchMonthReported(year, month, {
-      grossSalary: capped,
-      pensionableSalary: capped,
-      confidence: 'Medium',
-      flags: 'manual',
-      sourceDocumentId: null
-    });
-    return true;
-  }
-
   /** Returns amount if valid (above MIN … MAX), otherwise null. */
   clampGross(value: number | null | undefined): number | null {
     if (value == null || !Number.isFinite(value)) return null;
     if (value <= MIN_MONTHLY_GROSS_SALARY || value > MAX_MONTHLY_GROSS_SALARY) return null;
     return Math.round(value * 100) / 100;
-  }
-
-  clearMonthSalary(year: number, month: number): void {
-    this.patchMonthReported(year, month, {
-      grossSalary: null,
-      pensionableSalary: null,
-      sourceDocumentId: null,
-      confidence: 'Unknown',
-      flags: null
-    });
   }
 
   /** Pull salaries already extracted on documents into empty/manual months. */

@@ -250,22 +250,3 @@ export function healthLabel(status: HealthStatus): string {
     default: return '⚪ לא ניתן לקבוע';
   }
 }
-
-export function confidenceLabel(c: DataConfidence | string | null | undefined): string {
-  switch ((c ?? '').toString()) {
-    case 'High': return 'גבוה';
-    case 'Medium': return 'בינוני';
-    case 'Low': return 'נמוך';
-    case 'Unknown': return 'לא ידוע';
-    default: return c ? String(c) : '—';
-  }
-}
-
-export function severityLabel(s: string | null | undefined): string {
-  switch ((s ?? '').toLowerCase()) {
-    case 'high': return 'גבוהה';
-    case 'medium': return 'בינונית';
-    case 'low': return 'נמוכה';
-    default: return s || '—';
-  }
-}

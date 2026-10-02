@@ -1527,7 +1527,7 @@ export class ReviewDocumentsPage implements OnInit {
   }
 
   next(): void {
-    void this.router.navigateByUrl('/review/salary');
+    void this.router.navigateByUrl('/review/check');
   }
 
   private acceptFiles(files: File[]): void {

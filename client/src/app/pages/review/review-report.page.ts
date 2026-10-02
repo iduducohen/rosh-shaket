@@ -1,11 +1,15 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
+import { CalculationFacade } from '../../core/calculation.facade';
 import { REASON_LABELS, type ExitReason } from '../../core/models';
 import { healthLabel } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
+import { WizardStore } from '../../core/wizard.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
+
+const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 
 @Component({
   selector: 'app-review-report',
@@ -179,17 +183,50 @@ import { ReviewStepNavComponent } from './review-step-nav.component';
           </ul>
         } @else {
           <p class="ok-note">לא סומנו פערים או חריגות משמעותיות בנתונים שיש. עדיין מומלץ לעבור על פירוט ההפקדות.</p>
-          <p class="ok-note"><a routerLink="/review/reconciliation">לפירוט הפקדות</a></p>
+          <p class="ok-note"><a routerLink="/review/check">לפירוט הפקדות</a></p>
         }
       </section>
 
-      <section class="sec estimate" aria-label="אומדן צבירה">
-        <h3>אומדן יתרה בקופות</h3>
-        <p class="lead">תרחיש בסיס — הערכה בלבד, לא תחזית השקעה.</p>
-        <p class="big">{{ store.fmt(baseBalance()) }}</p>
-        <p class="sub">מבוסס על ההפקדות הידועות ועל הנחות תשואה ודמי ניהול.</p>
-        <a routerLink="/review/simulation">לסימולציה המלאה</a>
+      <section class="sec" aria-label="מסמכים חסרים">
+        <h3>מה חסר</h3>
+        @if (missingDocs().length) {
+          <p class="lead">כדאי לבקש מהמעסיק או מהקופה — כל מסמך שמתווסף משפר את הבדיקה.</p>
+          <ul class="attention">
+            @for (d of missingDocs(); track d) { <li>{{ d }}</li> }
+          </ul>
+          <p class="ok-note"><a routerLink="/review/documents">להעלאת מסמכים</a></p>
+        } @else {
+          <p class="ok-note">כל המסמכים הבסיסיים הועלו או סומנו כלא זמינים.</p>
+        }
       </section>
+
+      <section class="sec estimate" aria-label="אומדן סיום">
+        <h3>מה מגיע בסיום העבודה</h3>
+        <p class="lead">מה שהופקד לקופה אינו בהכרח מה שמגיע כפיצויי פיטורים.</p>
+        @if (exitTotal() != null) {
+          <p class="big">{{ store.fmt(exitTotal()) }}</p>
+          <p class="sub">הערכה לפי השכר האחרון וסיבת הסיום.</p>
+          <a routerLink="/results/summary">לפירוט הזכויות</a>
+        } @else {
+          <p class="sub">אפשר לחשב הערכה לפי השכר האחרון שנקרא מהתלושים.</p>
+          <ion-button size="small" (click)="runExitEstimate()" [disabled]="exitBusy() || !lastSalary()">חישוב אומדן סיום</ion-button>
+        }
+      </section>
+
+      @if (sims().length) {
+        <details class="sec">
+          <summary><b>אומדן צבירה עתידית (רשות)</b></summary>
+          <p class="lead">הערכה בלבד, לא תחזית השקעה. מבוסס על ההפקדות הידועות ועל הנחות תשואה ודמי ניהול.</p>
+          <ul class="money">
+            @for (s of sims(); track s.scenario) {
+              <li>
+                <span class="k">{{ simLabel(s.scenario) }} · תשואה {{ s.annualReturnPercent }}% · דמי ניהול {{ s.managementFeePercent }}%</span>
+                <span class="v">{{ store.fmt(s.estimatedBalance) }}</span>
+              </li>
+            }
+          </ul>
+        </details>
+      }
 
       <section class="sec" aria-label="שמירה">
         <h3>שמירה והדפסה</h3>
@@ -212,6 +249,8 @@ import { ReviewStepNavComponent } from './review-step-nav.component';
 })
 export class ReviewReportPage implements OnInit {
   readonly store = inject(ReviewStore);
+  private readonly wizard = inject(WizardStore);
+  private readonly calc = inject(CalculationFacade);
   readonly healthLabel = healthLabel;
 
   readonly a = computed(() => this.store.analysis());
@@ -230,9 +269,30 @@ export class ReviewReportPage implements OnInit {
     return REASON_LABELS[raw as ExitReason] ?? raw;
   });
 
-  readonly baseBalance = computed(() =>
-    this.a()?.simulations.find(s => s.scenario === 'Base')?.estimatedBalance ?? null
+  readonly sims = computed(() => this.a()?.simulations ?? []);
+  readonly exitTotal = computed(() => this.wizard.active()?.estimatedTotal ?? null);
+  readonly exitBusy = signal(false);
+  readonly lastSalary = computed(() =>
+    [...(this.store.review()?.months ?? [])].reverse().find(m => m.grossSalary != null)?.grossSalary ?? null
   );
+
+  readonly missingDocs = computed(() => {
+    const r = this.store.review();
+    if (!r?.period) return [] as string[];
+    const has = (type: string, year: number, month?: number) =>
+      r.documents.some(d => d.documentType === type && d.year === year && (month == null || d.month === month));
+    const years = [...new Set(r.months.map(m => m.year))].sort((a, b) => a - b);
+    const out: string[] = [];
+    for (const y of years) {
+      const months = r.months.filter(m => m.year === y && !has('payslip', y, m.month) && !this.store.isWaived('payslip', y, m.month));
+      if (months.length) out.push(`תלושי שכר ${y}: ${months.map(m => MONTH_LABELS[m.month]).join(', ')}`);
+      // Form 106 for year Y is issued by end of March Y+1.
+      const form106Due = new Date() > new Date(y + 1, 2, 31);
+      if (form106Due && !has('form106', y) && !this.store.isWaived('form106', y)) out.push(`טופס 106 לשנת ${y}`);
+      if (!has('pension_report', y) && !this.store.isWaived('pension_report', y)) out.push(`דוח פנסיה / קופות לשנת ${y}`);
+    }
+    return out;
+  });
 
   readonly attention = computed(() => {
     const analysis = this.a();
@@ -243,22 +303,22 @@ export class ReviewReportPage implements OnInit {
     if (s.monthsNoInfo > 0) {
       items.push({
         text: `${s.monthsNoInfo} חודשים בלי מידע על שכר או הפקדות`,
-        link: '/review/salary',
-        linkLabel: 'להשלמת שכר'
+        link: '/review/documents',
+        linkLabel: 'להעלאת תלושים'
       });
     }
     if (s.monthsWithGap > 0) {
       items.push({
         text: `${s.monthsWithGap} חודשים עם פער בהפקדות`,
-        link: '/review/reconciliation',
+        link: '/review/check',
         linkLabel: 'לפירוט'
       });
     }
     if (analysis.anomalies.length > 0) {
       items.push({
         text: `${analysis.anomalies.length} חריגות שזוהו בניתוח`,
-        link: '/review/reconciliation',
-        linkLabel: 'לרשימה'
+        link: '/review/check',
+        linkLabel: 'לפירוט'
       });
     }
     if (s.actualTotal == null) {
@@ -274,11 +334,7 @@ export class ReviewReportPage implements OnInit {
       });
     }
     if (s.gapTotal != null && s.gapTotal < 0) {
-      items.push({
-        text: `פער שלילי משוער: ${this.store.fmt(s.gapTotal)}`,
-        link: '/review/termination',
-        linkLabel: 'לסיכום סיום'
-      });
+      items.push({ text: `פער שלילי משוער: ${this.store.fmt(s.gapTotal)}` });
     }
     return items.slice(0, 5);
   });
@@ -293,6 +349,26 @@ export class ReviewReportPage implements OnInit {
 
   print(): void {
     window.print();
+  }
+
+  simLabel(s: string): string {
+    return s === 'Conservative' ? 'שמרני' : s === 'Optimistic' ? 'אופטימי' : 'בסיס';
+  }
+
+  async runExitEstimate(): Promise<void> {
+    const p = this.store.review()?.period;
+    const salary = this.lastSalary();
+    if (!p || !salary) return;
+    this.exitBusy.set(true);
+    try {
+      const reason = (['Fired', 'Resigned', 'ResignedJustified', 'ContractEnded'] as const)
+        .find(x => x === p.exitReason) ?? 'Fired';
+      this.wizard.choice.set(reason);
+      this.wizard.profile.set({ ...this.wizard.profile(), startDate: p.startDate, endDate: p.endDate, monthlySalary: salary });
+      await this.calc.calculate();
+    } finally {
+      this.exitBusy.set(false);
+    }
   }
 
   private fmtDate(iso: string): string {

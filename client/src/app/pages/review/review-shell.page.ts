@@ -8,6 +8,15 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ReviewStore } from '../../core/review.store';
 import { WorkspaceService } from '../../core/workspace.service';
 
+const LEGACY_STEPS: Record<string, string> = {
+  '/review/salary': '/review/check',
+  '/review/funds': '/review/check',
+  '/review/dashboard': '/review/check',
+  '/review/reconciliation': '/review/check',
+  '/review/simulation': '/review/report',
+  '/review/termination': '/review/report'
+};
+
 @Component({
   selector: 'app-review-shell',
   standalone: true,
@@ -87,15 +96,10 @@ export class ReviewShellPage implements OnInit {
   private resumed = false;
 
   readonly steps = [
-    { path: '/review/employment', label: 'העסקה' },
+    { path: '/review/employment', label: 'התחלה' },
     { path: '/review/documents', label: 'מסמכים' },
-    { path: '/review/salary', label: 'שכר' },
-    { path: '/review/funds', label: 'קופות' },
-    { path: '/review/dashboard', label: 'לוח מצב' },
-    { path: '/review/reconciliation', label: 'הפקדות' },
-    { path: '/review/simulation', label: 'צבירה' },
-    { path: '/review/termination', label: 'סיום' },
-    { path: '/review/report', label: 'דוח' }
+    { path: '/review/check', label: 'בדיקה' },
+    { path: '/review/report', label: 'תוצאות' }
   ];
 
   constructor() {
@@ -123,8 +127,8 @@ export class ReviewShellPage implements OnInit {
     this.resumed = true;
     const here = this.normalize(this.router.url);
     if (savedStep && savedStep !== here && savedStep.startsWith('/review/') && here === '/review/employment') {
-      const known = this.steps.some(s => s.path === savedStep);
-      if (known) void this.router.navigateByUrl(savedStep);
+      const target = LEGACY_STEPS[savedStep] ?? savedStep;
+      if (this.steps.some(s => s.path === target)) void this.router.navigateByUrl(target);
     }
   }
 

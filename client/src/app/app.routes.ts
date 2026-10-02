@@ -17,13 +17,15 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'employment' },
       { path: 'employment', loadComponent: () => import('./pages/review/review-employment.page').then(m => m.ReviewEmploymentPage) },
       { path: 'documents', loadComponent: () => import('./pages/review/review-documents.page').then(m => m.ReviewDocumentsPage) },
-      { path: 'salary', loadComponent: () => import('./pages/review/review-salary.page').then(m => m.ReviewSalaryPage) },
-      { path: 'funds', loadComponent: () => import('./pages/review/review-funds.page').then(m => m.ReviewFundsPage) },
-      { path: 'dashboard', loadComponent: () => import('./pages/review/review-dashboard.page').then(m => m.ReviewDashboardPage) },
-      { path: 'reconciliation', loadComponent: () => import('./pages/review/review-reconciliation.page').then(m => m.ReviewReconciliationPage) },
-      { path: 'simulation', loadComponent: () => import('./pages/review/review-simulation.page').then(m => m.ReviewSimulationPage) },
-      { path: 'termination', loadComponent: () => import('./pages/review/review-termination.page').then(m => m.ReviewTerminationPage) },
-      { path: 'report', loadComponent: () => import('./pages/review/review-report.page').then(m => m.ReviewReportPage) }
+      { path: 'check', loadComponent: () => import('./pages/review/review-check.page').then(m => m.ReviewCheckPage) },
+      { path: 'report', loadComponent: () => import('./pages/review/review-report.page').then(m => m.ReviewReportPage) },
+      // Steps merged into check / report — keep old links and saved progress working.
+      { path: 'salary', redirectTo: 'check', pathMatch: 'full' },
+      { path: 'funds', redirectTo: 'check', pathMatch: 'full' },
+      { path: 'dashboard', redirectTo: 'check', pathMatch: 'full' },
+      { path: 'reconciliation', redirectTo: 'check', pathMatch: 'full' },
+      { path: 'simulation', redirectTo: 'report', pathMatch: 'full' },
+      { path: 'termination', redirectTo: 'report', pathMatch: 'full' }
     ]
   },
   { path: 'reason', canActivate: [sessionGuard], loadComponent: () => import('./pages/reason.page').then(m => m.ReasonPage), data: { seo: SEO.reason } },

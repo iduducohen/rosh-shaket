@@ -7,12 +7,7 @@ import { arrowBackOutline, arrowForwardOutline } from 'ionicons/icons';
 const REVIEW_STEPS = [
   '/review/employment',
   '/review/documents',
-  '/review/salary',
-  '/review/funds',
-  '/review/dashboard',
-  '/review/reconciliation',
-  '/review/simulation',
-  '/review/termination',
+  '/review/check',
   '/review/report'
 ] as const;
 
