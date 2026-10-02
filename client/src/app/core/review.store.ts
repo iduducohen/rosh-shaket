@@ -563,13 +563,15 @@ export class ReviewStore {
       const saved = await firstValueFrom(
         this.http.put<EmploymentReviewCase>(`${this.base}/${c.workspaceId}`, c)
       );
+      // Local changed while the request was in flight (e.g. OCR result) — a newer sync is already scheduled.
+      if (this.review() !== c) return;
       // Keep local as source of truth for fields the server model may not round-trip yet
       // (e.g. documentWaivers), but adopt server timestamps/ids when present.
       const merged: EmploymentReviewCase = {
         ...c,
         ...saved,
         documentWaivers: c.documentWaivers ?? [],
-        documents: saved.documents?.length ? saved.documents : c.documents,
+        documents: c.documents,
         months: saved.months?.length ? saved.months : c.months,
         period: saved.period ?? c.period,
         funds: saved.funds?.length ? saved.funds : c.funds

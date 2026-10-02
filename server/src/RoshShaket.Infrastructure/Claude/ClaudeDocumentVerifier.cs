@@ -114,7 +114,9 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         using var response = await http.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
         {
-            log.LogWarning("Document verification failed with HTTP {Status}", (int)response.StatusCode);
+            var error = await response.Content.ReadAsStringAsync(ct);
+            log.LogWarning("Document verification failed with HTTP {Status}: {Error}",
+                (int)response.StatusCode, error.Length > 500 ? error[..500] : error);
             throw new PayslipExtractionException("שירות אימות המסמכים לא זמין כרגע.");
         }
 

@@ -153,7 +153,7 @@ interface YearBlock {
                             placeholder="שכר ברוטו"
                             [min]="minSalary + 0.01"
                             [max]="maxSalary"
-                            [value]="draftSalary[key(m.year, m.month)] ?? ''"
+                            [value]="draftSalary[key(m.year, m.month)]"
                             (ionInput)="onDraft(m.year, m.month, $event)">
                           </ion-input>
                           <ion-button size="small" (click)="saveManual(m.year, m.month)">שמירה</ion-button>

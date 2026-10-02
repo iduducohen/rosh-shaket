@@ -79,6 +79,8 @@ export class DocumentValidationService {
       if (local?.year != null && local.year !== doc.year) {
         const msg = doc.documentType === 'payslip' || local.detectedType === 'payslip'
           ? `העלית תלוש של שנה ${local.year} אבל צריך להעלות עבור שנה ${doc.year}.`
+          : doc.documentType === 'form106'
+          ? `העלית טופס 106 של שנה ${local.year} אבל צריך להעלות עבור שנה ${doc.year}.`
           : `במסמך מופיעה שנת ${local.year}, אבל המסך פתוח לשנת ${doc.year}.`;
         return this.rejectUpload(docId, msg);
       }

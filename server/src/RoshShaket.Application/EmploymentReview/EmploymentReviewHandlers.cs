@@ -1,3 +1,4 @@
+using System.Text.Json;
 using RoshShaket.Application.Rules.Contribution;
 using RoshShaket.Domain.Employment;
 
@@ -16,8 +17,10 @@ public sealed record EmploymentReviewCase(
     IReadOnlyList<FundAccount> Funds,
     IReadOnlyList<ReviewDocumentMeta> Documents,
     DateTimeOffset UpdatedAt,
-    string? CurrentStep = null);
+    string? CurrentStep = null,
+    JsonElement? DocumentWaivers = null);
 
+// Client-owned OCR fields must round-trip, or each save wipes extracted salaries / funds.
 public sealed record ReviewDocumentMeta(
     Guid Id,
     string DocumentType,
@@ -28,7 +31,19 @@ public sealed record ReviewDocumentMeta(
     string? ExtractedSummary,
     bool NeedsManualReview,
     string? FileName = null,
-    string? StorageKey = null);
+    string? StorageKey = null,
+    long? FileSize = null,
+    string? ServerDocumentId = null,
+    string? ValidationStatus = null,
+    string? ValidationMessage = null,
+    string? DetectedType = null,
+    int? DetectedYear = null,
+    int? DetectedMonth = null,
+    string? DetectedPeriodLabel = null,
+    decimal? ExtractedGrossSalary = null,
+    decimal? ExtractedAnnualGross = null,
+    JsonElement? ExtractedFunds = null,
+    IReadOnlyList<string>? ExtractedContributionKinds = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,

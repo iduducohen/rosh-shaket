@@ -10,6 +10,7 @@ export type PdfDocHint = {
 
 const YEAR_RE = /\b(20[0-3]\d)\b/g;
 const MONTH_YEAR_RE = /\b(0?[1-9]|1[0-2])[/.-](20[0-3]\d)\b/g;
+const TAX_YEAR_RE = /לשנת\s+המס\D{0,12}(20[0-3]\d)/;
 
 const PAYSLIP_RE = /תלוש(?:י)?\s*שכר|תלוש\s+משכורת|שכר\s+נטו|ברוטו\s+לחודש|תקופת\s+שכר|ימי\s+עבודה/i;
 const FORM106_RE = /טופס\s*106|אישור\s+שנתי\s+למס|סיכום\s+שנתי\s+של\s+שכר/i;
@@ -64,12 +65,14 @@ async function extractPdfText(file: File): Promise<string> {
 
 export function parseDocFromText(text: string): PdfDocHint {
   const normalized = text.replace(/\s+/g, ' ');
+  const detectedType = detectTypeFromText(normalized);
+  // Form 106 carries an issue date from the following year ("תאריך הפקה: 02/04/2024") — use the tax year.
+  const taxYear = detectedType === 'form106' ? normalized.match(TAX_YEAR_RE) : null;
+  if (taxYear) {
+    return { year: Number(taxYear[1]), month: null, detectedType };
+  }
   const period = parsePeriodFromText(normalized);
-  return {
-    year: period.year,
-    month: period.month,
-    detectedType: detectTypeFromText(normalized)
-  };
+  return { year: period.year, month: period.month, detectedType };
 }
 
 function detectTypeFromText(text: string): PdfDocHint['detectedType'] {

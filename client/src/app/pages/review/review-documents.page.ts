@@ -506,27 +506,6 @@ interface YearGap {
                   </button>
                 }
 
-                @if (docType === 'payslip') {
-                  <div class="month-waive">
-                    <label class="field" style="margin-bottom:6px">חודשי תלוש ב־{{ y }}</label>
-                    <div class="month-chip-row">
-                      @for (m of monthsInEmploymentYear(y); track m) {
-                        <button type="button" class="month-chip"
-                          [class.have]="hasPayslipMonth(y, m)"
-                          [class.waived]="!hasPayslipMonth(y, m) && isPayslipMonthWaived(y, m)"
-                          [class.need]="!hasPayslipMonth(y, m) && !isPayslipMonthWaived(y, m)"
-                          [disabled]="hasPayslipMonth(y, m)"
-                          (click)="togglePayslipMonthWaiver(y, m)">
-                          <b>{{ monthLabel(m) }}</b>
-                          <span class="meta">{{ payslipMonthMeta(y, m) }}</span>
-                        </button>
-                      }
-                    </div>
-                    <p class="validate-note" style="margin-top:8px">
-                      לחצו על חודש חסר כדי לסמן שאין. לחצו שוב לביטול.
-                    </p>
-                  </div>
-                }
                 <h3 class="section-title" style="margin-top:8px">מה נרשם ל־{{ y }}</h3>
                 @if (!docsForYear(y).length) {
                   <p class="hint">עדיין אין מסמכים לשנה זו.</p>
@@ -648,6 +627,28 @@ interface YearGap {
                   }
                   <div class="actions">
                     <ion-button (click)="addFiles(y)">הוספת {{ pendingFiles.length }} קבצים לרשימה</ion-button>
+                  </div>
+                }
+
+                @if (docType === 'payslip') {
+                  <div class="month-waive" style="margin-top:18px">
+                    <label class="field" style="margin-bottom:6px">חודשי תלוש ב־{{ y }}</label>
+                    <div class="month-chip-row">
+                      @for (m of monthsInEmploymentYear(y); track m) {
+                        <button type="button" class="month-chip"
+                          [class.have]="hasPayslipMonth(y, m)"
+                          [class.waived]="!hasPayslipMonth(y, m) && isPayslipMonthWaived(y, m)"
+                          [class.need]="!hasPayslipMonth(y, m) && !isPayslipMonthWaived(y, m)"
+                          [disabled]="hasPayslipMonth(y, m)"
+                          (click)="togglePayslipMonthWaiver(y, m)">
+                          <b>{{ monthLabel(m) }}</b>
+                          <span class="meta">{{ payslipMonthMeta(y, m) }}</span>
+                        </button>
+                      }
+                    </div>
+                    <p class="validate-note" style="margin-top:8px">
+                      לחצו על חודש חסר כדי לסמן שאין. לחצו שוב לביטול.
+                    </p>
                   </div>
                 }
               </div>
