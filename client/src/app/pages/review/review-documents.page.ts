@@ -1,12 +1,17 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
-import { IonButton, IonIcon } from '@ionic/angular/standalone';
+import { IonButton, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { closeOutline, cloudUploadOutline, createOutline, trashOutline, downloadOutline, clipboardOutline, printOutline } from 'ionicons/icons';
+import {
+  closeOutline, cloudUploadOutline, createOutline, trashOutline,
+  downloadOutline, clipboardOutline, printOutline, eyeOutline
+} from 'ionicons/icons';
 import { DOC_CHECKLIST, ReviewDocumentMeta } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
 import { DocumentValidationService } from '../../core/document-validation.service';
+import { ReviewDocumentFilesService } from '../../core/review-document-files.service';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 import { PENSION_GUIDE } from './pension-guide';
 
@@ -44,7 +49,7 @@ interface YearGap {
 @Component({
   selector: 'app-review-documents',
   standalone: true,
-  imports: [IonButton, IonIcon, RouterLink, ReviewStepNavComponent],
+  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 12px; line-height: 1.45; }
@@ -134,12 +139,21 @@ interface YearGap {
     .drop {
       border: 1.5px dashed var(--ion-color-primary); border-radius: 14px; padding: 18px 16px;
       text-align: center; margin: 0 0 10px; background: rgba(var(--ion-color-primary-rgb), .04);
-      cursor: pointer;
+      cursor: pointer; position: relative; min-height: 88px;
+      display: grid; place-items: center;
     }
     .drop.over { background: rgba(var(--ion-color-primary-rgb), .12); }
+    .drop.busy { cursor: wait; pointer-events: none; border-style: solid; background: rgba(var(--ion-color-primary-rgb), .08); }
     .drop b { display: block; margin-bottom: 4px; }
     .drop input { display: none; }
-    .file-err { color: var(--ion-color-danger); font-size: 13.5px; margin: 0 0 10px; }
+    .drop-busy {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 4px 8px;
+    }
+    .drop-busy ion-spinner { width: 28px; height: 28px; color: var(--ion-color-primary); }
+    .drop-busy b { margin: 0; font-size: 14px; }
+    .file-err { color: var(--ion-color-danger); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
+    .file-ok { color: var(--ion-color-success-shade, #1a7a3c); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
     .file-list, .doc-list { margin: 0 0 10px; padding: 0; list-style: none; }
     .file-list li, .doc-list li {
       display: flex; justify-content: space-between; gap: 8px; align-items: flex-start;
@@ -156,6 +170,17 @@ interface YearGap {
     .doc-list .icon-btn.danger { color: var(--ion-color-medium); }
     .doc-list .icon-btn.danger:hover { color: var(--ion-color-danger); background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), .08); }
     .doc-list .row-actions { display: flex; gap: 2px; flex: none; }
+    .preview-sheet {
+      width: min(920px, 96vw); max-height: 92vh; display: flex; flex-direction: column;
+    }
+    .preview-frame {
+      width: 100%; flex: 1; min-height: 60vh; border: 1px solid var(--rs-line);
+      border-radius: 10px; background: #fff;
+    }
+    .preview-img {
+      display: block; max-width: 100%; max-height: 70vh; margin: 0 auto;
+      border-radius: 10px; border: 1px solid var(--rs-line);
+    }
 
     /* Styled tooltips — web + hover only (hybrid native / touch: aria-label only). */
     @media (hover: hover) and (pointer: fine) {
@@ -207,12 +232,21 @@ interface YearGap {
     .val-line.bad { color: var(--ion-color-danger); font-weight: 600; }
     .val-line.wait { color: var(--ion-color-primary); }
     .val-actions {
-      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: center;
     }
     .val-actions button {
       background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
       font-size: 12.5px; font-weight: 700; color: var(--ion-color-primary);
       text-decoration: underline; text-underline-offset: 2px;
+    }
+    .manual-month {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;
+    }
+    .manual-month label {
+      font-size: 12.5px; font-weight: 700; color: var(--ion-color-danger-shade, #b91c1c);
+    }
+    .manual-month select {
+      min-width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;
     }
     .status-box {
       border: 1px solid var(--rs-line); border-radius: 12px; padding: 12px 14px; margin: 0 0 12px;
@@ -427,16 +461,6 @@ interface YearGap {
                                 איך להשיג דוח פנסיה
                               </button>
                             }
-                            @if (row.state === 'miss') {
-                              <button type="button" class="waive-btn" (click)="waiveType(y, row.key)">
-                                לחץ אם אין
-                              </button>
-                            }
-                            @if (row.state === 'waived') {
-                              <button type="button" class="waive-btn" (click)="unwaiveType(y, row.key)">
-                                ביטול דילוג
-                              </button>
-                            }
                           </span>
                         </li>
                       }
@@ -522,12 +546,25 @@ interface YearGap {
                               {{ d.validationMessage }}
                             </div>
                           }
+                          @if (needsManualMonth(d)) {
+                            <div class="manual-month">
+                              <label [attr.for]="'manual-month-' + d.id">בחירת חודש ידנית</label>
+                              <select [id]="'manual-month-' + d.id" [value]="''" (change)="setManualMonth(d, $event)">
+                                <option value="" disabled>בחרו חודש</option>
+                                @for (m of monthOptions; track m.value) {
+                                  <option [value]="m.value">{{ m.label }}</option>
+                                }
+                              </select>
+                            </div>
+                          }
                           @if (d.validationStatus === 'mismatch' || d.validationStatus === 'unreadable' || d.validationStatus === 'unavailable') {
                             <div class="val-actions">
                               @if (canApplyDetected(d)) {
                                 <button type="button" (click)="applyDetected(d)">התאמה למה שזוהה</button>
                               }
-                              <button type="button" (click)="confirmManual(d)">אישור ידני</button>
+                              @if (!needsManualMonth(d)) {
+                                <button type="button" (click)="confirmManual(d)">אישור ידני</button>
+                              }
                               @if (hasSourceFile(d.id)) {
                                 <button type="button" (click)="revalidate(d)">בדיקה מחדש</button>
                               }
@@ -535,6 +572,14 @@ interface YearGap {
                           }
                         </div>
                         <div class="row-actions">
+                          @if (hasSourceFile(d.id)) {
+                            <button type="button" class="icon-btn"
+                              [class.has-tip]="showTooltips"
+                              [attr.data-tip]="showTooltips ? 'צפייה' : null"
+                              (click)="openPreview(d)" aria-label="צפייה במסמך">
+                              <ion-icon name="eye-outline" aria-hidden="true"></ion-icon>
+                            </button>
+                          }
                           <button type="button" class="icon-btn"
                             [class.has-tip]="showTooltips"
                             [attr.data-tip]="showTooltips ? 'החלפת קובץ' : null"
@@ -543,8 +588,8 @@ interface YearGap {
                           </button>
                           <button type="button" class="icon-btn"
                             [class.has-tip]="showTooltips"
-                            [attr.data-tip]="showTooltips ? 'עריכה' : null"
-                            (click)="openEdit(d)" aria-label="עריכה">
+                            [attr.data-tip]="showTooltips ? 'שינוי שם' : null"
+                            (click)="openRename(d)" aria-label="שינוי שם">
                             <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
                           </button>
                           <button type="button" class="icon-btn danger"
@@ -561,21 +606,33 @@ interface YearGap {
               </div>
 
               <div>
-                <div class="drop" [class.over]="dragOver()"
-                  (click)="fileInput.click()"
+                <div class="drop"
+                  [class.over]="dragOver() && !uploading()"
+                  [class.busy]="uploading()"
+                  (click)="!uploading() && fileInput.click()"
                   (dragover)="onDragOver($event)"
                   (dragleave)="dragOver.set(false)"
                   (drop)="onDrop($event)">
-                  <b>גררו קבצים או לחצו לבחירה</b>
-                  <span class="muted small">PDF / תמונה · אפשר כמה יחד</span>
-                  <input #fileInput type="file" accept=".pdf,image/*" multiple (change)="onFiles($event)" />
+                  @if (uploading()) {
+                    <div class="drop-busy" aria-live="polite" aria-busy="true">
+                      <ion-spinner name="crescent"></ion-spinner>
+                      <b>{{ uploadLabel() }}</b>
+                      <span class="muted small">בודקים סוג, שנה וחודש…</span>
+                    </div>
+                  } @else {
+                    <b>גררו קבצים או לחצו לבחירה</b>
+                    <span class="muted small">PDF / תמונה · אפשר כמה יחד</span>
+                  }
+                  <input #fileInput type="file" accept=".pdf,image/*" multiple (change)="onFiles($event)" [disabled]="uploading()" />
                 </div>
                 <p class="validate-note">
-                  אחרי ההעלאה בודקים אוטומטית (OCR/AI) שהקובץ תואם לסוג, לשנה, ולחודש (בתלוש). אי-התאמה תוצג מיד — חשוב לחישוב נכון.
+                  אחרי ההעלאה בודקים אוטומטית (OCR/AI) סוג, שנה וחודש. בתלוש החודש מתמלא לבד — בלי בחירה ידנית. אי-התאמה תוצג מיד.
                 </p>
-                @if (fileError()) { <p class="file-err">{{ fileError() }}</p> }
+                @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
+                @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
+                @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
 
-                @if (pendingFiles.length) {
+                @if (pendingFiles.length && !uploading()) {
                   <ul class="file-list">
                     @for (f of pendingFiles; track f.name + f.size; let i = $index) {
                       <li>
@@ -585,16 +642,9 @@ interface YearGap {
                     }
                   </ul>
                   @if (docType === 'payslip') {
-                    <div class="field">
-                      <label for="pay-month">חודש של התלוש</label>
-                      <select id="pay-month" [value]="uploadMonth ?? ''" (change)="onUploadMonth($event)">
-                        <option value="">בחרו חודש</option>
-                        @for (m of monthOptions; track m.value) {
-                          <option [value]="m.value">{{ m.label }}</option>
-                        }
-                      </select>
-                      <p class="validate-note" style="margin-top:6px">כדי לדעת באיזה חודש התלוש — חשוב לבחור חודש לפני השמירה.</p>
-                    </div>
+                    <p class="validate-note">
+                      החודש יזוהה אוטומטית מהתלוש. אם הזיהוי לא יתאים לשנה הזו — תוצג התראה עם אפשרות לעדכן.
+                    </p>
                   }
                   <div class="actions">
                     <ion-button (click)="addFiles(y)">הוספת {{ pendingFiles.length }} קבצים לרשימה</ion-button>
@@ -653,68 +703,54 @@ interface YearGap {
       </div>
     }
 
-    @if (editTarget(); as doc) {
-      <div class="sheet-backdrop" style="z-index:40" (click)="cancelEdit()">
-        <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="edit-title" (click)="$event.stopPropagation()">
+    @if (renameTarget(); as doc) {
+      <div class="sheet-backdrop" style="z-index:40" (click)="cancelRename()">
+        <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="rename-title" (click)="$event.stopPropagation()">
           <div class="sheet-head">
-            <h2 id="edit-title">עריכת מסמך</h2>
-            <button type="button" class="sheet-close" (click)="cancelEdit()" aria-label="סגירה">
+            <h2 id="rename-title">שינוי שם מסמך</h2>
+            <button type="button" class="sheet-close" (click)="cancelRename()" aria-label="סגירה">
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
-          <p class="hint">משנים כאן סוג מסמך, חודש (לתלוש), שם תצוגה, או מחליפים את הקובץ בלי למחוק את הרשומה.</p>
-
-          <label class="field" style="margin-bottom:6px">סוג מסמך</label>
-          <div class="type-grid" style="margin-bottom:14px">
-            @for (t of coreTypes; track t.key) {
-              <button type="button" class="type-chip"
-                [class.selected]="editType === t.key"
-                (click)="selectEditType(t.key)">
-                <b>{{ t.label }}</b>
-              </button>
-            }
-          </div>
-
-          @if (editType === 'payslip') {
-            <div class="field">
-              <label for="edit-month">חודש</label>
-              <select id="edit-month" [value]="editMonth ?? ''" (change)="onEditMonth($event)">
-                <option value="">בחרו חודש</option>
-                @for (m of monthOptions; track m.value) {
-                  <option [value]="m.value">{{ m.label }}</option>
-                }
-              </select>
-            </div>
-          }
-
+          <p class="hint">משנים רק את שם התצוגה ברשימה — סוג המסמך והחודש לא משתנים כאן.</p>
           <div class="field">
-            <label for="edit-name">שם בקובץ / תצוגה</label>
-            <input id="edit-name" type="text" [value]="editName" (input)="onEditName($event)" />
+            <label for="rename-name">שם תצוגה</label>
+            <input id="rename-name" type="text" [value]="renameName" (input)="onRenameName($event)" />
           </div>
-
-          <div class="field">
-            <label>החלפת קובץ</label>
-            <p class="count" style="margin:4px 0 8px">
-              נוכחי: {{ doc.fileName || doc.extractedSummary || '—' }}
-            </p>
-            @if (editReplacePendingName) {
-              <p class="count" style="margin:0 0 8px">יוחלף ב: {{ editReplacePendingName }}</p>
-            }
-            <button type="button" class="guide-toggle" style="margin:0" (click)="editReplaceInput.click()">
-              בחירת קובץ חדש
-            </button>
-            <input #editReplaceInput type="file" accept=".pdf,image/*" hidden
-              (change)="onEditReplaceFile($event)" />
-          </div>
-          @if (editError()) { <p class="file-err">{{ editError() }}</p> }
-
+          @if (renameError()) { <p class="file-err">{{ renameError() }}</p> }
           <div class="confirm-actions">
-            <ion-button fill="outline" (click)="cancelEdit()">ביטול</ion-button>
-            <ion-button (click)="saveEdit()">שמירה</ion-button>
+            <ion-button fill="outline" (click)="cancelRename()">ביטול</ion-button>
+            <ion-button (click)="saveRename()">שמירה</ion-button>
           </div>
         </div>
       </div>
     }
+
+    @if (previewTarget(); as doc) {
+      <div class="sheet-backdrop" style="z-index:42" (click)="closePreview()">
+        <div class="sheet preview-sheet" role="dialog" aria-modal="true" aria-labelledby="preview-title" (click)="$event.stopPropagation()">
+          <div class="sheet-head">
+            <h2 id="preview-title">{{ doc.fileName || doc.extractedSummary || 'צפייה במסמך' }}</h2>
+            <button type="button" class="sheet-close" (click)="closePreview()" aria-label="סגירה">
+              <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+            </button>
+          </div>
+          @if (previewUrl()) {
+            @if (previewIsPdf()) {
+              <iframe class="preview-frame" [src]="previewUrl()" title="תצוגת מסמך"></iframe>
+            } @else {
+              <img class="preview-img" [src]="previewUrl()" [alt]="doc.fileName || 'מסמך'" />
+            }
+          } @else {
+            <p class="hint">טוענים את הקובץ…</p>
+          }
+          <div class="confirm-actions" style="margin-top:12px">
+            <ion-button fill="outline" (click)="closePreview()">סגירה</ion-button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (pensionGuideOpen()) {
       <div class="sheet-backdrop" style="z-index:45" (click)="closePensionGuide()">
         <div class="sheet guide-sheet" role="dialog" aria-modal="true" aria-labelledby="pension-guide-title" (click)="$event.stopPropagation()">
@@ -755,34 +791,37 @@ interface YearGap {
     }
   `
 })
-export class ReviewDocumentsPage {
+export class ReviewDocumentsPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
-  private readonly validation = inject(DocumentValidationService);
+  readonly validation = inject(DocumentValidationService);
+  private readonly files = inject(ReviewDocumentFilesService);
+  private readonly sanitizer = inject(DomSanitizer);
   readonly coreTypes = CORE_TYPES;
   /** Hover tooltips only in browser — native Capacitor uses aria-label only. */
   readonly showTooltips = !Capacitor.isNativePlatform();
-  /** Keeps source files for re-validate / replace flows (session only). */
-  private readonly sourceFiles = new Map<string, File>();
 
   readonly yearModal = signal<number | null>(null);
   readonly gapModal = signal<YearGap | null>(null);
   readonly deleteTarget = signal<ReviewDocumentMeta | null>(null);
-  readonly editTarget = signal<ReviewDocumentMeta | null>(null);
-  readonly editError = signal('');
+  readonly renameTarget = signal<ReviewDocumentMeta | null>(null);
+  readonly renameError = signal('');
+  readonly previewTarget = signal<ReviewDocumentMeta | null>(null);
+  readonly previewUrl = signal<SafeResourceUrl | null>(null);
+  readonly previewIsPdf = signal(false);
+  private previewObjectUrl: string | null = null;
   readonly dragOver = signal(false);
   readonly fileError = signal('');
+  readonly uploading = signal(false);
+  readonly uploadLabel = signal('');
+  readonly uploadOk = signal('');
   readonly copied = signal(false);
   readonly pensionGuideOpen = signal(false);
   readonly pensionGuide = PENSION_GUIDE;
 
   docType = 'payslip';
   uploadMonth: number | null = null;
-  editType = 'payslip';
-  editMonth: number | null = null;
-  editName = '';
-  editReplacePendingName = '';
-  private editReplaceFile: File | null = null;
+  renameName = '';
   pendingFiles: File[] = [];
   readonly monthOptions = [
     { value: 1, label: 'ינואר' }, { value: 2, label: 'פברואר' }, { value: 3, label: 'מרץ' },
@@ -792,7 +831,15 @@ export class ReviewDocumentsPage {
   ];
 
   constructor() {
-    addIcons({ closeOutline, cloudUploadOutline, createOutline, trashOutline, downloadOutline, clipboardOutline, printOutline });
+    addIcons({
+      closeOutline, cloudUploadOutline, createOutline, trashOutline,
+      downloadOutline, clipboardOutline, printOutline, eyeOutline
+    });
+  }
+
+  ngOnInit(): void {
+    const ids = (this.store.review()?.documents ?? []).map(d => d.id);
+    void this.files.hydrate(ids);
   }
 
   readonly periodYears = computed(() => {
@@ -826,7 +873,8 @@ export class ReviewDocumentsPage {
   @HostListener('document:keydown.escape')
   onEsc(): void {
     if (this.pensionGuideOpen()) this.closePensionGuide();
-    else if (this.editTarget()) this.cancelEdit();
+    else if (this.renameTarget()) this.cancelRename();
+    else if (this.previewTarget()) this.closePreview();
     else if (this.deleteTarget()) this.cancelRemove();
     else if (this.gapModal()) this.gapModal.set(null);
     else if (this.yearModal() != null) this.closeYear();
@@ -894,7 +942,11 @@ export class ReviewDocumentsPage {
 
   hasPayslipMonth(year: number, month: number): boolean {
     return (this.store.review()?.documents ?? []).some(
-      d => d.documentType === 'payslip' && d.year === year && d.month === month
+      d => d.documentType === 'payslip'
+        && d.year === year
+        && d.month === month
+        && d.validationStatus !== 'pending'
+        && d.validationStatus !== 'checking'
     );
   }
 
@@ -935,7 +987,11 @@ export class ReviewDocumentsPage {
   }
 
   docsForYear(year: number): ReviewDocumentMeta[] {
-    return (this.store.review()?.documents ?? []).filter(d => d.year === year);
+    return (this.store.review()?.documents ?? []).filter(d =>
+      d.year === year
+      && d.validationStatus !== 'pending'
+      && d.validationStatus !== 'checking'
+    );
   }
 
   openYear(year: number): void {
@@ -944,6 +1000,8 @@ export class ReviewDocumentsPage {
     this.pendingFiles = [];
     this.uploadMonth = null;
     this.fileError.set('');
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
     this.docType = this.gapFor(year)?.missing[0]?.key ?? 'payslip';
   }
 
@@ -957,6 +1015,10 @@ export class ReviewDocumentsPage {
     this.uploadMonth = null;
     this.dragOver.set(false);
     this.fileError.set('');
+    this.uploadOk.set('');
+    this.uploading.set(false);
+    this.uploadLabel.set('');
+    this.validation.clearBlockMessage();
   }
 
   onUploadMonth(ev: Event): void {
@@ -977,11 +1039,13 @@ export class ReviewDocumentsPage {
   onDrop(ev: DragEvent): void {
     ev.preventDefault();
     this.dragOver.set(false);
+    if (this.uploading()) return;
     const files = ev.dataTransfer?.files;
     if (files?.length) this.acceptFiles(Array.from(files));
   }
 
   onFiles(ev: Event): void {
+    if (this.uploading()) return;
     const input = ev.target as HTMLInputElement;
     const list = input.files;
     const files = list ? Array.from(list) : [];
@@ -1005,64 +1069,125 @@ export class ReviewDocumentsPage {
       ?? key;
   }
 
-  addFiles(year: number): void {
-    if (!this.pendingFiles.length) return;
-    if (this.docType === 'payslip' && this.uploadMonth == null) {
-      this.fileError.set('בחרו חודש לתלוש לפני השמירה.');
-      return;
-    }
+  async addFiles(year: number): Promise<void> {
+    if (!this.pendingFiles.length || this.uploading()) return;
     this.ensurePeriod();
     const queued = [...this.pendingFiles];
-    for (const file of queued) {
-      const id = crypto.randomUUID();
-      this.store.addDocument({
-        id,
-        documentType: this.docType,
-        year,
-        month: this.docType === 'payslip' ? this.uploadMonth : null,
-        source: 'upload',
-        parsedOk: false,
-        extractedSummary: file.name,
-        needsManualReview: true,
-        fileName: file.name,
-        storageKey: null,
-        validationStatus: 'pending',
-        validationMessage: 'ממתין לבדיקת תוכן…'
-      });
-      this.sourceFiles.set(id, file);
-      void this.validation.validateDocument(id, file);
-    }
     this.pendingFiles = [];
     this.uploadMonth = null;
     this.fileError.set('');
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
+
+    const seenInBatch = new Set<string>();
+    let keptCount = 0;
+    this.uploading.set(true);
+    try {
+      for (const file of queued) {
+        const key = `${file.name.trim().toLowerCase()}|${file.size}`;
+        if (seenInBatch.has(key) || this.validation.isDuplicateFile(year, file)) {
+          this.validation.setBlockMessage(this.validation.duplicateFileMessage(file.name));
+          continue;
+        }
+        seenInBatch.add(key);
+
+        this.uploadLabel.set(`בודקים את ${file.name}…`);
+        const id = crypto.randomUUID();
+        this.store.addDocument({
+          id,
+          documentType: this.docType,
+          year,
+          month: this.docType === 'payslip' ? this.uploadMonth : null,
+          source: 'upload',
+          parsedOk: false,
+          extractedSummary: file.name,
+          needsManualReview: true,
+          fileName: file.name,
+          fileSize: file.size,
+          storageKey: null,
+          validationStatus: 'checking',
+          validationMessage: 'בודקים את המסמך…'
+        });
+        await this.files.put(id, file);
+        const kept = await this.validation.validateDocument(id, file);
+        if (!kept) await this.files.remove(id);
+        else {
+          keptCount++;
+          void this.files.syncToServer(id, file, this.docType);
+        }
+      }
+    } finally {
+      this.uploading.set(false);
+      this.uploadLabel.set('');
+    }
+
+    if (keptCount > 0 && !this.validation.blockMessage()) {
+      this.uploadOk.set(
+        keptCount === 1
+          ? 'המסמך נבדק ונוסף לרשימה.'
+          : `${keptCount} מסמכים נבדקו ונוספו לרשימה.`
+      );
+    }
   }
 
   monthLabel(month: number): string {
     return this.monthOptions.find(m => m.value === month)?.label ?? String(month);
   }
 
-  openEdit(d: ReviewDocumentMeta): void {
-    this.editTarget.set(d);
-    this.editType = CORE_TYPES.some(t => t.key === d.documentType) ? d.documentType : 'payslip';
-    this.editMonth = d.month;
-    this.editName = d.fileName || d.extractedSummary || '';
-    this.editReplaceFile = null;
-    this.editReplacePendingName = '';
-    this.editError.set('');
+  openRename(d: ReviewDocumentMeta): void {
+    this.renameTarget.set(d);
+    this.renameName = d.fileName || d.extractedSummary || '';
+    this.renameError.set('');
   }
 
-  selectEditType(key: string): void {
-    this.editType = key;
-    if (key !== 'payslip') this.editMonth = null;
+  onRenameName(ev: Event): void {
+    this.renameName = (ev.target as HTMLInputElement).value;
   }
 
-  onEditMonth(ev: Event): void {
-    const v = (ev.target as HTMLSelectElement).value;
-    this.editMonth = v ? Number(v) : null;
+  cancelRename(): void {
+    this.renameTarget.set(null);
+    this.renameError.set('');
   }
 
-  onEditName(ev: Event): void {
-    this.editName = (ev.target as HTMLInputElement).value;
+  saveRename(): void {
+    const d = this.renameTarget();
+    if (!d) return;
+    const name = this.renameName.trim();
+    if (!name) {
+      this.renameError.set('נא להזין שם תצוגה.');
+      return;
+    }
+    this.store.updateDocument(d.id, {
+      fileName: name,
+      extractedSummary: name
+    });
+    this.cancelRename();
+  }
+
+  async openPreview(d: ReviewDocumentMeta): Promise<void> {
+    const file = await this.files.get(d.id);
+    if (!file) {
+      this.fileError.set('אין קובץ זמין לצפייה במכשיר זה. העלו שוב אם צריך.');
+      return;
+    }
+    this.closePreview();
+    const url = URL.createObjectURL(file);
+    this.previewObjectUrl = url;
+    this.previewIsPdf.set(
+      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    );
+    this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+    this.previewTarget.set(d);
+  }
+
+  closePreview(): void {
+    this.previewTarget.set(null);
+    this.previewUrl.set(null);
+    this.previewIsPdf.set(false);
+    if (this.previewObjectUrl) {
+      URL.revokeObjectURL(this.previewObjectUrl);
+      this.previewObjectUrl = null;
+    }
   }
 
   pickReplaceFile(d: ReviewDocumentMeta): void {
@@ -1077,20 +1202,70 @@ export class ReviewDocumentsPage {
         this.fileError.set(err);
         return;
       }
-      this.applyFileReplace(d.id, file);
+      void this.applyFileReplace(d.id, file);
       this.fileError.set('');
     };
     input.click();
   }
 
   hasSourceFile(id: string): boolean {
-    return this.sourceFiles.has(id);
+    return this.files.has(id);
   }
 
   canApplyDetected(d: ReviewDocumentMeta): boolean {
     return d.detectedYear != null
       || d.detectedMonth != null
       || (d.detectedType != null && ['payslip', 'form106', 'pension_report'].includes(d.detectedType));
+  }
+
+  /** Manual month only when OCR finished and did not detect a payslip month. */
+  needsManualMonth(d: ReviewDocumentMeta): boolean {
+    if (d.documentType !== 'payslip' || d.month != null || d.detectedMonth != null) return false;
+    const s = d.validationStatus;
+    return s === 'mismatch' || s === 'unreadable' || s === 'unavailable' || s === 'manual';
+  }
+
+  setManualMonth(d: ReviewDocumentMeta, ev: Event): void {
+    const v = (ev.target as HTMLSelectElement).value;
+    const month = v ? Number(v) : null;
+    if (month == null || month < 1 || month > 12 || d.year == null) return;
+    const monthIssue = this.manualMonthIssue(d.year, month, d.id);
+    if (monthIssue) {
+      (ev.target as HTMLSelectElement).value = '';
+      this.validation.setBlockMessage(monthIssue);
+      return;
+    }
+    this.validation.clearBlockMessage();
+    this.store.updateDocument(d.id, { month });
+    const file = this.files.peek(d.id);
+    if (file) {
+      void this.validation.validateDocument(d.id, file).then(kept => {
+        if (!kept) void this.files.remove(d.id);
+      });
+      return;
+    }
+    this.store.updateDocument(d.id, {
+      validationStatus: 'manual',
+      validationMessage: `חודש נקבע ידנית: ${this.monthLabel(month)}.`,
+      parsedOk: false,
+      needsManualReview: true
+    });
+  }
+
+  private manualMonthIssue(year: number, month: number, excludeDocId: string): string | null {
+    const months = this.monthsInEmploymentYear(year);
+    const label = this.monthLabel(month);
+    if (!months.includes(month)) {
+      return `העלית תלוש ל־${label}, אבל החודש הזה לא בתקופת העסקה לשנת ${year}.`;
+    }
+    const alreadyHave = (this.store.review()?.documents ?? []).some(
+      d => d.id !== excludeDocId && d.documentType === 'payslip' && d.year === year && d.month === month
+    );
+    if (alreadyHave) return `העלית תלוש ל־${label}, אבל החודש הזה כבר קיים ברשימה.`;
+    if (this.isPayslipMonthWaived(year, month) || this.store.isWaived('payslip', year, null)) {
+      return `העלית תלוש ל־${label}, אבל החודש הזה מסומן כדולג — בטלו את הדילוג אם רוצים להעלות.`;
+    }
+    return null;
   }
 
   applyDetected(d: ReviewDocumentMeta): void {
@@ -1102,13 +1277,16 @@ export class ReviewDocumentsPage {
   }
 
   revalidate(d: ReviewDocumentMeta): void {
-    const file = this.sourceFiles.get(d.id);
-    if (!file) return;
-    void this.validation.validateDocument(d.id, file);
+    void this.files.get(d.id).then(file => {
+      if (!file) return;
+      void this.validation.validateDocument(d.id, file).then(kept => {
+        if (!kept) void this.files.remove(d.id);
+      });
+    });
   }
 
-  private applyFileReplace(id: string, file: File): void {
-    this.sourceFiles.set(id, file);
+  private async applyFileReplace(id: string, file: File): Promise<void> {
+    await this.files.put(id, file);
     this.store.updateDocument(id, {
       fileName: file.name,
       extractedSummary: file.name,
@@ -1116,57 +1294,16 @@ export class ReviewDocumentsPage {
       parsedOk: false,
       needsManualReview: true,
       storageKey: null,
-      validationStatus: 'pending',
-      validationMessage: 'ממתין לבדיקת תוכן…',
+      validationStatus: 'checking',
+      validationMessage: 'בודקים את המסמך…',
       detectedType: null,
       detectedYear: null,
       detectedMonth: null,
       detectedPeriodLabel: null
     });
-    void this.validation.validateDocument(id, file);
-  }
-
-  onEditReplaceFile(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    const err = this.validateUploadFile(file);
-    if (err) {
-      this.editError.set(err);
-      return;
-    }
-    this.editReplaceFile = file;
-    this.editReplacePendingName = file.name;
-    this.editName = file.name;
-    this.editError.set('');
-  }
-
-  cancelEdit(): void {
-    this.editTarget.set(null);
-    this.editReplaceFile = null;
-    this.editReplacePendingName = '';
-    this.editError.set('');
-  }
-
-  saveEdit(): void {
-    const d = this.editTarget();
-    if (!d) return;
-    if (this.editType === 'payslip' && this.editMonth == null) {
-      this.editError.set('לתלוש חובה לבחור חודש.');
-      return;
-    }
-    const name = this.editName.trim();
-    const replaced = this.editReplaceFile;
-    this.store.updateDocument(d.id, {
-      documentType: this.editType,
-      month: this.editType === 'payslip' ? this.editMonth : null,
-      fileName: name || replaced?.name || d.fileName || null,
-      extractedSummary: name || replaced?.name || d.extractedSummary || null
-    });
-    this.cancelEdit();
-    if (replaced) this.applyFileReplace(d.id, replaced);
-    else if (this.sourceFiles.has(d.id)) void this.validation.validateDocument(d.id, this.sourceFiles.get(d.id)!);
+    const kept = await this.validation.validateDocument(id, file);
+    if (!kept) await this.files.remove(id);
+    else void this.files.syncToServer(id, file, this.store.review()?.documents.find(d => d.id === id)?.documentType ?? 'payslip');
   }
 
   private validateUploadFile(file: File): string | null {
@@ -1187,7 +1324,7 @@ export class ReviewDocumentsPage {
   confirmRemove(): void {
     const d = this.deleteTarget();
     if (!d) return;
-    this.sourceFiles.delete(d.id);
+    void this.files.remove(d.id);
     this.store.removeDocument(d.id);
     this.deleteTarget.set(null);
   }
@@ -1404,7 +1541,12 @@ export class ReviewDocumentsPage {
     this.fileError.set(bad.length
       ? `לא ניתן להעלות: ${bad.join(', ')}. רק PDF או תמונה.`
       : '');
-    if (ok.length) this.pendingFiles = [...this.pendingFiles, ...ok];
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
+    if (!ok.length) return;
+    this.pendingFiles = [...this.pendingFiles, ...ok];
+    const y = this.yearModal();
+    if (y != null) void this.addFiles(y);
   }
 
   private ensurePeriod(): void {

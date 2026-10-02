@@ -91,7 +91,11 @@ export interface ReviewDocumentMeta {
   extractedSummary: string | null;
   needsManualReview: boolean;
   fileName?: string | null;
+  /** Byte size used to detect re-uploading the same file. */
+  fileSize?: number | null;
   storageKey?: string | null;
+  /** Server workspace document id — enables download/resume on another device. */
+  serverDocumentId?: string | null;
   /** OCR/AI verification against selected year/type/month. */
   validationStatus?: DocumentValidationStatus | null;
   validationMessage?: string | null;

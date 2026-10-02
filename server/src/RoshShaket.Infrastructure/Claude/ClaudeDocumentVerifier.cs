@@ -60,11 +60,13 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         var focus = expectedType switch
         {
             ReviewDocumentTypes.Form106 =>
-                $"המשתמש טוען שזה טופס 106 לשנת מס {expectedYear}. חלץ את שנת המס ואת סך השכר השנתי ברוטו אם מופיע.",
+                $"המסך שנפתח הוא לשנת מס {expectedYear}. קרא מתוך התמונה בלבד את שנת המס שמופיעה בטופס 106 ואת סך השכר השנתי ברוטו אם מופיע. אל תעתיק את {expectedYear} אלא אם היא באמת כתובה במסמך.",
             ReviewDocumentTypes.PensionReport =>
-                $"המשתמש טוען שזה דוח פנסיה / דוח הפקדות / דוח קופה לשנת {expectedYear}. חלץ את שנת הדוח ואת יתרות הקופות אם מופיעות.",
+                $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את שנת הדוח ואת יתרות הקופות אם מופיעות. אל תעתיק את {expectedYear} אלא אם היא באמת כתובה במסמך.",
+            _ when expectedMonth is int em =>
+                $"המסך שנפתח מצפה לתלוש שכר עבור {em}/{expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים (למשל ליד «תקופת שכר» / תאריך התלוש), שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה. אל תנחש ואל תעתיק שנה/חודש מהציפייה — רק מה שמופיע במסמך.",
             _ =>
-                $"המשתמש טוען שזה תלוש שכר לחודש {expectedMonth}/{expectedYear}. חלץ את חודש ושנת התלוש, שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה."
+                $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים (למשל ליד «תקופת שכר» / תאריך התלוש), שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה. אל תנחש ואל תעתיק את {expectedYear} — detected_year ו־detected_month חייבים להיות מהמסמך בלבד."
         };
 
         return $$"""
@@ -86,6 +88,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             - detected_type=form106 רק לטופס 106 שנתי.
             - detected_type=pension_report לדוח פנסיה, הפקדות, גמל, השתלמות או ביטוח מנהלים.
             - other / unknown אם לא ברור.
+            - detected_year / detected_month: רק מה שכתוב במסמך. אם לא קריא — null. אסור להעתיק מהציפייה של המשתמש.
             - לתלוש: gross_salary = שכר יסוד חודשי ברוטו.
             - לתלוש: contribution_kinds = סוגי שורות בטבלת ההפרשות. pension=תגמולי פנסיה, severance=פיצויים, disability=אובדן כושר עבודה, study=קרן השתלמות. מערך ריק אם אין טבלה.
             - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע. contribution_kinds ריק.

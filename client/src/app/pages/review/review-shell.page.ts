@@ -4,7 +4,9 @@ import { IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { filter } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DeskHeaderComponent } from '../../core/desk-header.component';
+import { AuthService } from '../../core/auth/auth.service';
 import { ReviewStore } from '../../core/review.store';
+import { WorkspaceService } from '../../core/workspace.service';
 
 @Component({
   selector: 'app-review-shell',
@@ -60,7 +62,7 @@ import { ReviewStore } from '../../core/review.store';
       <app-desk-header [step]="1"></app-desk-header>
       <div class="page ion-padding">
         <h1>בדיקת תקופת העסקה</h1>
-        <p class="note">הערכה ואומדן בלבד — לא ייעוץ משפטי. חודש בלי מידע מוצג כ״לא ידוע״, לא כ־0. ההתקדמות נשמרת אוטומטית.</p>
+        <p class="note">הערכה ואומדן בלבד — לא ייעוץ משפטי. חודש בלי מידע מוצג כ״לא ידוע״, לא כ־0. ההתקדמות נשמרת אוטומטית. עם התחברות — גם במכשיר אחר.</p>
         <nav class="steps" aria-label="שלבי הבדיקה">
           @for (s of steps; track s.path; let i = $index) {
             <a [routerLink]="s.path" routerLinkActive="on">
@@ -80,6 +82,8 @@ import { ReviewStore } from '../../core/review.store';
 export class ReviewShellPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
+  private readonly workspaces = inject(WorkspaceService);
   private resumed = false;
 
   readonly steps = [
@@ -105,6 +109,14 @@ export class ReviewShellPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    if (this.auth.isSignedIn() || this.auth.hasSession()) {
+      try {
+        const ws = await this.workspaces.restore();
+        if (ws?.id) this.store.useWorkspaceId(ws.id);
+      } catch {
+        // Offline / auth expired — continue with local draft.
+      }
+    }
     const savedStep = await this.store.hydrateFromServer();
     this.store.setCurrentStep(this.normalize(this.router.url));
     if (this.resumed) return;

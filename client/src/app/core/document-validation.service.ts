@@ -1,27 +1,92 @@
-import { Injectable, inject } from '@angular/core';
-import { ApiService, DocumentVerificationResult, describeError } from './api.service';
+import { Injectable, inject, signal } from '@angular/core';
+import { ApiService, DocumentVerificationResult } from './api.service';
 import { prepareDocumentImages } from './document-images';
+import { readPdfDocHint, type PdfDocHint } from './document-pdf-period';
 import { DocumentValidationStatus, ExtractedFundSnapshot, ReviewDocumentMeta } from './review.models';
 import { ReviewStore } from './review.store';
+
+const ALLOWED_TYPES = new Set(['payslip', 'form106', 'pension_report']);
+
+const UNSUITABLE_FILE_MSG =
+  'הקובץ שהועלה לא מתאים למסמכים החסרים — נא לבדוק את הקובץ.';
+
+const MONTH_LABELS = [
+  '', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+];
 
 @Injectable({ providedIn: 'root' })
 export class DocumentValidationService {
   private readonly api = inject(ApiService);
   private readonly store = inject(ReviewStore);
 
-  /** Run OCR/AI verify and persist status on the document row. */
-  async validateDocument(docId: string, file: File): Promise<void> {
-    const doc = this.find(docId);
-    if (!doc || doc.year == null) return;
+  /** Shown when an upload is rejected and removed (wrong type / year / month). */
+  readonly blockMessage = signal('');
 
+  clearBlockMessage(): void {
+    this.blockMessage.set('');
+  }
+
+  setBlockMessage(message: string): void {
+    this.blockMessage.set(message);
+  }
+
+  /** True when the same file (name + size) is already registered for this year. */
+  isDuplicateFile(year: number, file: File, excludeDocId?: string): boolean {
+    const name = file.name.trim().toLowerCase();
+    const size = file.size;
+    return (this.store.review()?.documents ?? []).some(d =>
+      d.year === year
+      && d.id !== excludeDocId
+      && (d.fileName ?? '').trim().toLowerCase() === name
+      && (d.fileSize == null || d.fileSize === size)
+    );
+  }
+
+  duplicateFileMessage(fileName: string): string {
+    return `הקובץ "${fileName}" כבר הועלה לשנה זו — לא ניתן להעלות אותו שוב.`;
+  }
+
+  /**
+   * Run OCR/AI verify. Returns false when the file was rejected and removed.
+   */
+  async validateDocument(docId: string, file: File): Promise<boolean> {
+    const doc = this.find(docId);
+    if (!doc || doc.year == null) return false;
+
+    if (this.isDuplicateFile(doc.year, file, docId)) {
+      return this.rejectUpload(docId, this.duplicateFileMessage(file.name));
+    }
+
+    this.blockMessage.set('');
     this.store.updateDocument(docId, {
       validationStatus: 'checking',
       validationMessage: 'בודקים שהמסמך תואם לשנה ולסוג שנבחרו…',
       parsedOk: false,
-      needsManualReview: true
+      needsManualReview: true,
+      fileSize: file.size
     });
 
+    let local: PdfDocHint | null = null;
     try {
+      local = await readPdfDocHint(file);
+
+      // PDF text clearly isn't payslip / 106 / pension.
+      if (local?.detectedType === 'other') {
+        return this.rejectUpload(docId, UNSUITABLE_FILE_MSG);
+      }
+
+      if (local?.year != null && local.year !== doc.year) {
+        const msg = doc.documentType === 'payslip' || local.detectedType === 'payslip'
+          ? `העלית תלוש של שנה ${local.year} אבל צריך להעלות עבור שנה ${doc.year}.`
+          : `במסמך מופיעה שנת ${local.year}, אבל המסך פתוח לשנת ${doc.year}.`;
+        return this.rejectUpload(docId, msg);
+      }
+      if (local?.year === doc.year && doc.documentType === 'payslip' && doc.month == null && local.month != null) {
+        const monthIssue = this.payslipMonthIssue(doc.year, local.month, docId);
+        if (monthIssue) return this.rejectUpload(docId, monthIssue);
+      }
+
       const images = await prepareDocumentImages(file);
       const result = await this.api.verifyDocument({
         images,
@@ -29,18 +94,50 @@ export class DocumentValidationService {
         expectedYear: doc.year,
         expectedMonth: doc.documentType === 'payslip' ? doc.month : null
       });
-      this.applyResult(docId, result);
-    } catch (err) {
-      const message = describeError(err).message;
-      this.store.updateDocument(docId, {
-        validationStatus: 'unavailable',
-        validationMessage: message.includes('מפתח') || message.includes('מוגדר')
-          ? 'אימות אוטומטי אינו זמין כרגע. אפשר להמשיך אחרי בדיקה ידנית.'
-          : `${message} אפשר לאשר ידנית אחרי בדיקה.`,
-        parsedOk: false,
-        needsManualReview: true
-      });
+      return this.applyResult(docId, result, local);
+    } catch {
+      // OCR down: only keep when PDF text already looks like a matching employment doc for this year.
+      if (
+        local
+        && local.year === doc.year
+        && local.detectedType != null
+        && ALLOWED_TYPES.has(local.detectedType)
+      ) {
+        return this.acceptWithLocalHint(docId, local, local.detectedType);
+      }
+      return this.rejectUpload(docId, UNSUITABLE_FILE_MSG);
     }
+  }
+
+  /** Keep upload when year was confirmed from PDF text but server OCR failed. */
+  private acceptWithLocalHint(
+    docId: string,
+    local: { year: number | null; month: number | null },
+    documentType: string
+  ): boolean {
+    const before = this.find(docId);
+    if (!before || before.year == null) return false;
+
+    const patch: Partial<Omit<ReviewDocumentMeta, 'id'>> = {
+      detectedYear: local.year,
+      detectedMonth: local.month,
+      validationStatus: 'unavailable',
+      validationMessage: 'השנה תואמת לפי הטקסט בקובץ. אימות OCR לא זמין כרגע — בדקו את הפרטים ידנית.',
+      parsedOk: false,
+      needsManualReview: true
+    };
+
+    if (documentType === 'payslip' && before.month == null && local.month != null) {
+      patch.month = local.month;
+      patch.validationMessage =
+        `תלוש זוהה ל־${local.month}/${before.year} לפי הטקסט בקובץ. אימות OCR לא זמין — בדקו ידנית.`;
+    } else if (documentType === 'payslip' && before.month == null && local.month == null) {
+      patch.validationStatus = 'mismatch';
+      patch.validationMessage = 'השנה תואמת, אבל לא זוהה חודש — בחרו חודש ידנית. אימות OCR לא זמין.';
+    }
+
+    this.store.updateDocument(docId, patch);
+    return true;
   }
 
   /** User confirms after reading a mismatch / unavailable warning. */
@@ -64,7 +161,7 @@ export class DocumentValidationService {
     };
     if (doc.detectedYear != null) patch.year = doc.detectedYear;
     if (doc.documentType === 'payslip' && doc.detectedMonth != null) patch.month = doc.detectedMonth;
-    if (doc.detectedType && ['payslip', 'form106', 'pension_report'].includes(doc.detectedType)) {
+    if (doc.detectedType && ALLOWED_TYPES.has(doc.detectedType)) {
       patch.documentType = doc.detectedType;
     }
 
@@ -79,9 +176,9 @@ export class DocumentValidationService {
       || updated.detectedMonth === updated.month;
     const typeOk = !updated.detectedType
       || updated.detectedType === updated.documentType
-      || !['payslip', 'form106', 'pension_report'].includes(updated.detectedType);
+      || !ALLOWED_TYPES.has(updated.detectedType);
 
-    if (yearOk && monthOk && typeOk && updated.detectedType && updated.detectedType !== 'other') {
+    if (yearOk && monthOk && typeOk && updated.detectedType && ALLOWED_TYPES.has(updated.detectedType)) {
       this.store.updateDocument(docId, {
         validationStatus: 'ok',
         validationMessage: 'עודכן לפי מה שזוהה במסמך.',
@@ -99,11 +196,87 @@ export class DocumentValidationService {
     }
   }
 
-  private applyResult(docId: string, result: DocumentVerificationResult): void {
-    let status: DocumentValidationStatus;
-    if (!result.readable) status = 'unreadable';
-    else if (result.overallOk) status = 'ok';
-    else status = 'mismatch';
+  /** @returns false if the document was rejected and removed. */
+  private applyResult(
+    docId: string,
+    result: DocumentVerificationResult,
+    localHint?: PdfDocHint | null
+  ): boolean {
+    const before = this.find(docId);
+    if (!before || before.year == null) return false;
+
+    if (!result.readable) {
+      this.store.updateDocument(docId, {
+        validationStatus: 'unreadable',
+        validationMessage: result.messageHe,
+        detectedType: result.detectedType,
+        detectedYear: result.detectedYear,
+        detectedMonth: result.detectedMonth,
+        detectedPeriodLabel: result.periodLabel,
+        extractedSummary: result.summaryHe || before.extractedSummary || null,
+        parsedOk: false,
+        needsManualReview: true
+      });
+      return true;
+    }
+
+    const detectedType = (result.detectedType || '').toLowerCase();
+    let detectedYear = result.detectedYear ?? null;
+    let detectedMonth = result.detectedMonth ?? null;
+
+    // Prefer explicit OCR; fall back to PDF text hint when server returned no year.
+    if (detectedYear == null && localHint?.year != null) {
+      detectedYear = localHint.year;
+      if (detectedMonth == null && localHint.month != null) detectedMonth = localHint.month;
+    }
+
+    if (!result.yearMatches && detectedYear != null && before.year != null && detectedYear !== before.year) {
+      return this.rejectUpload(
+        docId,
+        detectedType === 'payslip'
+          ? `העלית תלוש של שנה ${detectedYear} אבל צריך להעלות עבור שנה ${before.year}.`
+          : result.messageHe || `שנת המסמך ${detectedYear} אינה תואמת לשנת ${before.year}.`
+      );
+    }
+
+    // 1) Not payslip / 106 / pension → reject and remove.
+    if (!ALLOWED_TYPES.has(detectedType)) {
+      return this.rejectUpload(docId, UNSUITABLE_FILE_MSG);
+    }
+
+    // 2) Year must be read from the document and must match the year cube.
+    if (detectedYear == null) {
+      return this.rejectUpload(
+        docId,
+        detectedType === 'payslip'
+          ? 'לא הצלחנו לזהות את שנת התלוש במסמך — העלו קובץ ברור יותר.'
+          : 'לא הצלחנו לזהות את השנה במסמך — העלו קובץ ברור יותר.'
+      );
+    }
+    if (detectedYear !== before.year) {
+      if (detectedType === 'payslip') {
+        return this.rejectUpload(
+          docId,
+          `העלית תלוש של שנה ${detectedYear} אבל צריך להעלות עבור שנה ${before.year}.`
+        );
+      }
+      if (detectedType === 'form106') {
+        return this.rejectUpload(
+          docId,
+          `העלית טופס 106 של שנה ${detectedYear} אבל צריך להעלות עבור שנה ${before.year}.`
+        );
+      }
+      return this.rejectUpload(
+        docId,
+        `העלית דוח פנסיה של שנה ${detectedYear} אבל צריך להעלות עבור שנה ${before.year}.`
+      );
+    }
+
+    // 3) Payslip month not among missing months for this year → reject.
+    if (detectedType === 'payslip' && detectedMonth != null) {
+      const monthIssue = this.payslipMonthIssue(before.year, detectedMonth, docId);
+      if (monthIssue) return this.rejectUpload(docId, monthIssue);
+    }
 
     const funds: ExtractedFundSnapshot[] = (result.funds ?? []).map(f => ({
       kind: f.kind,
@@ -115,28 +288,106 @@ export class DocumentValidationService {
       track: f.track
     }));
 
-    this.store.updateDocument(docId, {
+    let status: DocumentValidationStatus = 'ok';
+    const patch: Partial<Omit<ReviewDocumentMeta, 'id'>> = {
+      documentType: detectedType,
       validationStatus: status,
       validationMessage: result.messageHe,
-      detectedType: result.detectedType,
-      detectedYear: result.detectedYear,
-      detectedMonth: result.detectedMonth,
+      detectedType,
+      detectedYear,
+      detectedMonth,
       detectedPeriodLabel: result.periodLabel,
-      extractedSummary: result.summaryHe || this.find(docId)?.extractedSummary || null,
+      extractedSummary: result.summaryHe || before.extractedSummary || null,
       extractedGrossSalary: result.grossSalary ?? null,
       extractedAnnualGross: result.annualGross ?? null,
       extractedFunds: funds.length ? funds : null,
       extractedContributionKinds: (result.contributionKinds ?? []).length
         ? [...new Set(result.contributionKinds!.map(k => k.toLowerCase()))]
         : null,
-      parsedOk: status === 'ok',
-      needsManualReview: status !== 'ok'
-    });
+      parsedOk: true,
+      needsManualReview: false
+    };
+
+    // Auto-fill payslip month from OCR / PDF hint.
+    if (
+      detectedType === 'payslip'
+      && before.month == null
+      && detectedMonth != null
+      && detectedMonth >= 1
+      && detectedMonth <= 12
+    ) {
+      patch.month = detectedMonth;
+      patch.validationMessage = `תלוש זוהה ל־${detectedMonth}/${before.year}.`;
+    }
+
+    // Payslip without a month: keep and ask for manual pick.
+    if (
+      detectedType === 'payslip'
+      && (patch.month == null && before.month == null)
+      && detectedMonth == null
+    ) {
+      patch.validationStatus = 'mismatch';
+      patch.validationMessage = 'התלוש תואם לשנה, אבל לא זוהה חודש — בחרו חודש ידנית.';
+      patch.parsedOk = false;
+      patch.needsManualReview = true;
+      status = 'mismatch';
+    }
+
+    this.store.updateDocument(docId, patch);
 
     if (status === 'ok' || funds.length || (result.grossSalary != null && result.grossSalary > 0)
       || (result.contributionKinds?.length ?? 0) > 0) {
       this.syncFromDoc(docId);
     }
+    return true;
+  }
+
+  private rejectUpload(docId: string, message: string): false {
+    this.store.removeDocument(docId);
+    this.blockMessage.set(message);
+    return false;
+  }
+
+  /**
+   * Returns an error message if the month is not a missing payslip month for the year.
+   */
+  private payslipMonthIssue(year: number, month: number, excludeDocId: string): string | null {
+    const label = MONTH_LABELS[month] ?? String(month);
+    const employmentMonths = this.monthsInEmploymentYear(year);
+
+    if (!employmentMonths.includes(month)) {
+      return `העלית תלוש ל־${label}, אבל החודש הזה לא בתקופת העסקה לשנת ${year}.`;
+    }
+
+    const alreadyHave = (this.store.review()?.documents ?? []).some(
+      d => d.id !== excludeDocId
+        && d.documentType === 'payslip'
+        && d.year === year
+        && d.month === month
+    );
+    if (alreadyHave) {
+      return `העלית תלוש ל־${label}, אבל החודש הזה כבר קיים ברשימה.`;
+    }
+
+    if (this.store.isWaived('payslip', year, month) || this.store.isWaived('payslip', year, null)) {
+      return `העלית תלוש ל־${label}, אבל החודש הזה מסומן כדולג — בטלו את הדילוג אם רוצים להעלות.`;
+    }
+
+    return null;
+  }
+
+  private monthsInEmploymentYear(year: number): number[] {
+    const p = this.store.review()?.period;
+    if (!p?.startDate || !p?.endDate) return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    const start = new Date(p.startDate + 'T00:00:00');
+    const end = new Date(p.endDate + 'T00:00:00');
+    const months: number[] = [];
+    for (let m = 1; m <= 12; m++) {
+      const first = new Date(year, m - 1, 1);
+      const last = new Date(year, m, 0);
+      if (last >= start && first <= end) months.push(m);
+    }
+    return months;
   }
 
   private syncFromDoc(docId: string): void {

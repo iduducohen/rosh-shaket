@@ -219,8 +219,16 @@ export class WorkspaceService {
     const doc = await firstValueFrom(
       this.http.post<WorkspaceDocument>(`${this.base}/${ws.id}/documents`, form)
     );
-    await this.restore();
+    // Refresh list without blocking upload success.
+    void this.restore().catch(() => undefined);
     return doc;
+  }
+
+  /** Download a previously uploaded workspace document (requires sign-in). */
+  async downloadDocument(documentId: string): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${environment.apiBaseUrl}/api/documents/${documentId}`, { responseType: 'blob' })
+    );
   }
 
   clearLocal(): void {

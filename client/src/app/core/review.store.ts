@@ -45,6 +45,19 @@ export class ReviewStore {
     return id;
   }
 
+  /**
+   * Bind the employment-review case to the signed-in workspace id
+   * so another device can hydrate the same case from Postgres.
+   */
+  useWorkspaceId(id: string): void {
+    if (!id) return;
+    localStorage.setItem(LS_WS, id);
+    const r = this.review();
+    if (r && r.workspaceId !== id) {
+      this.persist({ ...r, workspaceId: id, updatedAt: new Date().toISOString() });
+    }
+  }
+
   async loadDemo(): Promise<void> {
     this.busy.set(true);
     this.error.set('');

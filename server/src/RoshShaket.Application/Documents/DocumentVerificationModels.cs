@@ -80,7 +80,8 @@ public static class DocumentVerificationMapper
             detectedType = string.IsNullOrWhiteSpace(detectedType) ? "unknown" : "other";
 
         var typeMatches = detectedType == expectedType;
-        var yearMatches = x.DetectedYear is null || x.DetectedYear == expected.ExpectedYear;
+        // Missing year is NOT a match — otherwise a 2026 payslip can be accepted into a 2016 cube.
+        var yearMatches = x.DetectedYear is int dy && dy == expected.ExpectedYear;
         var monthNeeded = expectedType == ReviewDocumentTypes.Payslip;
         var monthMatches = !monthNeeded
             || expected.ExpectedMonth is null
@@ -124,21 +125,22 @@ public static class DocumentVerificationMapper
             return "לא הצלחנו לקרוא את המסמך בבירור. העלו קובץ חד וקריא של כל הדף.";
 
         if (detectedType is "other" or "unknown")
-            return expectedType switch
-            {
-                ReviewDocumentTypes.Payslip => "הקובץ לא נראה כמו תלוש שכר.",
-                ReviewDocumentTypes.Form106 => "הקובץ לא נראה כמו טופס 106.",
-                ReviewDocumentTypes.PensionReport => "הקובץ לא נראה כמו דוח פנסיה / דוח הפקדות.",
-                _ => "לא זוהה סוג מסמך מתאים."
-            };
+            return "הקובץ אינו תלוש שכר, טופס 106 או דוח פנסיה — לא ניתן להעלות אותו כאן.";
 
         if (!typeMatches)
             return $"זוהה {Label(detectedType)}, אבל בחרתם {Label(expectedType)}.";
 
+        if (x.DetectedYear is null)
+            return expectedType == ReviewDocumentTypes.Payslip
+                ? "לא הצלחנו לזהות את שנת התלוש במסמך — העלו קובץ ברור יותר."
+                : "לא הצלחנו לזהות את השנה במסמך — העלו קובץ ברור יותר.";
+
         if (!yearMatches && x.DetectedYear is int dy)
-            return expectedType == ReviewDocumentTypes.Form106
-                ? $"שנת המס בטופס היא {dy}, אבל בחרתם {expected.ExpectedYear}."
-                : $"במסמך מופיעה שנת {dy}, אבל בחרתם {expected.ExpectedYear}.";
+            return detectedType == ReviewDocumentTypes.Payslip
+                ? $"העלית תלוש של שנה {dy} אבל צריך להעלות עבור שנה {expected.ExpectedYear}."
+                : detectedType == ReviewDocumentTypes.Form106
+                    ? $"העלית טופס 106 של שנה {dy} אבל צריך להעלות עבור שנה {expected.ExpectedYear}."
+                    : $"העלית דוח פנסיה של שנה {dy} אבל צריך להעלות עבור שנה {expected.ExpectedYear}.";
 
         if (!monthMatches && x.DetectedMonth is int dm && expected.ExpectedMonth is int em)
             return $"התלוש הוא לחודש {dm}/{x.DetectedYear ?? expected.ExpectedYear}, אבל בחרתם {em}/{expected.ExpectedYear}.";
@@ -186,8 +188,11 @@ public sealed class DocumentVerifyUploadPolicy
             errors["expectedType"] = "סוג מסמך לא נתמך לאימות";
         if (request.ExpectedYear is < 1990 or > 2100)
             errors["expectedYear"] = "שנה לא תקינה";
-        if (type == ReviewDocumentTypes.Payslip && request.ExpectedMonth is < 1 or > 12)
-            errors["expectedMonth"] = "לתלוש חובה לציין חודש (1–12)";
+        // ExpectedMonth is optional for payslips — OCR can detect the month after upload.
+        if (type == ReviewDocumentTypes.Payslip
+            && request.ExpectedMonth is int em
+            && (em is < 1 or > 12))
+            errors["expectedMonth"] = "חודש לא תקין (1–12)";
 
         if (errors.Count > 0) throw new DomainValidationException(errors);
     }

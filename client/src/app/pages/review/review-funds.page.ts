@@ -1,7 +1,7 @@
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { IonButton, IonIcon } from '@ionic/angular/standalone';
+import { IonButton, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline, trashOutline } from 'ionicons/icons';
 import { DocumentValidationService } from '../../core/document-validation.service';
@@ -118,7 +118,7 @@ interface DocYearGap {
 @Component({
   selector: 'app-review-funds',
   standalone: true,
-  imports: [FormsModule, IonButton, IonIcon, RouterLink, ReviewStepNavComponent],
+  imports: [FormsModule, IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 14px; line-height: 1.45; }
@@ -327,15 +327,24 @@ interface DocYearGap {
     .drop {
       border: 1.5px dashed var(--ion-color-primary); border-radius: 14px; padding: 18px 16px;
       text-align: center; margin: 0 0 10px; background: rgba(var(--ion-color-primary-rgb), .04);
-      cursor: pointer;
+      cursor: pointer; position: relative; min-height: 88px;
+      display: grid; place-items: center;
     }
     .drop.over { background: rgba(var(--ion-color-primary-rgb), .12); }
+    .drop.busy { cursor: wait; pointer-events: none; border-style: solid; background: rgba(var(--ion-color-primary-rgb), .08); }
     .drop b { display: block; margin-bottom: 4px; }
     .drop input { display: none; }
+    .drop-busy {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 4px 8px;
+    }
+    .drop-busy ion-spinner { width: 28px; height: 28px; color: var(--ion-color-primary); }
+    .drop-busy b { margin: 0; font-size: 14px; }
     .validate-note {
       font-size: 12.5px; color: var(--ion-color-medium); margin: 0 0 10px; line-height: 1.4;
     }
-    .file-err { color: var(--ion-color-danger); font-size: 13.5px; margin: 0 0 10px; }
+    .file-err { color: var(--ion-color-danger); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
+    .file-ok { color: var(--ion-color-success-shade, #1a7a3c); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
     .file-list, .doc-list { margin: 0 0 10px; padding: 0; list-style: none; }
     .file-list li, .doc-list li {
       display: flex; justify-content: space-between; gap: 8px; align-items: flex-start;
@@ -355,6 +364,15 @@ interface DocYearGap {
     .val-line { font-size: 12.5px; margin-top: 4px; color: var(--ion-color-medium); }
     .val-line.ok { color: var(--ion-color-success-shade, #1a7a3c); }
     .val-line.bad { color: var(--ion-color-danger); }
+    .manual-month {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;
+    }
+    .manual-month label {
+      font-size: 12.5px; font-weight: 700; color: var(--ion-color-danger-shade, #b91c1c);
+    }
+    .manual-month select {
+      min-width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;
+    }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .actions ion-button { margin: 0; }
 
@@ -450,16 +468,6 @@ interface DocYearGap {
                             @if (row.state === 'miss' && row.key === 'pension_report') {
                               <button type="button" class="guide-toggle" (click)="openGuide()">
                                 איך להשיג דוח פנסיה
-                              </button>
-                            }
-                            @if (row.state === 'miss') {
-                              <button type="button" class="waive-btn" (click)="waiveDoc(y, row.key)">
-                                לחץ אם אין
-                              </button>
-                            }
-                            @if (row.state === 'waived') {
-                              <button type="button" class="waive-btn" (click)="unwaiveDoc(y, row.key)">
-                                ביטול דילוג
                               </button>
                             }
                           </span>
@@ -581,6 +589,17 @@ interface DocYearGap {
                               {{ d.validationMessage }}
                             </div>
                           }
+                          @if (needsManualMonth(d)) {
+                            <div class="manual-month">
+                              <label [attr.for]="'fund-manual-month-' + d.id">בחירת חודש ידנית</label>
+                              <select [id]="'fund-manual-month-' + d.id" [value]="''" (change)="setManualMonth(d, $event)">
+                                <option value="" disabled>בחרו חודש</option>
+                                @for (m of monthOptions; track m.value) {
+                                  <option [value]="m.value">{{ m.label }}</option>
+                                }
+                              </select>
+                            </div>
+                          }
                         </div>
                         <button type="button" class="icon-btn" (click)="removeDoc(d)" aria-label="מחיקה">
                           <ion-icon name="trash-outline" aria-hidden="true"></ion-icon>
@@ -592,21 +611,33 @@ interface DocYearGap {
               </div>
 
               <div>
-                <div class="drop" [class.over]="dragOver()"
-                  (click)="fileInput.click()"
+                <div class="drop"
+                  [class.over]="dragOver() && !uploading()"
+                  [class.busy]="uploading()"
+                  (click)="!uploading() && fileInput.click()"
                   (dragover)="onDragOver($event)"
                   (dragleave)="dragOver.set(false)"
                   (drop)="onDrop($event)">
-                  <b>גררו קבצים או לחצו לבחירה</b>
-                  <span class="hint" style="margin:0">PDF / תמונה · אפשר כמה יחד</span>
-                  <input #fileInput type="file" accept=".pdf,image/*" multiple (change)="onFiles($event)" />
+                  @if (uploading()) {
+                    <div class="drop-busy" aria-live="polite" aria-busy="true">
+                      <ion-spinner name="crescent"></ion-spinner>
+                      <b>{{ uploadLabel() }}</b>
+                      <span class="hint" style="margin:0">בודקים סוג, שנה וחודש…</span>
+                    </div>
+                  } @else {
+                    <b>גררו קבצים או לחצו לבחירה</b>
+                    <span class="hint" style="margin:0">PDF / תמונה · אפשר כמה יחד</span>
+                  }
+                  <input #fileInput type="file" accept=".pdf,image/*" multiple (change)="onFiles($event)" [disabled]="uploading()" />
                 </div>
                 <p class="validate-note">
-                  אחרי ההעלאה בודקים אוטומטית (OCR/AI) שהקובץ תואם לסוג ולשנה. מדוח קופות נשלפות יתרות; מתלוש מזהים סוגי הפרשות.
+                  אחרי ההעלאה בודקים אוטומטית (OCR/AI) סוג ושנה/חודש. בתלוש — החודש מתמלא לבד לפי מה שזוהה. אי-התאמה תוצג מיד.
                 </p>
-                @if (fileError()) { <p class="file-err">{{ fileError() }}</p> }
+                @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
+                @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
+                @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
 
-                @if (pendingFiles.length) {
+                @if (pendingFiles.length && !uploading()) {
                   <ul class="file-list">
                     @for (f of pendingFiles; track f.name + f.size; let i = $index) {
                       <li>
@@ -615,17 +646,7 @@ interface DocYearGap {
                       </li>
                     }
                   </ul>
-                  @if (docType === 'payslip') {
-                    <div class="field">
-                      <label for="fund-pay-month">חודש של התלוש</label>
-                      <select id="fund-pay-month" [value]="uploadMonth ?? ''" (change)="onUploadMonth($event)">
-                        <option value="">בחרו חודש</option>
-                        @for (m of monthOptions; track m.value) {
-                          <option [value]="m.value">{{ m.label }}</option>
-                        }
-                      </select>
-                    </div>
-                  }
+                  <p class="validate-note">מוסיפים את הקבצים לרשימה — בתלוש החודש יזוהה אוטומטית.</p>
                   <div class="actions">
                     <ion-button (click)="addFiles(y)">הוספת {{ pendingFiles.length }} קבצים לרשימה</ion-button>
                   </div>
@@ -750,7 +771,7 @@ interface DocYearGap {
 export class ReviewFundsPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
-  private readonly validation = inject(DocumentValidationService);
+  readonly validation = inject(DocumentValidationService);
 
   readonly yearModal = signal<number | null>(null);
   readonly openKind = signal<FundSlotKey | null>(null);
@@ -759,6 +780,9 @@ export class ReviewFundsPage implements OnInit {
   readonly formError = signal('');
   readonly dragOver = signal(false);
   readonly fileError = signal('');
+  readonly uploading = signal(false);
+  readonly uploadLabel = signal('');
+  readonly uploadOk = signal('');
   readonly pensionGuide = PENSION_GUIDE;
   readonly fundDocTypes = FUND_DOC_TYPES;
 
@@ -870,6 +894,8 @@ export class ReviewFundsPage implements OnInit {
     this.pendingFiles = [];
     this.uploadMonth = null;
     this.fileError.set('');
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
     this.dragOver.set(false);
     const missingDoc = FUND_DOC_TYPES.find(t => this.docCoverage(year, t.key) === 'miss');
     this.docType = missingDoc?.key ?? 'pension_report';
@@ -883,6 +909,10 @@ export class ReviewFundsPage implements OnInit {
     this.pendingFiles = [];
     this.uploadMonth = null;
     this.fileError.set('');
+    this.uploadOk.set('');
+    this.uploading.set(false);
+    this.uploadLabel.set('');
+    this.validation.clearBlockMessage();
     this.dragOver.set(false);
   }
 
@@ -939,7 +969,11 @@ export class ReviewFundsPage implements OnInit {
 
   hasPayslipMonth(year: number, month: number): boolean {
     return (this.store.review()?.documents ?? []).some(
-      d => d.documentType === 'payslip' && d.year === year && d.month === month
+      d => d.documentType === 'payslip'
+        && d.year === year
+        && d.month === month
+        && d.validationStatus !== 'pending'
+        && d.validationStatus !== 'checking'
     );
   }
 
@@ -965,7 +999,10 @@ export class ReviewFundsPage implements OnInit {
   docsForYear(year: number): ReviewDocumentMeta[] {
     const allowed = new Set(FUND_DOC_TYPES.map(t => t.key as string));
     return (this.store.review()?.documents ?? []).filter(
-      d => d.year === year && allowed.has(d.documentType)
+      d => d.year === year
+        && allowed.has(d.documentType)
+        && d.validationStatus !== 'pending'
+        && d.validationStatus !== 'checking'
     );
   }
 
@@ -990,11 +1027,13 @@ export class ReviewFundsPage implements OnInit {
   onDrop(ev: DragEvent): void {
     ev.preventDefault();
     this.dragOver.set(false);
+    if (this.uploading()) return;
     const files = ev.dataTransfer?.files;
     if (files?.length) this.acceptFiles(Array.from(files));
   }
 
   onFiles(ev: Event): void {
+    if (this.uploading()) return;
     const input = ev.target as HTMLInputElement;
     const list = input.files;
     const files = list ? Array.from(list) : [];
@@ -1012,42 +1051,115 @@ export class ReviewFundsPage implements OnInit {
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  addFiles(year: number): void {
-    if (!this.pendingFiles.length) return;
-    if (this.docType === 'payslip' && this.uploadMonth == null) {
-      this.fileError.set('בחרו חודש לתלוש לפני השמירה.');
-      return;
-    }
+  async addFiles(year: number): Promise<void> {
+    if (!this.pendingFiles.length || this.uploading()) return;
     const queued = [...this.pendingFiles];
-    for (const file of queued) {
-      const id = crypto.randomUUID();
-      this.store.addDocument({
-        id,
-        documentType: this.docType,
-        year,
-        month: this.docType === 'payslip' ? this.uploadMonth : null,
-        source: 'upload',
-        parsedOk: false,
-        extractedSummary: file.name,
-        needsManualReview: true,
-        fileName: file.name,
-        storageKey: null,
-        validationStatus: 'pending',
-        validationMessage: 'ממתין לבדיקת תוכן…'
-      });
-      this.sourceFiles.set(id, file);
-      void this.validation.validateDocument(id, file);
-    }
     this.pendingFiles = [];
     this.uploadMonth = null;
     this.fileError.set('');
-    // Re-sync balances after OCR may complete asynchronously — also sync now for any cached data.
-    this.store.syncFundsFromDocuments();
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
+
+    const seenInBatch = new Set<string>();
+    let keptCount = 0;
+    this.uploading.set(true);
+    try {
+      for (const file of queued) {
+        const key = `${file.name.trim().toLowerCase()}|${file.size}`;
+        if (seenInBatch.has(key) || this.validation.isDuplicateFile(year, file)) {
+          this.validation.setBlockMessage(this.validation.duplicateFileMessage(file.name));
+          continue;
+        }
+        seenInBatch.add(key);
+
+        this.uploadLabel.set(`בודקים את ${file.name}…`);
+        const id = crypto.randomUUID();
+        this.store.addDocument({
+          id,
+          documentType: this.docType,
+          year,
+          month: this.docType === 'payslip' ? this.uploadMonth : null,
+          source: 'upload',
+          parsedOk: false,
+          extractedSummary: file.name,
+          needsManualReview: true,
+          fileName: file.name,
+          fileSize: file.size,
+          storageKey: null,
+          validationStatus: 'checking',
+          validationMessage: 'בודקים את המסמך…'
+        });
+        this.sourceFiles.set(id, file);
+        const kept = await this.validation.validateDocument(id, file);
+        if (!kept) this.sourceFiles.delete(id);
+        else keptCount++;
+      }
+    } finally {
+      this.uploading.set(false);
+      this.uploadLabel.set('');
+      this.store.syncFundsFromDocuments();
+    }
+
+    if (keptCount > 0 && !this.validation.blockMessage()) {
+      this.uploadOk.set(
+        keptCount === 1
+          ? 'המסמך נבדק ונוסף לרשימה.'
+          : `${keptCount} מסמכים נבדקו ונוספו לרשימה.`
+      );
+    }
   }
 
   removeDoc(d: ReviewDocumentMeta): void {
     this.store.removeDocument(d.id);
     this.sourceFiles.delete(d.id);
+    this.store.syncFundsFromDocuments();
+  }
+
+  needsManualMonth(d: ReviewDocumentMeta): boolean {
+    if (d.documentType !== 'payslip' || d.month != null || d.detectedMonth != null) return false;
+    const s = d.validationStatus;
+    return s === 'mismatch' || s === 'unreadable' || s === 'unavailable' || s === 'manual';
+  }
+
+  setManualMonth(d: ReviewDocumentMeta, ev: Event): void {
+    const v = (ev.target as HTMLSelectElement).value;
+    const month = v ? Number(v) : null;
+    if (month == null || month < 1 || month > 12 || d.year == null) return;
+    const months = this.monthsInEmploymentYear(d.year);
+    const label = this.monthLabel(month);
+    if (!months.includes(month)) {
+      (ev.target as HTMLSelectElement).value = '';
+      this.validation.setBlockMessage(`העלית תלוש ל־${label}, אבל החודש הזה לא בתקופת העסקה לשנת ${d.year}.`);
+      return;
+    }
+    const alreadyHave = (this.store.review()?.documents ?? []).some(
+      x => x.id !== d.id && x.documentType === 'payslip' && x.year === d.year && x.month === month
+    );
+    if (alreadyHave) {
+      (ev.target as HTMLSelectElement).value = '';
+      this.validation.setBlockMessage(`העלית תלוש ל־${label}, אבל החודש הזה כבר קיים ברשימה.`);
+      return;
+    }
+    if (this.isPayslipMonthWaived(d.year, month) || this.store.isWaived('payslip', d.year, null)) {
+      (ev.target as HTMLSelectElement).value = '';
+      this.validation.setBlockMessage(`העלית תלוש ל־${label}, אבל החודש הזה מסומן כדולג — בטלו את הדילוג אם רוצים להעלות.`);
+      return;
+    }
+    this.validation.clearBlockMessage();
+    this.store.updateDocument(d.id, { month });
+    const file = this.sourceFiles.get(d.id);
+    if (file) {
+      void this.validation.validateDocument(d.id, file).then(kept => {
+        if (!kept) this.sourceFiles.delete(d.id);
+      });
+      return;
+    }
+    this.store.updateDocument(d.id, {
+      validationStatus: 'manual',
+      validationMessage: `חודש נקבע ידנית: ${label}.`,
+      parsedOk: false,
+      needsManualReview: true
+    });
     this.store.syncFundsFromDocuments();
   }
 
@@ -1178,6 +1290,7 @@ export class ReviewFundsPage implements OnInit {
   }
 
   private acceptFiles(files: File[]): void {
+    if (this.uploading()) return;
     const ok: File[] = [];
     const bad: string[] = [];
     for (const f of files) {
@@ -1188,7 +1301,12 @@ export class ReviewFundsPage implements OnInit {
     }
     if (bad.length) this.fileError.set(`לא נתמך: ${bad.join(', ')}`);
     else this.fileError.set('');
-    if (ok.length) this.pendingFiles = [...this.pendingFiles, ...ok];
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
+    if (!ok.length) return;
+    this.pendingFiles = [...this.pendingFiles, ...ok];
+    const y = this.yearModal();
+    if (y != null) void this.addFiles(y);
   }
 
   private buildYearGap(year: number): YearGap {
