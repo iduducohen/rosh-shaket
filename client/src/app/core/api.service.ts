@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { CalculationResponse, ChecklistItem, ExitReason, FundLine, ProfileDraft, ProfileDto, RightsReport, RightsSource } from './models';
+import type { ExtractedContribution } from './review.models';
 
 /** Thin HTTP adapter. Knows URLs and shapes, nothing about the flow. */
 @Injectable({ providedIn: 'root' })
@@ -147,6 +148,8 @@ export interface DocumentVerificationResult {
   }> | null;
   /** Payslip contribution kinds: pension, severance, disability, study. */
   contributionKinds?: string[] | null;
+  pensionBase?: number | null;
+  contributions?: ExtractedContribution[] | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */

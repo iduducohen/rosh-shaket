@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   AnalyzeResponse,
   DocumentWaiver,
+  ContributionKind,
   EmploymentMonth,
   EmploymentReviewCase,
   FundAccount,
@@ -391,12 +392,12 @@ export class ReviewStore {
   }
 
   /** Apply OCR salary from a payslip onto the matching employment month. */
-  applyPayslipSalary(year: number, month: number, gross: number, documentId: string | null): void {
+  applyPayslipSalary(year: number, month: number, gross: number, pensionBase: number | null, documentId: string | null): void {
     const capped = this.clampGross(gross);
     if (capped == null || month < 1 || month > 12) return;
     this.patchMonthReported(year, month, {
       grossSalary: capped,
-      pensionableSalary: capped,
+      pensionableSalary: pensionBase != null && pensionBase > 0 ? Math.round(pensionBase * 100) / 100 : capped,
       sourceDocumentId: documentId,
       confidence: 'High',
       flags: 'from_payslip'
@@ -419,9 +420,51 @@ export class ReviewStore {
         const row = r.months.find(m => m.year === d.year && m.month === d.month);
         if (!row) continue;
         if (row.flags === 'manual' && row.grossSalary != null) continue;
-        this.applyPayslipSalary(d.year, d.month, d.extractedGrossSalary, d.id);
+        this.applyPayslipSalary(d.year, d.month, d.extractedGrossSalary, d.extractedPensionBase ?? null, d.id);
       }
     }
+    this.syncContributionsFromDocuments();
+  }
+
+  /**
+   * Rebuild the «reported» side of every month from payslip contribution lines.
+   * Retro lines (הפרשים) count toward the month they belong to, not the payslip month.
+   */
+  syncContributionsFromDocuments(): void {
+    const r = this.review();
+    if (!r) return;
+    type Line = 'employeePension' | 'employerPension' | 'employeeCompensation' | 'employerCompensation' | 'trainingFundEmployee' | 'trainingFundEmployer';
+    const totals = new Map<string, Partial<Record<Line, number>>>();
+    const read = new Set<string>();
+    for (const d of r.documents) {
+      if (d.documentType !== 'payslip' || d.year == null || d.month == null) continue;
+      // An array (even empty) means OCR read the contribution table — its month is known, even if zero.
+      if (Array.isArray(d.extractedContributions)) read.add(`${d.year}-${d.month}`);
+      for (const c of d.extractedContributions ?? []) {
+        const key = `${c.forYear ?? d.year}-${c.forMonth ?? d.month}`;
+        const line = contributionLine(c.kind, c.payer);
+        const t = totals.get(key) ?? {};
+        t[line] = (t[line] ?? 0) + c.amount;
+        totals.set(key, t);
+      }
+    }
+    const lines: Line[] = ['employeePension', 'employerPension', 'employeeCompensation', 'employerCompensation', 'trainingFundEmployee', 'trainingFundEmployer'];
+    let changed = false;
+    const months = r.months.map(m => {
+      const key = `${m.year}-${m.month}`;
+      const t = totals.get(key);
+      const known = read.has(key) || !!t;
+      const next = { ...m };
+      for (const l of lines) {
+        const reported = known ? Math.round((t?.[l] ?? 0) * 100) / 100 : null;
+        if (m[l]?.reported !== reported) {
+          next[l] = { ...m[l], reported };
+          changed = true;
+        }
+      }
+      return next;
+    });
+    if (changed) this.persist({ ...r, months, updatedAt: new Date().toISOString() });
   }
 
   /**
@@ -641,6 +684,13 @@ export class ReviewStore {
   private tri(t: { expected: number | null; reported: number | null; actual: number | null }) {
     return { expected: t.expected, reported: t.reported, actual: t.actual };
   }
+}
+
+/** Disability and managers-insurance employer parts count toward the employer pension obligation. */
+function contributionLine(kind: ContributionKind, payer: 'employee' | 'employer') {
+  if (kind === 'severance') return payer === 'employer' ? 'employerCompensation' as const : 'employeeCompensation' as const;
+  if (kind === 'study') return payer === 'employer' ? 'trainingFundEmployer' as const : 'trainingFundEmployee' as const;
+  return payer === 'employer' ? 'employerPension' as const : 'employeePension' as const;
 }
 
 interface ContributionRuleDto {

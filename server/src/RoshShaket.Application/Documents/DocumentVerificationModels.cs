@@ -38,6 +38,20 @@ public sealed record ExtractedFundLine(
     decimal? ReturnAnnualPercent,
     string? Track);
 
+/// <summary>
+/// One deduction / contribution line on a payslip.
+/// Kind: pension | managers | severance | disability | study. Payer: employee | employer.
+/// ForYear/ForMonth set only for retro lines (הפרשים) that belong to an earlier month.
+/// </summary>
+public sealed record ExtractedContributionLine(
+    string Kind,
+    string Payer,
+    string? Provider,
+    decimal? RatePercent,
+    decimal Amount,
+    int? ForYear,
+    int? ForMonth);
+
 /// <summary>Fields read from the document image(s). Never includes identifiers.</summary>
 public sealed record DocumentExtraction(
     bool Readable,
@@ -50,7 +64,9 @@ public sealed record DocumentExtraction(
     decimal? AnnualGross = null,
     IReadOnlyList<ExtractedFundLine>? Funds = null,
     /// <summary>Payslip contribution kinds: pension, severance, disability, study.</summary>
-    IReadOnlyList<string>? ContributionKinds = null);
+    IReadOnlyList<string>? ContributionKinds = null,
+    decimal? PensionBase = null,
+    IReadOnlyList<ExtractedContributionLine>? Contributions = null);
 
 /// <summary>Extraction + match against the user's selection.</summary>
 public sealed record DocumentVerificationResult(
@@ -68,7 +84,9 @@ public sealed record DocumentVerificationResult(
     decimal? GrossSalary = null,
     decimal? AnnualGross = null,
     IReadOnlyList<ExtractedFundLine>? Funds = null,
-    IReadOnlyList<string>? ContributionKinds = null);
+    IReadOnlyList<string>? ContributionKinds = null,
+    decimal? PensionBase = null,
+    IReadOnlyList<ExtractedContributionLine>? Contributions = null);
 
 public static class DocumentVerificationMapper
 {
@@ -106,7 +124,9 @@ public static class DocumentVerificationMapper
             Positive(x.GrossSalary),
             Positive(x.AnnualGross),
             x.Funds,
-            x.ContributionKinds);
+            x.ContributionKinds,
+            Positive(x.PensionBase),
+            x.Contributions);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;

@@ -23,6 +23,13 @@ export class DocumentValidationService {
   /** Shown when an upload is rejected and removed (wrong type / year / month). */
   readonly blockMessage = signal('');
 
+  /** Docs with a check running in this tab — a persisted 'checking' without one is stale (page reloaded). */
+  private readonly running = signal<ReadonlySet<string>>(new Set());
+
+  isRunning(docId: string): boolean {
+    return this.running().has(docId);
+  }
+
   clearBlockMessage(): void {
     this.blockMessage.set('');
   }
@@ -51,6 +58,19 @@ export class DocumentValidationService {
    * Run OCR/AI verify. Returns false when the file was rejected and removed.
    */
   async validateDocument(docId: string, file: File): Promise<boolean> {
+    this.running.update(s => new Set(s).add(docId));
+    try {
+      return await this.runValidation(docId, file);
+    } finally {
+      this.running.update(s => {
+        const next = new Set(s);
+        next.delete(docId);
+        return next;
+      });
+    }
+  }
+
+  private async runValidation(docId: string, file: File): Promise<boolean> {
     const doc = this.find(docId);
     if (!doc || doc.year == null) return false;
 
@@ -301,6 +321,9 @@ export class DocumentValidationService {
       detectedPeriodLabel: result.periodLabel,
       extractedSummary: result.summaryHe || before.extractedSummary || null,
       extractedGrossSalary: result.grossSalary ?? null,
+      extractedPensionBase: result.pensionBase ?? null,
+      // [] = read, none found; null = not read (older OCR / unavailable).
+      extractedContributions: detectedType === 'payslip' ? (result.contributions ?? []) : null,
       extractedAnnualGross: result.annualGross ?? null,
       extractedFunds: funds.length ? funds : null,
       extractedContributionKinds: (result.contributionKinds ?? []).length
@@ -397,7 +420,8 @@ export class DocumentValidationService {
     if (!doc || doc.year == null) return;
 
     if (doc.documentType === 'payslip' && doc.month != null && doc.extractedGrossSalary != null && doc.extractedGrossSalary > 0) {
-      this.store.applyPayslipSalary(doc.year, doc.month, doc.extractedGrossSalary, doc.id);
+      this.store.applyPayslipSalary(doc.year, doc.month, doc.extractedGrossSalary, doc.extractedPensionBase ?? null, doc.id);
+      this.store.syncContributionsFromDocuments();
     }
 
     if (doc.documentType === 'pension_report' && doc.extractedFunds?.length) {

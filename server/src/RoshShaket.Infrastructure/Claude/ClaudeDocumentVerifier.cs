@@ -64,9 +64,9 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             ReviewDocumentTypes.PensionReport =>
                 $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את שנת הדוח ואת יתרות הקופות אם מופיעות. אל תעתיק את {expectedYear} אלא אם היא באמת כתובה במסמך.",
             _ when expectedMonth is int em =>
-                $"המסך שנפתח מצפה לתלוש שכר עבור {em}/{expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים (למשל ליד «תקופת שכר» / תאריך התלוש), שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה. אל תנחש ואל תעתיק שנה/חודש מהציפייה — רק מה שמופיע במסמך.",
+                $"המסך שנפתח מצפה לתלוש שכר עבור {em}/{expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים, הברוטו, הבסיס לפנסיה ואת כל שורות הניכויים וההפרשות לקופות. אל תנחש ואל תעתיק שנה/חודש מהציפייה — רק מה שמופיע במסמך.",
             _ =>
-                $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים (למשל ליד «תקופת שכר» / תאריך התלוש), שכר היסוד החודשי ברוטו, ואת סוגי ההפרשות בטבלת הפנסיה. אל תנחש ואל תעתיק את {expectedYear} — detected_year ו־detected_month חייבים להיות מהמסמך בלבד."
+                $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים, הברוטו, הבסיס לפנסיה ואת כל שורות הניכויים וההפרשות לקופות. אל תנחש ואל תעתיק את {expectedYear} — detected_year ו־detected_month חייבים להיות מהמסמך בלבד."
         };
 
         return $$"""
@@ -80,8 +80,10 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "period_label": "תיאור קצר של תקופה לדוח פנסיה או null",
              "summary_he": "משפט קצר בעברית על מה שזוהה, בלי פרטים מזהים",
              "gross_salary": מספר או null,
+             "pension_base": מספר או null,
              "annual_gross": מספר או null,
              "contribution_kinds": ["pension"|"severance"|"disability"|"study"],
+             "contributions": [{"kind":"pension"|"managers"|"severance"|"disability"|"study","payer":"employee"|"employer","provider":"שם הקופה או מחרוזת ריקה","rate_percent":מספר או 0,"amount":מספר,"for_year":שנה או 0,"for_month":חודש או 0}],
              "funds": [{"kind":"pension"|"severance"|"study"|"managers","provider":"שם הגוף או null","balance":מספר או null,"as_of":"YYYY-MM-DD או null","fee_annual_percent":מספר או null,"return_annual_percent":מספר או null,"track":"מסלול או null"}]}
             כללים:
             - detected_type=payslip רק לתלוש שכר ישראלי.
@@ -89,10 +91,22 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             - detected_type=pension_report לדוח פנסיה, הפקדות, גמל, השתלמות או ביטוח מנהלים.
             - other / unknown אם לא ברור.
             - detected_year / detected_month: רק מה שכתוב במסמך. אם לא קריא — null. אסור להעתיק מהציפייה של המשתמש.
-            - לתלוש: gross_salary = שכר יסוד חודשי ברוטו.
+            - לתלוש: gross_salary = הברוטו הכולל של החודש («ברוטו שוטף» / «סה״כ ברוטו» / «סך תשלומים» בלי הפרשים מחודשים קודמים). לא שורת «משכורת» / שכר יסוד בלבד.
+            - לתלוש: pension_base = «בסיס לפנסיה» / «שכר מבוטח» / «משכורת להפקדות» אם מופיע, אחרת null.
             - לתלוש: contribution_kinds = סוגי שורות בטבלת ההפרשות. pension=תגמולי פנסיה, severance=פיצויים, disability=אובדן כושר עבודה, study=קרן השתלמות. מערך ריק אם אין טבלה.
-            - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע. contribution_kinds ריק.
-            - לדוח קופות: מלא funds לכל קופה ברורה. pension=פנסיה/תגמולים, severance=פיצויים, study=השתלמות, managers=ביטוח מנהלים. מערך ריק אם אין יתרות. contribution_kinds ריק.
+            - לתלוש: contributions = שורה לכל סכום לקופה, גם ניכוי מהעובד וגם הפרשת מעסיק:
+              * payer=employee לשורות «ניכוי …» / עמודת עובד. payer=employer לשורות «הפרשה …» / «הפרשת …» / עמודת מעסיק.
+              * kind: pension=קרן פנסיה / תגמולים, managers=ביטוח מנהלים (גם «ביט» / «ב.מנהלים»), severance=פיצויים («פיצ»), disability=אובדן כושר עבודה («אוב», «א.כ.ע»), study=קרן השתלמות («קה"ש», «השתל»).
+              * provider = שם הגוף כפי שמופיע (למשל «מגדל», «כלל פנסיה», «מור»), או "" אם לא מופיע.
+              * rate_percent = האחוז בשורה אם מופיע, אחרת 0. amount = הסכום בש״ח של החודש.
+              * for_year / for_month = החודש שאליו הסכום שייך. לשורה רגילה של חודש התלוש — 0 ו־0.
+              * רטרו: בתלוש יכולות להופיע שורות עבור חודש קודם — בטבלת «פירוט הפרשי ניכויים» / «הפרשים», או אותה קופה פעמיים עם תקופות שונות
+                (למשל 10/23 ו־11/23 בעמודות מתאריך / עד תאריך). לכל שורה כזו for_month / for_year = החודש שמופיע בה (10/23 → 10 ו־2023).
+                כלול גם ניכויי עובד רטרו וגם הפרשות מעסיק רטרו. אל תאחד שורות של חודשים שונים.
+              * «ביט» / «ביטוח» / «ב.מנהלים» בשם הקופה = managers, גם אם הגוף הוא חברת ביטוח שמנהלת גם פנסיה.
+              * אל תכלול מס הכנסה, ביטוח לאומי, ביטוח בריאות או ניכויים אחרים. מערך ריק אם אין.
+            - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע. contribution_kinds ו־contributions ריקים.
+            - לדוח קופות: מלא funds לכל קופה ברורה. pension=פנסיה/תגמולים, severance=פיצויים, study=השתלמות, managers=ביטוח מנהלים. מערך ריק אם אין יתרות. contribution_kinds ו־contributions ריקים.
             - readable=false אם מטושטש/חתוך/כהה.
             - אל תנחש. אל תחזיר מזהים אישיים.
             """;
@@ -103,7 +117,8 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         var body = new
         {
             model = o.Model,
-            max_tokens = Math.Min(o.MaxTokens, 2048),
+            // Payslips with many contribution lines plus model reasoning overflowed 4096 tokens.
+            max_tokens = Math.Max(o.MaxTokens, 12000),
             messages = new[] { new { role = "user", content } },
             output_config = new { format = new { type = "json_schema", schema = JsonSerializer.Deserialize<JsonElement>(OutputSchema) } }
         };
@@ -182,8 +197,32 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 ReadDecimal(raw, "gross_salary"),
                 ReadDecimal(raw, "annual_gross"),
                 ReadFunds(raw),
-                ReadContributionKinds(raw));
+                ReadContributionKinds(raw),
+                ReadDecimal(raw, "pension_base"),
+                ReadContributions(raw));
         }
+    }
+
+    private static IReadOnlyList<ExtractedContributionLine> ReadContributions(JsonElement raw)
+    {
+        if (!raw.TryGetProperty("contributions", out var rows) || rows.ValueKind != JsonValueKind.Array) return [];
+        var list = new List<ExtractedContributionLine>();
+        foreach (var row in rows.EnumerateArray())
+        {
+            if (row.ValueKind != JsonValueKind.Object) continue;
+            var kind = ReadString(row, "kind")?.Trim().ToLowerInvariant();
+            if (kind is not ("pension" or "managers" or "severance" or "disability" or "study")) continue;
+            var payer = ReadString(row, "payer")?.Trim().ToLowerInvariant();
+            if (payer is not ("employee" or "employer")) continue;
+            if (ReadDecimal(row, "amount") is not decimal amount || amount == 0) continue;
+            var rate = ReadDecimal(row, "rate_percent");
+            if (rate is <= 0 or > 30) rate = null;
+            var forYear = ReadInt(row, "for_year");
+            var forMonth = ReadInt(row, "for_month");
+            if (forYear is < 1990 or > 2100 || forMonth is < 1 or > 12) (forYear, forMonth) = (null, null);
+            list.Add(new ExtractedContributionLine(kind, payer, Clip(ReadString(row, "provider")), rate, amount, forYear, forMonth));
+        }
+        return list;
     }
 
     private static IReadOnlyList<string> ReadContributionKinds(JsonElement raw)
@@ -282,10 +321,28 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             "period_label": { "type": ["string", "null"] },
             "summary_he": { "type": ["string", "null"] },
             "gross_salary": { "type": ["number", "null"] },
+            "pension_base": { "type": ["number", "null"] },
             "annual_gross": { "type": ["number", "null"] },
             "contribution_kinds": {
               "type": "array",
               "items": { "type": "string", "enum": ["pension", "severance", "disability", "study"] }
+            },
+            "contributions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": { "type": "string", "enum": ["pension", "managers", "severance", "disability", "study"] },
+                  "payer": { "type": "string", "enum": ["employee", "employer"] },
+                  "provider": { "type": "string" },
+                  "rate_percent": { "type": "number" },
+                  "amount": { "type": "number" },
+                  "for_year": { "type": "integer" },
+                  "for_month": { "type": "integer" }
+                },
+                "required": ["kind", "payer", "provider", "rate_percent", "amount", "for_year", "for_month"]
+              }
             },
             "funds": {
               "type": "array",
@@ -305,7 +362,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "gross_salary", "annual_gross", "contribution_kinds", "funds"]
+          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "gross_salary", "pension_base", "annual_gross", "contribution_kinds", "contributions", "funds"]
         }
         """;
 }

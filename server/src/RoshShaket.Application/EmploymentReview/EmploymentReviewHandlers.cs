@@ -43,7 +43,9 @@ public sealed record ReviewDocumentMeta(
     decimal? ExtractedGrossSalary = null,
     decimal? ExtractedAnnualGross = null,
     JsonElement? ExtractedFunds = null,
-    IReadOnlyList<string>? ExtractedContributionKinds = null);
+    IReadOnlyList<string>? ExtractedContributionKinds = null,
+    decimal? ExtractedPensionBase = null,
+    JsonElement? ExtractedContributions = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,

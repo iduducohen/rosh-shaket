@@ -72,6 +72,19 @@ export interface ExtractedFundSnapshot {
   track: string | null;
 }
 
+export type ContributionKind = 'pension' | 'managers' | 'severance' | 'disability' | 'study';
+
+/** One deduction / contribution line read from a payslip. forYear/forMonth only on retro lines. */
+export interface ExtractedContribution {
+  kind: ContributionKind;
+  payer: 'employee' | 'employer';
+  provider: string | null;
+  ratePercent: number | null;
+  amount: number;
+  forYear: number | null;
+  forMonth: number | null;
+}
+
 export type DocumentValidationStatus =
   | 'pending'
   | 'checking'
@@ -111,6 +124,9 @@ export interface ReviewDocumentMeta {
   extractedFunds?: ExtractedFundSnapshot[] | null;
   /** Contribution kinds seen on a payslip: pension, severance, disability, study. */
   extractedContributionKinds?: string[] | null;
+  /** «בסיס לפנסיה» — the salary contributions are calculated from. */
+  extractedPensionBase?: number | null;
+  extractedContributions?: ExtractedContribution[] | null;
 }
 
 /** User marked a required document slot as unobtainable — allows progress without pretending it exists. */

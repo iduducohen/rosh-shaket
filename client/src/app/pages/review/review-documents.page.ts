@@ -548,6 +548,14 @@ interface YearGap {
                                 <button type="button" (click)="revalidate(d)">בדיקה מחדש</button>
                               }
                             </div>
+                          } @else if (d.validationStatus === 'checking' && !validation.isRunning(d.id) && hasSourceFile(d.id)) {
+                            <div class="val-actions">
+                              <button type="button" (click)="revalidate(d)">הבדיקה נקטעה — בדיקה מחדש</button>
+                            </div>
+                          } @else if (d.documentType === 'payslip' && d.validationStatus !== 'checking' && !isArray(d.extractedContributions) && hasSourceFile(d.id)) {
+                            <div class="val-actions">
+                              <button type="button" (click)="revalidate(d)">בדיקה מחדש (קריאת הפרשות)</button>
+                            </div>
                           }
                         </div>
                         <div class="row-actions">
@@ -1276,6 +1284,8 @@ export class ReviewDocumentsPage implements OnInit {
   confirmManual(d: ReviewDocumentMeta): void {
     this.validation.confirmManual(d.id);
   }
+
+  readonly isArray = Array.isArray;
 
   revalidate(d: ReviewDocumentMeta): void {
     void this.files.get(d.id).then(file => {
