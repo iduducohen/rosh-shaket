@@ -140,7 +140,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
                         <td>
                           @switch (m.state) {
                             @case ('ok') { <span class="tag ok">תקין</span> }
-                            @case ('salaryOnly') { <span class="tag waived" title="ההפקדות עדיין לא נקראות מהמסמכים">יש שכר</span> }
+                            @case ('salaryOnly') { <span class="unk">—</span> }
                             @case ('gap') { <span class="tag gap">פער</span> }
                             @case ('waived') { <span class="tag waived">דולג</span> }
                             @default { <span class="tag missing"><a routerLink="/review/documents">חסר תלוש</a></span> }
