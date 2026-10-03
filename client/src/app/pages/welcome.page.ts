@@ -1,7 +1,7 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
-import { AlertController, IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
+import { IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { cameraOutline, checkmarkOutline, closeOutline, documentTextOutline } from 'ionicons/icons';
 import { DeskHeaderComponent } from '../core/desk-header.component';
@@ -142,7 +142,6 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   readonly dragOver = signal(false);
   readonly phase = signal<ReadingPhase>('file');
   readonly native = Capacitor.isNativePlatform();
-  private readonly alerts = inject(AlertController);
   private continueTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
@@ -188,27 +187,8 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   private readFiles(files: File[]): Promise<void> {
     if (files.length === 0) return Promise.resolve();
     return this.read(
-      () => this.photos.fromFiles(files, (name, wrong) => this.askPassword(name, wrong)),
+      () => this.photos.fromFiles(files),
       'לא הצלחנו לקרוא את הקובץ.');
-  }
-
-  private async askPassword(name: string, wrong: boolean): Promise<string | null> {
-    const alert = await this.alerts.create({
-      header: 'הקובץ נעול',
-      message: wrong
-        ? `הסיסמה של ${name} לא נכונה. נסו שוב.`
-        : `הקובץ ${name} מוגן בסיסמה. הזינו אותה כדי לקרוא את התלוש. הסיסמה לא נשלחת לשרת.`,
-      inputs: [{ name: 'password', type: 'password', placeholder: 'סיסמה', attributes: { autocomplete: 'off' } }],
-      buttons: [
-        { text: 'ביטול', role: 'cancel' },
-        { text: 'פתיחה', role: 'confirm' }
-      ],
-      backdropDismiss: false
-    });
-    await alert.present();
-    const result = await alert.onDidDismiss();
-    if (result.role !== 'confirm') return null;
-    return String(result.data?.values?.password ?? '');
   }
 
   private async read(load: () => Promise<Blob[]>, fallback: string): Promise<void> {

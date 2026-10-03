@@ -173,6 +173,7 @@ public static class DependencyInjection
         else
             services.AddSingleton<IEmailTransport, LoggingEmailSender>();
         services.AddScoped<IEmailLog, PostgresEmailLog>();
+        services.AddScoped<IPdfPasswordStore, PostgresPdfPasswordStore>();
         services.AddScoped<IEmailSender, RecordedEmailSender>();
 
         return services;
@@ -240,6 +241,7 @@ public static class DependencyInjection
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
                 await BillingSchema.EnsureAsync(db, logger);
                 await EmailLogSchema.EnsureAsync(db, logger);
+                await PdfPasswordSchema.EnsureAsync(db, logger);
 
                 // The key ring signs every sign-in token: keep it across restarts, or every deploy signs everyone out.
                 // Rebuild only a table left with the wrong shape by an older EnsureCreated.

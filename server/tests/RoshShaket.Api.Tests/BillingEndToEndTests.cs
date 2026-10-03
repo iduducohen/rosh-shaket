@@ -26,6 +26,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public MemoryBilling Billing { get; } = new();
     public FakeVerifier Verifier { get; } = new();
     public CapturingEmail Email { get; } = new();
+    public MemoryPdfPasswords PdfPasswords { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -52,6 +53,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             s.AddSingleton<IUserRepository, MemoryUsers>();
             s.RemoveAll<IEmailSender>();
             s.AddSingleton<IEmailSender>(Email);
+            s.RemoveAll<RoshShaket.Infrastructure.Postgres.IPdfPasswordStore>();
+            s.AddSingleton<RoshShaket.Infrastructure.Postgres.IPdfPasswordStore>(PdfPasswords);
         });
     }
 }
@@ -139,6 +142,21 @@ public sealed class MemoryUsers : IUserRepository
     public Task<IReadOnlyList<LinkedIdentity>> ListIdentitiesAsync(Guid userId, CancellationToken ct) => Task.FromResult<IReadOnlyList<LinkedIdentity>>([]);
     public Task LinkAsync(Guid userId, ExternalIdentity identity, DateTimeOffset now, CancellationToken ct) => Task.CompletedTask;
     public Task UnlinkAsync(Guid userId, AuthProvider provider, CancellationToken ct) => Task.CompletedTask;
+}
+
+public sealed class MemoryPdfPasswords : RoshShaket.Infrastructure.Postgres.IPdfPasswordStore
+{
+    private readonly ConcurrentDictionary<Guid, List<string>> _byUser = new();
+    public Task<IReadOnlyList<string>> ListAsync(Guid userId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(_byUser.TryGetValue(userId, out var l) ? l.ToList() : []);
+    public Task AddAsync(Guid userId, string password, CancellationToken ct)
+    {
+        var list = _byUser.GetOrAdd(userId, _ => []);
+        lock (list) if (!list.Contains(password)) list.Add(password);
+        return Task.CompletedTask;
+    }
+    public Task<int> DeleteAllAsync(Guid userId, CancellationToken ct) =>
+        Task.FromResult(_byUser.TryRemove(userId, out var l) ? l.Count : 0);
 }
 
 public sealed class CapturingEmail : IEmailSender
@@ -277,5 +295,24 @@ public class BillingEndToEndTests(ApiFactory factory) : IClassFixture<ApiFactory
         }
         Last.StatusCode.Should().Be(HttpStatusCode.TooManyRequests, "the burst is 2 per IP in this test");
         factory.Billing.Usage.Should().Contain(u => u.Kind == "quick_check" && u.CostUsd == 0.025m);
+    }
+
+    [Fact]
+    public async Task Pdf_passwords_are_saved_per_account_and_closed_to_guests()
+    {
+        (await factory.CreateClient().GetAsync("/api/pdf-passwords")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var owner = await SignedInClient("pdf-owner@example.com");
+        (await owner.PostAsJsonAsync("/api/pdf-passwords", new { password = "123456789" })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await owner.PostAsJsonAsync("/api/pdf-passwords", new { password = new string('x', 200) })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var listed = await owner.GetFromJsonAsync<JsonElement>("/api/pdf-passwords");
+        listed.GetProperty("passwords").EnumerateArray().Select(p => p.GetString()).Should().Equal("123456789");
+
+        var other = await SignedInClient("pdf-other@example.com");
+        (await other.GetFromJsonAsync<JsonElement>("/api/pdf-passwords")).GetProperty("passwords").GetArrayLength().Should().Be(0, "another account never sees them");
+
+        (await owner.DeleteAsync("/api/pdf-passwords")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await owner.GetFromJsonAsync<JsonElement>("/api/pdf-passwords")).GetProperty("passwords").GetArrayLength().Should().Be(0);
     }
 }

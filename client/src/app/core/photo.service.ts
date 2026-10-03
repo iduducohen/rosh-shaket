@@ -1,12 +1,12 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { PdfLockedError, PdfUnlocker, openPdf } from './pdf-open';
+import { PdfPasswordService } from './pdf-passwords.service';
 import { assertPayslipImage, classifyPayslipText, findQualityProblem, PayslipRejected } from './payslip-quality';
 
 const MAX_SIDE = 2000;
 const MAX_IMAGES = 5;
 const MAX_BYTES = 10 * 1024 * 1024;
-
-export type PasswordPrompt = (fileName: string, wrong: boolean) => Promise<string | null>;
 
 /** The picker or the password window was dismissed. Not an error to show. */
 export class UserCancel extends Error {
@@ -16,10 +16,12 @@ export class UserCancel extends Error {
 /**
  * Camera on a phone, or files in the browser. Images are re-encoded as JPEG (max 2000px),
  * which also strips EXIF metadata such as location. A PDF is opened on the device and each
- * page is sent as a JPEG. A password opens the file locally and is not uploaded.
+ * page is sent as a JPEG. A password opens the file on the device; the PDF itself is never sent to read it.
  */
 @Injectable({ providedIn: 'root' })
 export class PhotoService {
+  private readonly passwords = inject(PdfPasswordService);
+
   async fromCamera(): Promise<Blob[]> {
     const photo = await Camera.getPhoto({
       source: CameraSource.Camera,
@@ -31,12 +33,13 @@ export class PhotoService {
     return photo.webPath ? [await toJpeg(await (await fetch(photo.webPath)).blob())] : [];
   }
 
-  async fromFiles(files: File[], askPassword: PasswordPrompt): Promise<Blob[]> {
+  async fromFiles(files: File[]): Promise<Blob[]> {
     const out: Blob[] = [];
+    await this.passwords.load();
     for (const file of files) {
       if (out.length >= MAX_IMAGES) break;
       if (file.size > MAX_BYTES) throw new Error('כל קובץ עד 10MB');
-      if (isPdf(file)) out.push(...await pdfToJpegs(file, askPassword, MAX_IMAGES - out.length));
+      if (isPdf(file)) out.push(...await pdfToJpegs(file, this.passwords, MAX_IMAGES - out.length));
       else if (isImage(file)) out.push(await toJpeg(file));
       else throw new Error('אפשר להעלות תמונה (JPG, PNG או WEBP) או קובץ PDF.');
     }
@@ -80,45 +83,13 @@ async function toJpeg(blob: Blob): Promise<Blob> {
   return canvasToJpeg(canvas);
 }
 
-let pdfjsReady: Promise<typeof import('pdfjs-dist')> | null = null;
-
-function loadPdfjs(): Promise<typeof import('pdfjs-dist')> {
-  pdfjsReady ??= import('pdfjs-dist').then(pdfjs => {
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
-    return pdfjs;
-  });
-  return pdfjsReady;
-}
-
-async function pdfToJpegs(file: File, askPassword: PasswordPrompt, limit: number): Promise<Blob[]> {
-  const pdfjs = await loadPdfjs();
-  const data = new Uint8Array(await file.arrayBuffer());
-  const task = pdfjs.getDocument({ data });
-  let cancelled = false;
-  task.onPassword = (update: (password: string) => void, reason: number) => {
-    void (async () => {
-      try {
-        const password = await askPassword(file.name, reason === pdfjs.PasswordResponses.INCORRECT_PASSWORD);
-        if (password === null) {
-          cancelled = true;
-          await task.destroy().catch(() => undefined);
-          return;
-        }
-        update(password);
-      } catch {
-        cancelled = true;
-        await task.destroy().catch(() => undefined);
-      }
-    })();
-  };
-
-  let pdf: Awaited<typeof task.promise>;
+async function pdfToJpegs(file: File, unlock: PdfUnlocker, limit: number): Promise<Blob[]> {
+  let pdf: Awaited<ReturnType<typeof openPdf>>;
   try {
-    pdf = await task.promise;
+    pdf = await openPdf(file, unlock);
   } catch (err) {
-    if (cancelled) throw new UserCancel();
-    const name = (err as { name?: string })?.name ?? '';
-    if (name === 'PasswordException') throw new UserCancel();
+    // No password given: the user closed the window — not an error to show.
+    if (err instanceof PdfLockedError) throw new UserCancel();
     throw new Error('לא הצלחנו לפתוח את קובץ ה-PDF.');
   }
 

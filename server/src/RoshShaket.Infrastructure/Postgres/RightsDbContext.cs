@@ -21,6 +21,7 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
     public DbSet<BillingPurchaseRow> BillingPurchases => Set<BillingPurchaseRow>();
     public DbSet<ApiUsageRow> ApiUsage => Set<ApiUsageRow>();
     public DbSet<EmailLogRow> EmailLog => Set<EmailLogRow>();
+    public DbSet<PdfPasswordRow> PdfPasswords => Set<PdfPasswordRow>();
     /// <summary>ASP.NET Data Protection key ring — survives Railway container replacements.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -168,6 +169,12 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => new { x.ToEmail, x.CreatedAt });
+        });
+        b.Entity<PdfPasswordRow>(e =>
+        {
+            e.ToTable("pdf_passwords");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.UserId);
         });
     }
 }

@@ -1,3 +1,5 @@
+import { PdfUnlocker, openPdf } from './pdf-open';
+
 /**
  * Best-effort read from PDF text (no OCR). Used before / alongside server verify.
  */
@@ -18,9 +20,9 @@ const PAYSLIP_RE = /תלוש(?:י)?\s*שכר|תלוש\s+משכורת|שכר\s+נ
 const FORM106_RE = /טופס\s*106|אישור\s+שנתי\s+למס|סיכום\s+שנתי\s+של\s+שכר/i;
 const PENSION_RE = /דוח\s+פנסיה|קרן\s+פנסיה|קופת\s+גמל|קרן\s+השתלמות|ביטוח\s+מנהלים|יתרה\s+צבורה|הר\s+הכסף|דוח\s+הפקדות/i;
 
-export async function readPdfDocHint(file: File): Promise<PdfDocHint | null> {
+export async function readPdfDocHint(file: File, unlock?: PdfUnlocker | null): Promise<PdfDocHint | null> {
   if (!isPdf(file)) return null;
-  const text = await extractPdfText(file);
+  const text = await extractPdfText(file, unlock);
   if (!text.trim()) return { year: null, month: null, detectedType: null };
   return parseDocFromText(text);
 }
@@ -34,20 +36,8 @@ function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }
 
-let pdfjsReady: Promise<typeof import('pdfjs-dist')> | null = null;
-
-function loadPdfjs(): Promise<typeof import('pdfjs-dist')> {
-  pdfjsReady ??= import('pdfjs-dist').then(pdfjs => {
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
-    return pdfjs;
-  });
-  return pdfjsReady;
-}
-
-async function extractPdfText(file: File): Promise<string> {
-  const pdfjs = await loadPdfjs();
-  const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjs.getDocument({ data }).promise;
+async function extractPdfText(file: File, unlock?: PdfUnlocker | null): Promise<string> {
+  const pdf = await openPdf(file, unlock);
   try {
     const pages = Math.min(pdf.numPages, 2);
     const chunks: string[] = [];

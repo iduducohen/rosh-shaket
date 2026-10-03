@@ -2,13 +2,15 @@
  * Turn review uploads (PDF / image) into JPEGs for OCR/AI verify.
  * Unlike PhotoService, this does not reject non-payslip documents.
  */
+import { PdfDoc, PdfLockedError, PdfUnlocker, openPdf } from './pdf-open';
+
 const MAX_SIDE = 2000;
 const MAX_PAGES = 3;
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export async function prepareDocumentImages(file: File): Promise<Blob[]> {
+export async function prepareDocumentImages(file: File, unlock?: PdfUnlocker | null): Promise<Blob[]> {
   if (file.size > MAX_BYTES) throw new Error('כל קובץ עד 10MB');
-  if (isPdf(file)) return pdfToJpegs(file);
+  if (isPdf(file)) return pdfToJpegs(file, unlock);
   if (isImage(file)) return [await toJpeg(file)];
   throw new Error('אפשר להעלות תמונה (JPG, PNG או WEBP) או קובץ PDF.');
 }
@@ -42,24 +44,12 @@ async function toJpeg(blob: Blob): Promise<Blob> {
   return canvasToJpeg(canvas);
 }
 
-let pdfjsReady: Promise<typeof import('pdfjs-dist')> | null = null;
-
-function loadPdfjs(): Promise<typeof import('pdfjs-dist')> {
-  pdfjsReady ??= import('pdfjs-dist').then(pdfjs => {
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
-    return pdfjs;
-  });
-  return pdfjsReady;
-}
-
-async function pdfToJpegs(file: File): Promise<Blob[]> {
-  const pdfjs = await loadPdfjs();
-  const data = new Uint8Array(await file.arrayBuffer());
-  const task = pdfjs.getDocument({ data });
-  let pdf: Awaited<typeof task.promise>;
+async function pdfToJpegs(file: File, unlock?: PdfUnlocker | null): Promise<Blob[]> {
+  let pdf: PdfDoc;
   try {
-    pdf = await task.promise;
-  } catch {
+    pdf = await openPdf(file, unlock);
+  } catch (err) {
+    if (err instanceof PdfLockedError) throw err;
     throw new Error('לא הצלחנו לפתוח את קובץ ה-PDF.');
   }
 

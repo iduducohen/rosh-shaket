@@ -3,6 +3,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { ApiService, DocumentVerificationResult } from './api.service';
 import { prepareDocumentImages } from './document-images';
 import { readPdfDocHint, type PdfDocHint } from './document-pdf-period';
+import { PdfLockedError } from './pdf-open';
+import { PdfPasswordService } from './pdf-passwords.service';
 import { DocumentValidationStatus, ExtractedFundSnapshot, ReviewDocumentMeta } from './review.models';
 import { ReviewStore } from './review.store';
 
@@ -23,6 +25,8 @@ export function isTransientVerifyError(err: unknown): boolean {
 }
 
 const RETRY_DELAY_MS = 2500;
+
+const LOCKED_PDF_MSG = 'הקובץ מוגן בסיסמה ולא הוזנה סיסמה. העלו אותו שוב והזינו את הסיסמה שלו.';
 
 const TYPE_LABELS: Record<string, string> = {
   payslip: 'תלוש שכר',
@@ -54,6 +58,7 @@ const MONTH_LABELS = [
 export class DocumentValidationService {
   private readonly api = inject(ApiService);
   private readonly store = inject(ReviewStore);
+  private readonly passwords = inject(PdfPasswordService);
 
   /** Shown when an upload is rejected and removed (wrong type / year / month). */
   readonly blockMessage = signal('');
@@ -127,7 +132,9 @@ export class DocumentValidationService {
 
     let local: PdfDocHint | null = null;
     try {
-      local = await readPdfDocHint(file);
+      // Saved passwords first, so a protected payslip opens without asking (on any device, when signed in).
+      await this.passwords.load();
+      local = await readPdfDocHint(file, this.passwords);
 
       // PDF text clearly isn't payslip / 106 / pension.
       if (local?.detectedType === 'other') {
@@ -150,7 +157,7 @@ export class DocumentValidationService {
         if (monthIssue) return this.rejectUpload(docId, monthIssue);
       }
 
-      const images = await prepareDocumentImages(file);
+      const images = await prepareDocumentImages(file, this.passwords);
       const result = await this.verifyWithRetry({
         images,
         expectedType: doc.documentType,
@@ -159,6 +166,7 @@ export class DocumentValidationService {
       });
       return this.applyResult(docId, result, local);
     } catch (err) {
+      if (err instanceof PdfLockedError) return this.rejectUpload(docId, LOCKED_PDF_MSG);
       // Keep the real cause visible in DevTools — the UI message is deliberately general.
       console.error('Document check failed', docId, err);
       // Paid check refused (guest / no credits): keep the file and wait — it is not a broken document.

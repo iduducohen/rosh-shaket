@@ -6,6 +6,7 @@ import { describeError } from '../core/api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { BillingLedgerEntry, BillingService, PlansResponse } from '../core/billing.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { PdfPasswordService } from '../core/pdf-passwords.service';
 
 const DOC_LABELS: Record<string, string> = { payslip: 'תלוש', form106: 'טופס 106', pension_report: 'דוח קופה' };
 const LOW_BALANCE = 3;
@@ -119,6 +120,23 @@ const LOW_BALANCE = 3;
                 <li class="empty">עוד אין פעילות.</li>
               }
             </ul>
+
+            <h2 class="section">סיסמאות לקבצי PDF</h2>
+            <ul class="list">
+              <li>
+                <span>
+                  @if (passwords.count() > 0) {
+                    {{ passwords.count() === 1 ? 'סיסמה אחת שמורה' : passwords.count() + ' סיסמאות שמורות' }}, מוצפנות, לפתיחת תלושים מוגנים
+                  } @else {
+                    אין סיסמאות שמורות
+                  }
+                  <div class="when">נשמרות כשמזינים סיסמה לקובץ מוגן, כדי שלא תצטרכו להזין אותה שוב בשום מכשיר.</div>
+                </span>
+                @if (passwords.count() > 0) {
+                  <ion-button size="small" fill="outline" color="danger" (click)="clearPasswords()">מחיקה</ion-button>
+                }
+              </li>
+            </ul>
           } @else if (error()) {
             <p class="err">{{ error() }}</p>
           } @else {
@@ -132,6 +150,7 @@ const LOW_BALANCE = 3;
 export class AccountPage implements OnInit {
   readonly billing = inject(BillingService);
   readonly auth = inject(AuthService);
+  readonly passwords = inject(PdfPasswordService);
   readonly info = signal<PlansResponse | null>(null);
   readonly error = signal('');
   readonly lowBalance = LOW_BALANCE;
@@ -149,8 +168,17 @@ export class AccountPage implements OnInit {
   async ngOnInit(): Promise<void> {
     this.billing.plans().then(i => this.info.set(i)).catch(() => undefined);
     if (!this.auth.isSignedIn()) return;
+    void this.passwords.load();
     try {
       await this.billing.refresh();
+    } catch (err) {
+      this.error.set(describeError(err).message);
+    }
+  }
+
+  async clearPasswords(): Promise<void> {
+    try {
+      await this.passwords.clearAll();
     } catch (err) {
       this.error.set(describeError(err).message);
     }
