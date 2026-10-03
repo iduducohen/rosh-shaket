@@ -29,18 +29,17 @@ const REVIEW_STEPS = [
       justify-content: space-between;
       align-items: center;
     }
-    .nav ion-button { margin: 0; flex: 0 0 auto; }
-    .nav .back { --color: var(--ion-color-medium); font-weight: 600; }
-    .nav .next { min-width: 200px; font-weight: 700; --box-shadow: none; }
+    /* Back and next share size, font and shape; back is the outline version of the same button. */
+    .nav ion-button { margin: 0; flex: 0 0 auto; min-width: 200px; font-weight: 700; --box-shadow: none; }
     @media (max-width: 720px) {
       :host { border-top: 0; padding-top: 0; }
       .nav { flex-wrap: nowrap; }
-      .nav .next { flex: 1; min-width: 0; }
+      .nav ion-button { flex: 1; min-width: 0; }
     }
   `],
   template: `
     <nav class="nav sticky-actions" aria-label="ניווט בין שלבי הבדיקה">
-      <ion-button class="back" fill="clear" (click)="goBack()" [attr.aria-label]="'חזרה לשלב קודם'">
+      <ion-button class="back" fill="outline" (click)="goBack()" [attr.aria-label]="'חזרה לשלב קודם'">
         <ion-icon slot="start" name="arrow-back-outline" aria-hidden="true"></ion-icon>
         חזרה
       </ion-button>

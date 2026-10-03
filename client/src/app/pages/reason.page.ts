@@ -102,7 +102,7 @@ interface Option extends ExitReasonGuide {
         }
         </div>
         <div class="desk-actions sticky-actions">
-          <ion-button fill="clear" color="medium" (click)="back()">חזרה</ion-button>
+          <ion-button fill="outline" (click)="back()">חזרה</ion-button>
           <ion-button [disabled]="!store.choice()" (click)="next()">המשך לפרטים</ion-button>
         </div>
       </div>
