@@ -6,41 +6,97 @@
       <app-logo class="story-logo" tone="light" [size]="34"></app-logo>
 
       <div class="story-copy">
-        <h2>בלי ערימת ניירת.</h2>
-        <p>תמונה אחת של התלוש, שאלה אחת, וכל מה שמגיע לכם מסודר במקום אחד.</p>
+        @if (act() === 'quick') {
+          <h2>בלי ערימת ניירת.</h2>
+          <p>תמונה אחת של התלוש, שאלה אחת, וכל מה שמגיע לכם מסודר במקום אחד.</p>
+        } @else {
+          <h2>כל חודש נבדק.</h2>
+          <p>מעלים את כל המסמכים, ובודקים חודש אחרי חודש מה המעסיק הפריש — ומה חסר.</p>
+        }
+      </div>
+
+      <div class="act-switch" role="group" aria-label="סוג הבדיקה">
+        <button type="button" [class.on]="act() === 'quick'" [attr.aria-pressed]="act() === 'quick'" (click)="showAct('quick')">בדיקה מהירה</button>
+        <button type="button" [class.on]="act() === 'full'" [attr.aria-pressed]="act() === 'full'" (click)="showAct('full')">בדיקה מלאה</button>
       </div>
 
       <div class="stage-wrap">
-        <div class="stage" role="img" aria-label="הדגמה: ערימת מסמכים הופכת לתשובה אחת ברורה">
-          @for (s of sheets; track s.label; let i = $index) {
-            <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's' }">
-              <span class="tag" [style.background]="s.tone">{{ s.label }}</span>
-              <i class="ln w90"></i><i class="ln w70"></i><i class="ln w80"></i><i class="ln w55"></i><i class="ln w75"></i>
-              <span class="corner"></span>
-            </div>
-          }
-          <div class="scan"></div>
+        @if (act() === 'quick') {
+          <div class="stage" role="img" aria-label="הדגמה: תלוש אחד הופך לתשובה ברורה — מה מגיע לכם והאם ההפרשות תקינות">
+            @for (s of quickSheets; track s.label; let i = $index) {
+              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's' }">
+                <span class="tag" [style.background]="s.tone">{{ s.label }}</span>
+                <i class="ln w90"></i><i class="ln w70"></i><i class="ln w80"></i><i class="ln w55"></i><i class="ln w75"></i>
+                <span class="corner"></span>
+              </div>
+            }
+            <div class="scan"></div>
 
-          <div class="result">
-            <div class="result-top">
-              <span>מה מגיע לך</span>
-              <span class="pill">הערכה</span>
+            <div class="result">
+              <div class="result-top">
+                <span>מה מגיע לך</span>
+                <span class="pill">הערכה</span>
+              </div>
+              <div class="result-num"><small>₪</small>15,000</div>
+              <ul>
+                <li class="r1"><i class="tick"></i><span>השלמת פיצויים</span><b>₪10,870</b></li>
+                <li class="r2"><i class="tick"></i><span>פדיון חופשה</span><b>₪2,894</b></li>
+                <li class="r3"><i class="tick"></i><span>דמי הבראה</span><b>₪1,236</b></li>
+                <li class="r4"><i class="tick"></i><span>ההפרשות בתלוש תקינות</span><b>6.5%</b></li>
+              </ul>
             </div>
-            <div class="result-num"><small>₪</small>15,000</div>
-            <ul>
-              <li class="r1"><i class="tick"></i><span>השלמת פיצויים</span><b>₪10,870</b></li>
-              <li class="r2"><i class="tick"></i><span>פדיון חופשה</span><b>₪2,894</b></li>
-              <li class="r3"><i class="tick"></i><span>דמי הבראה</span><b>₪1,236</b></li>
-            </ul>
           </div>
-        </div>
+        } @else {
+          <div class="stage" role="img" aria-label="הדגמה: כל המסמכים נבדקים חודש אחרי חודש, ונמצא חודש שבו המעסיק לא הפריש לפנסיה">
+            @for (s of fullSheets; track s.label; let i = $index) {
+              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's' }">
+                <span class="tag" [style.background]="s.tone">{{ s.label }}</span>
+                <i class="ln w90"></i><i class="ln w70"></i><i class="ln w80"></i><i class="ln w55"></i><i class="ln w75"></i>
+                <span class="corner"></span>
+              </div>
+            }
+            <div class="scan"></div>
+
+            <div class="result result-full">
+              <div class="result-top">
+                <span>בדיקה מלאה · 2023–2025</span>
+                <span class="pill">36 חודשים</span>
+              </div>
+              <div class="timeline">
+                @for (y of timeline; track y.year) {
+                  <div class="tl-row">
+                    <span class="tl-year">{{ y.year }}</span>
+                    <span class="tl-dots">
+                      @for (d of y.dots; track d.i) {
+                        <i class="dot" [class.bad]="d.bad" [style.--i]="d.i"></i>
+                      }
+                    </span>
+                  </div>
+                }
+              </div>
+              <div class="callout"><i class="bad-dot"></i>מרץ 2024 · המעסיק לא הפריש לפנסיה</div>
+              <div class="found">
+                <span>נמצא חוסר</span>
+                <b><small>₪</small>1,519</b>
+              </div>
+            </div>
+          </div>
+        }
       </div>
 
-      <ol class="beats" aria-label="איך זה עובד">
-        <li class="b1"><span>1</span>מצלמים תלוש</li>
-        <li class="b2"><span>2</span>עונים על שאלה אחת</li>
-        <li class="b3"><span>3</span>מקבלים תשובה</li>
-      </ol>
+      @if (act() === 'quick') {
+        <ol class="beats" aria-label="איך עובדת הבדיקה המהירה">
+          <li class="b1"><span>1</span>מצלמים תלוש</li>
+          <li class="b2"><span>2</span>עונים על שאלה אחת</li>
+          <li class="b3"><span>3</span>מקבלים תשובה</li>
+        </ol>
+      } @else {
+        <ol class="beats" aria-label="איך עובדת הבדיקה המלאה">
+          <li class="b1"><span>1</span>מעלים מסמכים</li>
+          <li class="b2"><span>2</span>בודקים חודש־חודש</li>
+          <li class="b3"><span>3</span>מקבלים דוח חוסרים</li>
+        </ol>
+      }
 
       <ul class="trust">
         <li><ion-icon name="lock-closed-outline"></ion-icon>המסמכים לא נשמרים</li>

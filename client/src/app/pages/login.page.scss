@@ -72,7 +72,7 @@ $T: 10s; // one loop
 }
 
 .result {
-  position: absolute; left: 50%; top: 50%; width: 262px; margin: -118px 0 0 -131px; direction: rtl;
+  position: absolute; left: 50%; top: 50%; width: 262px; margin: -132px 0 0 -131px; direction: rtl;
   background: #FFFFFF; color: #0E2229; border-radius: 20px; padding: 18px 20px 14px;
   box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255,255,255,.08);
   animation: rs-card $T cubic-bezier(.2, .8, .2, 1) infinite; opacity: 0;
@@ -95,6 +95,12 @@ $T: 10s; // one loop
 .r1 { animation: rs-row1 $T infinite; } .r1 .tick { animation: rs-tick1 $T infinite; } .r1 .tick::after { animation: rs-row1-check $T infinite; }
 .r2 { animation: rs-row2 $T infinite; } .r2 .tick { animation: rs-tick2 $T infinite; } .r2 .tick::after { animation: rs-row2-check $T infinite; }
 .r3 { animation: rs-row3 $T infinite; } .r3 .tick { animation: rs-tick3 $T infinite; } .r3 .tick::after { animation: rs-row3-check $T infinite; }
+.r4 { animation: rs-row4 $T infinite; } .r4 .tick { animation: rs-tick4 $T infinite; } .r4 .tick::after { animation: rs-row4-check $T infinite; }
+.r4 { margin-top: 4px; padding-top: 9px; border-top: 1px dashed #ECE8DF; }
+.r4 b { font-family: var(--ion-font-family); font-size: 13px; color: #0E7C6B; }
+@keyframes rs-row4-check { 0%, 75% { opacity: 0; } 78%, 100% { opacity: 1; } }
+@keyframes rs-row4 { 0%, 75% { opacity: .25; } 78%, 100% { opacity: 1; } }
+@keyframes rs-tick4 { 0%, 75% { background: transparent; border-color: #CFC9BC; } 78%, 100% { background: #0E7C6B; border-color: #0E7C6B; } }
 @keyframes rs-row1-check { 0%, 54% { opacity: 0; } 57%, 100% { opacity: 1; } }
 @keyframes rs-row2-check { 0%, 61% { opacity: 0; } 64%, 100% { opacity: 1; } }
 @keyframes rs-row3-check { 0%, 68% { opacity: 0; } 71%, 100% { opacity: 1; } }
@@ -104,6 +110,52 @@ $T: 10s; // one loop
 @keyframes rs-tick1 { 0%, 54% { background: transparent; border-color: #CFC9BC; } 57%, 100% { background: #0E7C6B; border-color: #0E7C6B; } }
 @keyframes rs-tick2 { 0%, 61% { background: transparent; border-color: #CFC9BC; } 64%, 100% { background: #0E7C6B; border-color: #0E7C6B; } }
 @keyframes rs-tick3 { 0%, 68% { background: transparent; border-color: #CFC9BC; } 71%, 100% { background: #0E7C6B; border-color: #0E7C6B; } }
+
+// ---------- Act 2: full review — month-by-month timeline ----------
+.result-full { width: 300px; margin: -112px 0 0 -150px; }
+.timeline { display: grid; gap: 7px; margin: 12px 0 10px; }
+.tl-row { display: flex; align-items: center; gap: 10px; }
+.tl-year { font-size: 12px; font-weight: 700; color: #5E6F73; width: 32px; flex: none; }
+.tl-dots { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; flex: 1; }
+.dot {
+  display: block; aspect-ratio: 1; border-radius: 50%; background: #ECE8DF;
+  animation: rs-dot $T infinite; animation-delay: calc(var(--i) * 55ms);
+}
+.dot.bad { animation-name: rs-dot-bad; }
+@keyframes rs-dot { 0%, 50% { background: #ECE8DF; transform: scale(.7); } 52%, 100% { background: #0E7C6B; transform: none; } }
+@keyframes rs-dot-bad {
+  0%, 50% { background: #ECE8DF; transform: scale(.7); box-shadow: none; }
+  52%, 66% { background: #D64545; transform: none; box-shadow: none; }
+  70%, 100% { background: #D64545; transform: scale(1.25); box-shadow: 0 0 0 4px rgba(214, 69, 69, .22); }
+}
+.callout {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #B83232;
+  background: #FCECEC; border-radius: 10px; padding: 7px 10px;
+  animation: rs-callout $T infinite; opacity: 0;
+}
+.bad-dot { width: 10px; height: 10px; border-radius: 50%; background: #D64545; flex: none; }
+@keyframes rs-callout { 0%, 70% { opacity: 0; transform: translateY(6px); } 74%, 100% { opacity: 1; transform: none; } }
+.found {
+  display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid #ECE8DF; font-size: 13.5px; color: #5E6F73;
+  animation: rs-found $T infinite; opacity: 0;
+}
+.found b { font-family: var(--rs-serif); font-size: 26px; color: #0E2229; }
+.found b small { font-size: 15px; margin-inline-end: 2px; }
+@keyframes rs-found { 0%, 77% { opacity: 0; } 81%, 100% { opacity: 1; } }
+
+// ---------- Act switch ----------
+.act-switch {
+  display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px; margin-top: 4px; border-radius: 30px;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
+}
+.act-switch button {
+  font: inherit; font-size: 13.5px; font-weight: 600; color: rgba(243, 241, 234, .72); cursor: pointer;
+  background: none; border: 0; border-radius: 30px; padding: 6px 14px; transition: background .2s ease, color .2s ease;
+}
+.act-switch button:hover { color: #FFF; }
+.act-switch button.on { background: rgba(242, 169, 59, .18); color: #FFF4E0; box-shadow: inset 0 0 0 1px rgba(242, 169, 59, .55); }
+.act-switch button:focus-visible { outline: 2px solid var(--rs-accent); outline-offset: 2px; }
 
 // ---------- Beats (in sync with the animation) ----------
 .beats { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
@@ -261,4 +313,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--ion-color-prima
   .tick::after { opacity: 1; }
   .b1, .b2 { animation: none; }
   .b3 { animation: none; color: #FFF4E0; border-color: rgba(242,169,59,.6); background: rgba(242,169,59,.14); }
+  .dot { animation: none; background: #0E7C6B; }
+  .dot.bad { background: #D64545; box-shadow: 0 0 0 4px rgba(214, 69, 69, .22); }
+  .callout, .found { animation: none; opacity: 1; }
 }
