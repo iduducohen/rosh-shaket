@@ -252,6 +252,7 @@ export class ReportsPage implements ViewWillEnter {
   }
 
   async restart(): Promise<void> {
+    if (!(await this.workspaces.confirmRestart())) return;
     this.review.clear();
     await this.workspaces.restartFlow();
     this.report.set(null);

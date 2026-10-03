@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { IonButton, IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { AuthService } from '../core/auth/auth.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { ReviewStore } from '../core/review.store';
 import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
 
 @Component({
@@ -53,6 +54,7 @@ import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
 })
 export class ResumePage {
   private readonly workspaces = inject(WorkspaceService);
+  private readonly review = inject(ReviewStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
@@ -87,6 +89,8 @@ export class ResumePage {
   }
 
   async startFresh(): Promise<void> {
+    if (!(await this.workspaces.confirmRestart())) return;
+    this.review.clear();
     await this.workspaces.restartFlow();
     await this.router.navigateByUrl('/start', { replaceUrl: true });
   }

@@ -204,6 +204,7 @@ export class SummaryPage implements ViewWillEnter {
   edit(): void { void this.router.navigateByUrl('/details'); }
 
   async restart(): Promise<void> {
+    if (!(await this.workspaces.confirmRestart())) return;
     this.review.clear();
     await this.workspaces.restartFlow();
     await this.router.navigateByUrl('/start', { replaceUrl: true });

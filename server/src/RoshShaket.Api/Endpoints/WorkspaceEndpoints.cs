@@ -35,7 +35,8 @@ public sealed record WorkspaceDto(
     int Version, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset LastAccessedAt,
     DateTimeOffset? CompletedAt, WorkflowStateDto? Workflow, IReadOnlyList<DocumentDto> Documents);
 
-public sealed record CreateWorkspaceRequest(string? Name);
+/// <param name="DiscardPrevious">Start over: delete the documents of the current case and archive it.</param>
+public sealed record CreateWorkspaceRequest(string? Name, bool DiscardPrevious = false);
 
 public sealed record SaveWorkspaceStateRequest(
     string? Name,
@@ -63,7 +64,7 @@ public static class WorkspaceEndpoints
             TypedResults.Ok(Map(await handler.GetOrCreateActiveAsync(UserId(user), ct))));
 
         group.MapPost("/", async (CreateWorkspaceRequest req, ClaimsPrincipal user, WorkspaceHandlers handler, CancellationToken ct) =>
-            TypedResults.Created($"/api/workspaces", Map(await handler.CreateAsync(UserId(user), req.Name, ct))));
+            TypedResults.Created($"/api/workspaces", Map(await handler.CreateAsync(UserId(user), req.Name, ct, req.DiscardPrevious))));
 
         group.MapGet("/{workspaceId:guid}", async (Guid workspaceId, ClaimsPrincipal user, WorkspaceHandlers handler, CancellationToken ct) =>
             TypedResults.Ok(Map(await handler.GetAsync(UserId(user), workspaceId, ct))));

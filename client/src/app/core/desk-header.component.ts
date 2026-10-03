@@ -207,6 +207,7 @@ export class DeskHeaderComponent {
   }
 
   async home(): Promise<void> {
+    if (!(await this.workspaces.confirmRestart())) return;
     this.review.clear();
     await this.workspaces.restartFlow();
     await this.router.navigateByUrl('/start', { replaceUrl: true });

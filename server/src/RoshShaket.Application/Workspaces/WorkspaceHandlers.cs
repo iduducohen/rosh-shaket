@@ -13,6 +13,8 @@ public sealed class WorkspaceHandlers(
 {
     public const int CurrentStateVersion = 1;
     public const long MaxDocumentBytes = 10 * 1024 * 1024;
+    /// <summary>A gap this long between visits counts as resuming the work (and is audited).</summary>
+    public static readonly TimeSpan ResumeAfterIdle = TimeSpan.FromMinutes(30);
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/png", "image/webp", "application/pdf"
@@ -26,8 +28,11 @@ public sealed class WorkspaceHandlers(
         var existing = await workspaces.GetActiveAsync(userId, ct);
         if (existing is not null)
         {
+            // Every screen load asks for the active workspace; only a return after a real break is a "resume".
+            var resumed = DateTimeOffset.UtcNow - existing.LastAccessedAt >= ResumeAfterIdle;
             await workspaces.TouchAsync(userId, existing.Id, ct);
-            await audit.RecordAsync(userId, existing.Id, "WORKFLOW_RESUMED", "Workspace", existing.Id, null, null, null, ct);
+            if (resumed)
+                await audit.RecordAsync(userId, existing.Id, "WORKFLOW_RESUMED", "Workspace", existing.Id, null, null, null, ct);
             return (await workspaces.GetAsync(userId, existing.Id, ct))!;
         }
 
@@ -45,8 +50,16 @@ public sealed class WorkspaceHandlers(
         return ws;
     }
 
-    public async Task<UserWorkspace> CreateAsync(Guid userId, string? name, CancellationToken ct)
+    public async Task<UserWorkspace> CreateAsync(Guid userId, string? name, CancellationToken ct, bool discardPrevious = false)
     {
+        // Starting over: the old case can no longer be reached from the app, so its files must not linger in storage.
+        if (discardPrevious && await workspaces.GetActiveAsync(userId, ct) is { } previous)
+        {
+            foreach (var doc in await documents.ListAsync(userId, previous.Id, ct))
+                await DeleteDocumentAsync(userId, doc.Id, ct);
+            await SoftDeleteWorkspaceAsync(userId, previous.Id, ct);
+        }
+
         var created = await workspaces.CreateAsync(userId, string.IsNullOrWhiteSpace(name) ? "חישוב זכויות" : name.Trim(), ct);
         await audit.RecordAsync(userId, created.Id, "WORKFLOW_STARTED", "Workspace", created.Id, null, null, null, ct);
         return created;
