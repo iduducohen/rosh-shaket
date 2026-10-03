@@ -206,6 +206,8 @@ export class PricingPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // Pricing is public (no route guard), so load the session here to know who is buying.
+    this.auth.init().catch(() => undefined);
     try {
       this.info.set(await this.billing.plans());
     } catch (err) {

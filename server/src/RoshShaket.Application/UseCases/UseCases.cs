@@ -41,12 +41,15 @@ public sealed class CompareScenariosHandler(CalculateRightsHandler inner)
     }
 }
 
-public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUploadPolicy policy)
+public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUploadPolicy policy, BillingHandlers billing)
 {
-    public async Task<ProfileDraft> HandleAsync(IReadOnlyList<PayslipImage> images, CancellationToken ct)
+    /// <summary>The quick check is free for the user, but its AI cost is still recorded.</summary>
+    public async Task<ProfileDraft> HandleAsync(IReadOnlyList<PayslipImage> images, Guid? userId, CancellationToken ct)
     {
         policy.Validate(images);
         var extraction = await extractor.ExtractAsync(images, ct);
+        if (extraction.Usage is { } u)
+            await billing.RecordUsageAsync(userId, "quick_check", u.Model, u.InputTokens, u.OutputTokens, CancellationToken.None);
         return PayslipMapper.ToDraft(extraction);
     }
 }

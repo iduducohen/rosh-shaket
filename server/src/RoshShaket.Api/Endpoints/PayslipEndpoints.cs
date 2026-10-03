@@ -11,7 +11,7 @@ public static class PayslipEndpoints
 
     public static IEndpointRouteBuilder MapPayslipEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/payslips/extract", async (IFormFileCollection files, ExtractPayslipHandler handler, CancellationToken ct) =>
+        app.MapPost("/api/payslips/extract", async (IFormFileCollection files, System.Security.Claims.ClaimsPrincipal user, ExtractPayslipHandler handler, CancellationToken ct) =>
             {
                 var images = new List<PayslipImage>(files.Count);
                 foreach (var file in files)
@@ -24,7 +24,7 @@ public static class PayslipEndpoints
                     images.Add(new PayslipImage(buffer.ToArray(), file.ContentType));
                 }
                 // Images live only in memory for this request; nothing is persisted.
-                return TypedResults.Ok(await handler.HandleAsync(images, ct));
+                return TypedResults.Ok(await handler.HandleAsync(images, BillingEndpoints.UserId(user), ct));
             })
             .WithTags("Payslips")
             .DisableAntiforgery()

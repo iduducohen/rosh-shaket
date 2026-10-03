@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RoshShaket.Application.Abstractions;
+using RoshShaket.Application.Documents;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Infrastructure.Common;
 
@@ -62,10 +63,12 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         o.ApiKey = apiKey;
         var reply = await CompleteAsync(content, o, ct);
         var text = reply.Text;
+        log.LogInformation("Payslip extract usage: model={Model} input={Input} output={Output} stop={Stop}",
+            o.Model, reply.InputTokens, reply.OutputTokens, reply.StopReason);
 
         try
         {
-            return Parse(text);
+            return Parse(text) with { Usage = new AiUsage(o.Model, reply.InputTokens, reply.OutputTokens) };
         }
         catch (PayslipExtractionException)
         {
@@ -85,7 +88,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
             model = o.Model,
             max_tokens = o.MaxTokens,
             messages,
-            output_config = new { format = new { type = "json_schema", schema = JsonSerializer.Deserialize<JsonElement>(OutputSchema) } }
+            output_config = o.OutputConfig(JsonSerializer.Deserialize<JsonElement>(OutputSchema))
         };
         using var request = new HttpRequestMessage(HttpMethod.Post, "v1/messages") { Content = JsonContent.Create(body) };
         request.Headers.Add("x-api-key", o.ApiKey);
@@ -102,8 +105,9 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         var root = doc.RootElement;
         var stop = root.TryGetProperty("stop_reason", out var stopEl) ? stopEl.GetString() : null;
-        var tokens = root.TryGetProperty("usage", out var usage) && usage.TryGetProperty("output_tokens", out var tokenEl) && tokenEl.TryGetInt32(out var n)
-            ? n : 0;
+        var hasUsage = root.TryGetProperty("usage", out var usage);
+        var tokens = hasUsage && usage.TryGetProperty("output_tokens", out var tokenEl) && tokenEl.TryGetInt32(out var n) ? n : 0;
+        var inputTokens = hasUsage && usage.TryGetProperty("input_tokens", out var inEl) && inEl.TryGetInt32(out var i) ? i : 0;
 
         var text = new StringBuilder();
         var types = new List<string>();
@@ -119,7 +123,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
             }
         }
 
-        return new ModelReply(text.ToString(), stop, tokens, string.Join(',', types));
+        return new ModelReply(text.ToString(), stop, tokens, string.Join(',', types), inputTokens);
     }
 
     internal static PayslipExtraction Parse(string text)
@@ -271,7 +275,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         return text.Length <= 160 ? text : text[..160];
     }
 
-    private sealed record ModelReply(string Text, string? StopReason, int OutputTokens, string BlockTypes);
+    private sealed record ModelReply(string Text, string? StopReason, int OutputTokens, string BlockTypes, int InputTokens);
 
     private const string OutputSchema = """
         {

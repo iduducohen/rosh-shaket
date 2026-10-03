@@ -122,7 +122,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             // Payslips with many contribution lines plus model reasoning overflowed 4096 tokens.
             max_tokens = Math.Max(o.MaxTokens, 12000),
             messages = new[] { new { role = "user", content } },
-            output_config = new { format = new { type = "json_schema", schema = JsonSerializer.Deserialize<JsonElement>(OutputSchema) } }
+            output_config = o.OutputConfig(JsonSerializer.Deserialize<JsonElement>(OutputSchema))
         };
         using var request = new HttpRequestMessage(HttpMethod.Post, "v1/messages") { Content = JsonContent.Create(body) };
         request.Headers.Add("x-api-key", o.ApiKey);

@@ -8,6 +8,19 @@ public sealed class ClaudeOptions
     public string BaseUrl { get; set; } = "https://api.anthropic.com/";
     public int MaxTokens { get; set; } = 8192;
     public int TimeoutSeconds { get; set; } = 90;
+    /// <summary>
+    /// Reasoning depth for document reading (low | medium | high | xhigh | max). Output tokens are most of
+    /// the cost; reading a form rarely needs deep reasoning. Empty = model default.
+    /// </summary>
+    public string? Effort { get; set; } = "low";
+
+    /// <summary>output_config with the JSON schema, plus effort when one is set.</summary>
+    public Dictionary<string, object> OutputConfig(System.Text.Json.JsonElement schema)
+    {
+        var config = new Dictionary<string, object> { ["format"] = new { type = "json_schema", schema } };
+        if (!string.IsNullOrWhiteSpace(Effort)) config["effort"] = Effort.Trim().ToLowerInvariant();
+        return config;
+    }
 }
 
 public sealed class CacheOptions

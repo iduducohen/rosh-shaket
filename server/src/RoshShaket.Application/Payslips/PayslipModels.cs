@@ -26,7 +26,9 @@ public sealed record PayslipExtraction(
     decimal? SeveranceRatePercent,
     bool? HasStudyFund,
     bool Readable = true,
-    IReadOnlyList<FundLine>? Funds = null);
+    IReadOnlyList<FundLine>? Funds = null,
+    /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
+    Documents.AiUsage? Usage = null);
 
 /// <summary>What the client pre-fills for the user to confirm.</summary>
 public sealed record ProfileDraft(

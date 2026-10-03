@@ -74,9 +74,18 @@ builder.Services.AddCors(o => o.AddPolicy("app", p =>
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.AddPolicy(PayslipEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
+    // The quick check is free but each read costs real AI money: a small burst, then a slow refill per IP.
+    var quickBurst = builder.Configuration.GetValue("Billing:QuickCheckBurst", 10);
+    var quickPerHour = builder.Configuration.GetValue("Billing:QuickCheckPerHour", 4);
+    o.AddPolicy(PayslipEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetTokenBucketLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+        _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = quickBurst,
+            TokensPerPeriod = 1,
+            ReplenishmentPeriod = TimeSpan.FromMinutes(60.0 / Math.Max(1, quickPerHour)),
+            QueueLimit = 0
+        }));
     o.AddPolicy(DocumentVerifyEndpoints.RateLimitPolicy, ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
@@ -123,7 +132,9 @@ app.MapReviewEndpoints();
 app.MapEmploymentReviewEndpoints();
 app.MapBillingEndpoints();
 
-await app.Services.InitializeDatabasesAsync();
+// End-to-end tests run the API in memory with fake stores and skip the real databases.
+if (app.Configuration.GetValue("Database:InitializeOnStartup", true))
+    await app.Services.InitializeDatabasesAsync();
 app.Run();
 
 public partial class Program;
