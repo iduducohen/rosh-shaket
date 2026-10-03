@@ -221,14 +221,24 @@ public static class DependencyInjection
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
                 await BillingSchema.EnsureAsync(db, logger);
 
-                await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS data_protection_keys CASCADE");
+                // The key ring signs every sign-in token: keep it across restarts, or every deploy signs everyone out.
+                // Rebuild only a table left with the wrong shape by an older EnsureCreated.
                 await db.Database.ExecuteSqlRawAsync(
                     """
-                    CREATE TABLE data_protection_keys (
+                    DO $$
+                    BEGIN
+                      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'data_protection_keys')
+                         AND (SELECT count(*) FROM information_schema.columns
+                              WHERE table_name = 'data_protection_keys' AND column_name IN ('Id', 'FriendlyName', 'Xml')) < 3
+                      THEN
+                        DROP TABLE data_protection_keys CASCADE;
+                      END IF;
+                    END $$;
+                    CREATE TABLE IF NOT EXISTS data_protection_keys (
                         "Id" serial PRIMARY KEY,
                         "FriendlyName" text,
                         "Xml" text NOT NULL
-                    )
+                    );
                     """);
 
                 logger.LogInformation("Postgres database ensured.");
