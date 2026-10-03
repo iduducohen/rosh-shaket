@@ -290,3 +290,18 @@ function isoDate(date: Date): string {
 function localToday(): string {
   return isoDate(new Date());
 }
+
+/** Message for an end date past {@link latestEndDate}. */
+export const END_TOO_FAR = 'תאריך הסיום יכול להיות עד חודש מהיום.';
+
+/**
+ * The latest end date the forms accept: the same day next month (clamped to that month's last day),
+ * so someone who already gave notice can check their rights before the last day.
+ */
+export function latestEndDate(from = new Date()): string {
+  const day = from.getDate();
+  const next = new Date(from.getFullYear(), from.getMonth() + 1, 1);
+  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(day, lastDay));
+  return isoDate(next);
+}

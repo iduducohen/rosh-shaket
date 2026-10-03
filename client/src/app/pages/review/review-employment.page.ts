@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { IonButton, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
-import { DateFieldComponent } from '../../core/date-field.component';
+import { DateFieldComponent, END_TOO_FAR, latestEndDate } from '../../core/date-field.component';
 import { EXIT_REASON_GUIDE, ExitReasonGuide } from '../../core/exit-reason-guide';
 import { ReviewStore } from '../../core/review.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
@@ -196,6 +196,7 @@ interface FlagOption {
         class="in-row"
         label="סיום / מתוכנן"
         [value]="endDate"
+        [max]="latestEnd"
         [state]="dateState('end')"
         [error]="dateError('end')"
         (valueChange)="endDate = $event">
@@ -283,6 +284,7 @@ export class ReviewEmploymentPage {
   private readonly router = inject(Router);
 
   readonly today = new Date().toISOString().slice(0, 10);
+  readonly latestEnd = latestEndDate();
   readonly info = signal<ReasonOption | null>(null);
 
   employerName = this.store.review()?.period?.employerName ?? '';
@@ -352,6 +354,7 @@ export class ReviewEmploymentPage {
     if (which === 'end') {
       if (!this.endDate) return '';
       if (this.startDate && this.endDate < this.startDate) return 'תאריך הסיום לפני ההתחלה.';
+      if (this.endDate > this.latestEnd) return END_TOO_FAR;
     }
     return '';
   }
@@ -369,6 +372,10 @@ export class ReviewEmploymentPage {
     }
     if (this.endDate < this.startDate) {
       this.err = 'תאריך הסיום לפני ההתחלה.';
+      return;
+    }
+    if (this.endDate > this.latestEnd) {
+      this.err = END_TOO_FAR;
       return;
     }
     if (!this.exitReason) {

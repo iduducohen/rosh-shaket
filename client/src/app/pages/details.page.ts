@@ -7,7 +7,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
-import { DateFieldComponent } from '../core/date-field.component';
+import { DateFieldComponent, END_TOO_FAR, latestEndDate } from '../core/date-field.component';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { describeError } from '../core/api.service';
 import { CalculationFacade } from '../core/calculation.facade';
@@ -156,7 +156,7 @@ import { WizardStore } from '../core/wizard.store';
           <app-date-field label="תאריך התחלה" [value]="form.startDate" [max]="today" [filled]="isFilled('startDate')"
                           [state]="fieldState('startDate')" [error]="fieldErrors()['startDate'] ?? ''"
                           (valueChange)="setDate('startDate', $event)"></app-date-field>
-          <app-date-field label="תאריך סיום" [value]="form.endDate" [filled]="isFilled('endDate')"
+          <app-date-field label="תאריך סיום" [value]="form.endDate" [max]="latestEnd" [filled]="isFilled('endDate')"
                           [state]="fieldState('endDate')" [error]="fieldErrors()['endDate'] ?? ''"
                           (valueChange)="setDate('endDate', $event)"></app-date-field>
           <div>
@@ -280,6 +280,7 @@ export class DetailsPage {
   vacationText = displayGrouped(this.form.vacationBalanceDays, true);
   recText = recDisplay(this.form.recuperationDaysPaidLastYear, this.store.filledFields().includes('recuperationDaysPaidLastYear'));
   readonly today = localToday();
+  readonly latestEnd = latestEndDate();
   readonly busy = signal(false);
   readonly error = signal('');
   readonly fieldErrors = signal<Partial<Record<string, string>>>({});
@@ -424,7 +425,10 @@ export class DetailsPage {
       if (!f.startDate) return 'חסר תאריך התחלה.';
       if (f.startDate > this.today) return START_IN_FUTURE;
     }
-    if (field === 'endDate' && !f.endDate) return 'חסר תאריך סיום.';
+    if (field === 'endDate') {
+      if (!f.endDate) return 'חסר תאריך סיום.';
+      if (f.endDate > this.latestEnd) return END_TOO_FAR;
+    }
     if (field === 'monthlySalary' && !(Number(f.monthlySalary) > 0)) return 'חסר שכר.';
     return null;
   }
