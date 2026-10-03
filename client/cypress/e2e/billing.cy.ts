@@ -73,9 +73,9 @@ describe('Pricing', () => {
 });
 
 describe('Full review — documents ran out', () => {
-  it('keeps the uploaded payslip and shows how to continue', () => {
+  function openDocuments(balance: number): void {
     cy.intercept('GET', '**/api/billing/plans', PLANS);
-    cy.intercept('GET', '**/api/billing/me', { ...ACCOUNT_AFTER, balance: 0 });
+    cy.intercept('GET', '**/api/billing/me', { ...ACCOUNT_AFTER, balance });
     cy.intercept('GET', '**/api/employment-review/**', { statusCode: 404, body: {} });
     cy.intercept('PUT', '**/api/employment-review/**', { statusCode: 200, body: {} });
     cy.intercept('POST', '**/api/documents/verify', {
@@ -93,6 +93,11 @@ describe('Full review — documents ran out', () => {
       months: [], funds: [], documents: [], documentWaivers: [], updatedAt: new Date().toISOString()
     };
     cy.intercept('GET', '**/api/auth/me', { id: 'u1', email: 'dudu@example.com', name: 'דודו כהן', provider: 'Email' });
+    // Without it the fake token reaches the real API, gets 401, and the session is dropped.
+    cy.intercept('GET', '**/api/workspaces/current', {
+      id: 'ws-e2e', name: 'חישוב זכויות', status: 'InProgress', currentStep: 'start', currentRoute: '/review/documents',
+      isActive: true, version: 1, createdAt: '', updatedAt: '', lastAccessedAt: '', completedAt: null, workflow: null, documents: []
+    });
     cy.visit('/review/documents', {
       onBeforeLoad(win) {
         win.localStorage.setItem('rs-auth', JSON.stringify({ accessToken: 't', refreshToken: 'r', expiresAt: Date.now() + 3_600_000 }));
@@ -102,10 +107,20 @@ describe('Full review — documents ran out', () => {
     });
 
     cy.contains('button.year-cube', '2024').click();
+  }
+
+  it('closes the upload area when the balance is 0, with a way to buy a pack', () => {
+    openDocuments(0);
+    cy.get('[role=dialog] .upload-closed').should('contain', 'צריך חבילת מסמכים').and('contain', 'בחירת חבילה');
+    cy.get('[role=dialog] input[type=file]').should('not.exist');
+  });
+
+  it('keeps a payslip whose check was refused when the last document ran out', () => {
+    openDocuments(1);
     cy.get('[role=dialog] input[type=file]').selectFile('cypress/fixtures/payslip.png', { force: true });
 
     cy.wait('@verify');
     cy.get('.paywall').should('contain', 'נגמרו המסמכים בחבילה').and('contain', 'הוספת מסמכים');
-    cy.contains('המסמך יישמר ויבדק אחרי הוספת מסמכים');
+    cy.contains('המסמך נשמר אבל עוד לא נבדק');
   });
 });

@@ -16,6 +16,9 @@ import {
   money
 } from './review.models';
 
+/** Document states the user still has to resolve (check, confirm, or fix) before the review can go on. */
+const UNRESOLVED = new Set(['pending', 'checking', 'mismatch', 'unreadable', 'unavailable']);
+
 const LS_KEY = 'rs-employment-review';
 const LS_WS = 'rs-review-workspace-id';
 /** Soft ceiling for monthly gross — blocks typos / bad OCR. */
@@ -36,6 +39,22 @@ export class ReviewStore {
   readonly hasPeriod = computed(() => !!this.review()?.period);
   readonly monthCount = computed(() => this.review()?.months.length ?? 0);
   readonly docCount = computed(() => this.review()?.documents.length ?? 0);
+
+  /**
+   * Why the documents step is not done yet (null = done): at least one checked document, and none still
+   * checking or waiting on the user. Missing months are fine — the check step shows them as gaps.
+   */
+  readonly documentsBlocker = computed<string | null>(() => {
+    const docs = this.review()?.documents ?? [];
+    if (!docs.length) return 'העלו לפחות מסמך אחד כדי להמשיך לבדיקה.';
+    const open = docs.filter(d => d.validationStatus != null && UNRESOLVED.has(d.validationStatus));
+    if (open.length) {
+      return open.length === 1
+        ? 'יש מסמך אחד שעוד לא נבדק או שצריך את אישורכם. סיימו אותו כדי להמשיך.'
+        : `יש ${open.length} מסמכים שעוד לא נבדקו או שצריכים את אישורכם. סיימו אותם כדי להמשיך.`;
+    }
+    return null;
+  });
 
   workspaceId(): string {
     let id = localStorage.getItem(LS_WS);
@@ -209,6 +228,14 @@ export class ReviewStore {
       documents: r.documents.filter(d => d.id !== id),
       updatedAt: new Date().toISOString()
     });
+  }
+
+  /** First employer name read from a document wins; a name already on the period is never overwritten. */
+  adoptEmployerName(name: string): void {
+    const r = this.review();
+    const trimmed = name.trim();
+    if (!r?.period || !trimmed || r.period.employerName?.trim()) return;
+    this.persist({ ...r, period: { ...r.period, employerName: trimmed }, updatedAt: new Date().toISOString() });
   }
 
   updateDocument(id: string, patch: Partial<Omit<ReviewDocumentMeta, 'id'>>): void {

@@ -109,7 +109,7 @@ import { WorkspaceService } from '../core/workspace.service';
         <div class="upload full">
           <b>רוצים לוודא שהכול הופקד לאורך השנים?</b>
           <span class="muted small sub">בבדיקה המלאה מעלים את כל התלושים, טפסי 106 ודוחות הקופות — ובודקים חודש אחרי חודש מה הופרש, לאיזו קופה, והאם זה לפי החוק.</span>
-          <span class="muted small sub">3 מסמכים ראשונים בחינם · חבילות מ־₪29 · <a routerLink="/pricing">מחירים</a></span>
+          <span class="muted small sub">חבילות מ־₪29 ·<a routerLink="/pricing">מחירים</a></span>
           <div class="row">
             <ion-button fill="outline" (click)="goReview()">לבדיקה המלאה</ion-button>
           </div>

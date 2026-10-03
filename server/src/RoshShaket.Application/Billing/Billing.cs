@@ -15,7 +15,8 @@ public sealed class BillingOptions
     public string Provider { get; set; } = "None";
 
     /// <summary>Credits granted once to every signed-in account.</summary>
-    public int FreeDocuments { get; set; } = 3;
+    /// <summary>Documents granted on a new account. 0: the full review is paid from the first document.</summary>
+    public int FreeDocuments { get; set; } = 0;
 
     /// <summary>Claude list prices, used to log the real cost of each call.</summary>
     public decimal InputUsdPerMTok { get; set; } = 2m;
@@ -103,7 +104,7 @@ public sealed class BillingHandlers(IBillingStore store, Microsoft.Extensions.Op
     {
         if (!O.Enabled) return;
         if (userId is not Guid id)
-            throw new SignInRequiredException("הבדיקה המלאה זמינה למשתמשים מחוברים. התחברו כדי לקבל 3 מסמכים ראשונים בחינם.");
+            throw new SignInRequiredException("הבדיקה המלאה זמינה למשתמשים מחוברים. התחברו ובחרו חבילת מסמכים כדי להתחיל.");
         await store.EnsureAccountAsync(id, O.FreeDocuments, ct);
         if (!await store.TryConsumeAsync(id, documentType, year, month, ct))
             throw new PaymentRequiredException("נגמרו המסמכים בחבילה. אפשר להוסיף מסמכים ולהמשיך מאותה נקודה.");

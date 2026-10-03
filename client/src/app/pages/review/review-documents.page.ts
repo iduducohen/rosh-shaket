@@ -414,7 +414,10 @@ interface YearGap {
             <ion-button size="small" routerLink="/pricing">הוספת מסמכים</ion-button>
           } @else {
             <b>הבדיקה המלאה למשתמשים מחוברים</b>
-            <span>התחברו כדי לקבל {{ freeDocs }} מסמכים ראשונים בחינם ולשמור את הבדיקה בחשבון.</span>
+            <span>
+              @if (freeDocs > 0) { התחברו כדי לקבל {{ freeDocs }} מסמכים ראשונים בחינם ולשמור את הבדיקה בחשבון. }
+              @else { התחברו ובחרו חבילת מסמכים — הבדיקה נשמרת בחשבון ואפשר להמשיך מכל מכשיר. }
+            </span>
             <ion-button size="small" routerLink="/login">התחברות</ion-button>
           }
         </div>
@@ -462,6 +465,9 @@ interface YearGap {
       </div>
     }
 
+    @if (nextBlocked() && store.documentsBlocker()) {
+      <p class="file-err" role="alert">{{ store.documentsBlocker() }}</p>
+    }
     <app-review-step-nav (next)="next()" />
 
     @if (yearModal(); as y) {
@@ -637,6 +643,19 @@ interface YearGap {
               </div>
 
               <div>
+                @if (uploadBlock(); as block) {
+                  <div class="paywall upload-closed" role="status">
+                    @if (block === 'payment') {
+                      <b>כדי להעלות מסמכים צריך חבילת מסמכים</b>
+                      <span>כל מסמך נבדק ב-AI כשמעלים אותו, ויורד מהיתרה. היתרה שלכם: 0 מסמכים.</span>
+                      <ion-button size="small" routerLink="/pricing">בחירת חבילה</ion-button>
+                    } @else {
+                      <b>הבדיקה המלאה למשתמשים מחוברים</b>
+                      <span>התחברו ובחרו חבילת מסמכים — הבדיקה נשמרת בחשבון ואפשר להמשיך מכל מכשיר.</span>
+                      <ion-button size="small" routerLink="/login">התחברות</ion-button>
+                    }
+                  </div>
+                } @else {
                 <div class="drop"
                   [class.over]="dragOver() && !uploading()"
                   [class.busy]="uploading()"
@@ -660,6 +679,7 @@ interface YearGap {
                   אחרי ההעלאה בודקים אוטומטית (OCR/AI) סוג, שנה וחודש. בתלוש החודש מתמלא לבד — בלי בחירה ידנית. אי-התאמה תוצג מיד.
                 </p>
                 <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
+                }
                 @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
                 @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
                 @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
@@ -861,7 +881,22 @@ export class ReviewDocumentsPage implements OnInit {
   readonly validation = inject(DocumentValidationService);
   readonly billing = inject(BillingService);
   private readonly auth = inject(AuthService);
-  readonly freeDocs = 3;
+  get freeDocs(): number { return this.billing.freeDocuments(); }
+
+  /** Signed in, or holding a valid session whose profile is still loading (right after a refresh). */
+  private signedIn(): boolean {
+    return this.auth.isSignedIn() || this.auth.hasSession();
+  }
+
+  /**
+   * Why uploads are closed before a file is even picked: each upload is a paid AI check, so a guest or an
+   * empty balance would only produce documents that cannot be checked. null = uploads are open.
+   */
+  readonly uploadBlock = computed<'signin' | 'payment' | null>(() => {
+    if (!this.billing.enabled()) return null;
+    if (!this.signedIn()) return 'signin';
+    return this.billing.account()?.balance === 0 ? 'payment' : null;
+  });
   private readonly files = inject(ReviewDocumentFilesService);
   private readonly sanitizer = inject(DomSanitizer);
   readonly coreTypes = CORE_TYPES;
@@ -908,9 +943,9 @@ export class ReviewDocumentsPage implements OnInit {
     const ids = (this.store.review()?.documents ?? []).map(d => d.id);
     void this.files.hydrate(ids).then(() => this.files.syncPending());
     this.billing.plans().catch(() => undefined);
-    if (this.auth.isSignedIn()) this.billing.refresh().catch(() => undefined);
+    if (this.signedIn()) this.billing.refresh().catch(() => undefined);
     // A purchase or sign-in since the last refusal means checks can run again.
-    if (this.auth.isSignedIn() && this.validation.paywall() === 'signin') this.validation.paywall.set(null);
+    if (this.signedIn() && this.validation.paywall() === 'signin') this.validation.paywall.set(null);
   }
 
   readonly periodYears = computed(() => {
@@ -1141,7 +1176,7 @@ export class ReviewDocumentsPage implements OnInit {
   }
 
   async addFiles(year: number): Promise<void> {
-    if (!this.pendingFiles.length || this.uploading()) return;
+    if (!this.pendingFiles.length || this.uploading() || this.uploadBlock()) return;
     this.ensurePeriod();
     const queued = [...this.pendingFiles];
     this.pendingFiles = [];
@@ -1191,6 +1226,13 @@ export class ReviewDocumentsPage implements OnInit {
           keptCount++;
           if (this.store.review()?.documents.find(d => d.id === id)?.validationStatus === 'unavailable') waitingCount++;
           void this.files.syncToServer(id, file, this.docType);
+        }
+        // Keep the balance current, so the upload area closes the moment it reaches 0.
+        if (this.signedIn()) await this.billing.refresh().catch(() => undefined);
+        if (this.validation.paywall() === 'payment') {
+          const left = queued.length - queued.indexOf(file) - 1;
+          if (left > 0) this.validation.setBlockMessage(`נגמרו המסמכים בחבילה — ${left} קבצים נוספים לא הועלו. אחרי הוספת מסמכים העלו אותם שוב.`);
+          break;
         }
       }
     } finally {
@@ -1368,12 +1410,16 @@ export class ReviewDocumentsPage implements OnInit {
     void this.files.get(d.id).then(file => {
       if (!file) return;
       void this.validation.validateDocument(d.id, file).then(kept => {
-        if (!kept) void this.files.remove(d.id);
+        if (kept) return;
+        void this.files.remove(d.id);
+        void this.files.removeFromServer(d.serverDocumentId, d.id);
       });
     });
   }
 
   private async applyFileReplace(id: string, file: File): Promise<void> {
+    // The old file leaves the account once the new one is in (or the replacement is rejected).
+    const previousServerId = this.store.review()?.documents.find(d => d.id === id)?.serverDocumentId ?? null;
     await this.files.put(id, file);
     this.store.updateDocument(id, {
       fileName: file.name,
@@ -1381,6 +1427,7 @@ export class ReviewDocumentsPage implements OnInit {
       source: 'upload',
       parsedOk: false,
       needsManualReview: true,
+      serverDocumentId: null,
       storageKey: null,
       validationStatus: 'checking',
       validationMessage: 'בודקים את המסמך…',
@@ -1391,7 +1438,10 @@ export class ReviewDocumentsPage implements OnInit {
     });
     const kept = await this.validation.validateDocument(id, file);
     if (!kept) await this.files.remove(id);
-    else void this.files.syncToServer(id, file, this.store.review()?.documents.find(d => d.id === id)?.documentType ?? 'payslip');
+    else await this.files.syncToServer(id, file, this.store.review()?.documents.find(d => d.id === id)?.documentType ?? 'payslip');
+    // Same file chosen again: the sync relinked the existing copy, which must stay.
+    const currentServerId = this.store.review()?.documents.find(d => d.id === id)?.serverDocumentId ?? null;
+    if (previousServerId !== currentServerId) await this.files.removeFromServer(previousServerId, id);
   }
 
   private validateUploadFile(file: File): string | null {
@@ -1414,6 +1464,7 @@ export class ReviewDocumentsPage implements OnInit {
     if (!d) return;
     void this.files.remove(d.id);
     this.store.removeDocument(d.id);
+    void this.files.removeFromServer(d.serverDocumentId, d.id);
     this.deleteTarget.set(null);
   }
 
@@ -1614,8 +1665,13 @@ export class ReviewDocumentsPage implements OnInit {
   }
 
   next(): void {
-    void this.router.navigateByUrl('/review/check');
+    // Same rule as the route guard; here it explains instead of bouncing back silently.
+    const why = this.store.documentsBlocker();
+    this.nextBlocked.set(why ?? '');
+    if (!why) void this.router.navigateByUrl('/review/check');
   }
+
+  readonly nextBlocked = signal('');
 
   private acceptFiles(files: File[]): void {
     const ok: File[] = [];

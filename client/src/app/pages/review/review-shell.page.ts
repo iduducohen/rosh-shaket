@@ -32,12 +32,14 @@ const LEGACY_STEPS: Record<string, string> = {
       border-top: 1px solid var(--rs-line); border-bottom: 1px solid var(--rs-line);
       font-size: 13.5px; color: var(--ion-color-medium); font-weight: 500;
     }
-    .steps a {
+    .steps a, .steps .locked {
       display: inline-flex; align-items: center; gap: 7px;
       padding: 4px 8px; white-space: nowrap;
       text-decoration: none; color: inherit; border-radius: 8px;
     }
-    .steps a + a::before {
+    /* A step whose earlier steps aren't done: visible but not clickable. */
+    .steps .locked { opacity: .45; cursor: not-allowed; }
+    .steps > * + *::before {
       content: ""; width: 18px; height: 1px; background: var(--rs-line);
       margin-inline-end: 8px; flex: none;
     }
@@ -63,7 +65,7 @@ const LEGACY_STEPS: Record<string, string> = {
         gap: 2px;
         font-size: 12.5px;
       }
-      .steps a + a::before { width: 12px; margin-inline-end: 4px; }
+      .steps > * + *::before { width: 12px; margin-inline-end: 4px; }
     }
   `],
   template: `
@@ -74,9 +76,15 @@ const LEGACY_STEPS: Record<string, string> = {
         <p class="note">הערכה ואומדן בלבד — לא ייעוץ משפטי. חודש בלי מידע מוצג כ״לא ידוע״, לא כ־0. ההתקדמות נשמרת אוטומטית. עם התחברות — גם במכשיר אחר.</p>
         <nav class="steps" aria-label="שלבי הבדיקה">
           @for (s of steps; track s.path; let i = $index) {
-            <a [routerLink]="s.path" routerLinkActive="on">
-              <span class="n" aria-hidden="true">{{ i + 1 }}</span>{{ s.label }}
-            </a>
+            @if (lockedReason(s.path); as why) {
+              <span class="locked" aria-disabled="true" [attr.title]="why">
+                <span class="n" aria-hidden="true">{{ i + 1 }}</span>{{ s.label }}
+              </span>
+            } @else {
+              <a [routerLink]="s.path" routerLinkActive="on">
+                <span class="n" aria-hidden="true">{{ i + 1 }}</span>{{ s.label }}
+              </a>
+            }
           }
         </nav>
         @if (store.busy()) {
@@ -130,6 +138,14 @@ export class ReviewShellPage implements OnInit {
       const target = LEGACY_STEPS[savedStep] ?? savedStep;
       if (this.steps.some(s => s.path === target)) void this.router.navigateByUrl(target);
     }
+  }
+
+  /** Why a step can't be opened yet (null = open). Mirrors the route guards in core/wizard-guards. */
+  lockedReason(path: string): string | null {
+    if (path === '/review/employment') return null;
+    if (!this.store.hasPeriod()) return 'מלאו קודם את תקופת ההעסקה';
+    if (path === '/review/documents') return null;
+    return this.store.documentsBlocker();
   }
 
   private normalize(url: string): string {

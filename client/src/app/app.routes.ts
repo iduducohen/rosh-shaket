@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { loginGuard, sessionGuard } from './core/auth/auth.guards';
 import { SEO } from './core/seo';
+import { detailsStepGuard, resultsStepGuard, reviewCheckGuard, reviewDocumentsGuard } from './core/wizard-guards';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -16,9 +17,9 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'employment' },
       { path: 'employment', loadComponent: () => import('./pages/review/review-employment.page').then(m => m.ReviewEmploymentPage) },
-      { path: 'documents', loadComponent: () => import('./pages/review/review-documents.page').then(m => m.ReviewDocumentsPage) },
-      { path: 'check', loadComponent: () => import('./pages/review/review-check.page').then(m => m.ReviewCheckPage) },
-      { path: 'report', loadComponent: () => import('./pages/review/review-report.page').then(m => m.ReviewReportPage) },
+      { path: 'documents', canActivate: [reviewDocumentsGuard], loadComponent: () => import('./pages/review/review-documents.page').then(m => m.ReviewDocumentsPage) },
+      { path: 'check', canActivate: [reviewCheckGuard], loadComponent: () => import('./pages/review/review-check.page').then(m => m.ReviewCheckPage) },
+      { path: 'report', canActivate: [reviewCheckGuard], loadComponent: () => import('./pages/review/review-report.page').then(m => m.ReviewReportPage) },
       // Steps merged into check / report — keep old links and saved progress working.
       { path: 'salary', redirectTo: 'check', pathMatch: 'full' },
       { path: 'funds', redirectTo: 'check', pathMatch: 'full' },
@@ -29,7 +30,7 @@ export const routes: Routes = [
     ]
   },
   { path: 'reason', canActivate: [sessionGuard], loadComponent: () => import('./pages/reason.page').then(m => m.ReasonPage), data: { seo: SEO.reason } },
-  { path: 'details', canActivate: [sessionGuard], loadComponent: () => import('./pages/details.page').then(m => m.DetailsPage), data: { seo: SEO.details } },
+  { path: 'details', canActivate: [sessionGuard, detailsStepGuard], loadComponent: () => import('./pages/details.page').then(m => m.DetailsPage), data: { seo: SEO.details } },
   { path: 'checklist', canActivate: [sessionGuard], loadComponent: () => import('./pages/checklist.page').then(m => m.ChecklistPage), data: { seo: SEO.checklist } },
   { path: 'sources', canActivate: [sessionGuard], loadComponent: () => import('./pages/sources.page').then(m => m.SourcesPage), data: { seo: SEO.sources } },
   { path: 'help/professionals', canActivate: [sessionGuard], loadComponent: () => import('./pages/partners.page').then(m => m.PartnersPage), data: { seo: SEO.professionals, kind: 'professionals' } },
@@ -41,7 +42,7 @@ export const routes: Routes = [
     data: { seo: SEO.results },
     loadComponent: () => import('./pages/results-tabs.page').then(m => m.ResultsTabsPage),
     children: [
-      { path: 'summary', loadComponent: () => import('./pages/summary.page').then(m => m.SummaryPage) },
+      { path: 'summary', canActivate: [resultsStepGuard], loadComponent: () => import('./pages/summary.page').then(m => m.SummaryPage) },
       { path: 'reports', loadComponent: () => import('./pages/reports.page').then(m => m.ReportsPage) },
       { path: 'checklist', redirectTo: '/checklist', pathMatch: 'full' },
       { path: 'sources', redirectTo: '/sources', pathMatch: 'full' },

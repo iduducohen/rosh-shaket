@@ -70,9 +70,13 @@ export class BillingService {
   /** Whether the server counts documents at all (off during the trial run). */
   readonly enabled = signal(false);
 
+  /** Documents a new account starts with (0: paid from the first document). */
+  readonly freeDocuments = signal(0);
+
   async plans(): Promise<PlansResponse> {
     const info = await firstValueFrom(this.http.get<PlansResponse>(`${this.base}/plans`));
     this.enabled.set(info.enabled);
+    this.freeDocuments.set(info.freeDocuments);
     return info;
   }
 
