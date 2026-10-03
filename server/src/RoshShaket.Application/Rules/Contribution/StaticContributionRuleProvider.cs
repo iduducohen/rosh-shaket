@@ -5,6 +5,9 @@ namespace RoshShaket.Application.Rules.Contribution;
 
 public sealed class StaticContributionRuleProvider : IContributionRuleProvider
 {
+    /// <summary>Training-fund tax-exempt salary ceiling (₪15,712 a month) — verify each year before production.</summary>
+    public const decimal TrainingFundCeiling = 15_712m;
+
     /// <summary>
     /// Configurable seed rates (Estimate until legal review). Not hardcoded inside formulas —
     /// formulas read these values by effective date.
@@ -14,11 +17,11 @@ public sealed class StaticContributionRuleProvider : IContributionRuleProvider
         new(Guid.Parse("11111111-1111-1111-1111-111111111101"),
             new DateOnly(2008, 1, 1), new DateOnly(2016, 12, 31),
             5.0m, 6.5m, 6.0m, 2.5m, 7.5m, null,
-            "ערכי הערכה היסטוריים לפיתוח — לאמת מול דין/הסכם", true),
+            "ערכי הערכה היסטוריים לפיתוח — לאמת מול דין/הסכם", true, TrainingFundCeiling),
         new(Guid.Parse("11111111-1111-1111-1111-111111111102"),
             new DateOnly(2017, 1, 1), null,
             6.0m, 6.5m, 8.33m, 2.5m, 7.5m, null,
-            "ערכי הערכה לפיתוח (פנסיה חובה / פיצויים / השתלמות) — לאמת לפני ייצור", true)
+            "ערכי הערכה לפיתוח (פנסיה חובה / פיצויים / השתלמות) — לאמת לפני ייצור", true, TrainingFundCeiling)
     ];
 
     public Task<IReadOnlyList<ContributionRule>> GetAllAsync(CancellationToken ct) =>

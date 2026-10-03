@@ -96,7 +96,12 @@ public sealed record ContributionRule(
     decimal TrainingFundEmployerRate,
     decimal? SalaryCeiling,
     string SourceNote,
-    bool IsEstimate);
+    bool IsEstimate,
+    /// <summary>
+    /// Monthly salary the training fund is usually paid on (the tax-exempt ceiling). Employers commonly
+    /// deposit up to it, so a deposit capped there is not a shortfall.
+    /// </summary>
+    decimal? TrainingFundSalaryCeiling = null);
 
 public sealed record FundAccount(
     Guid Id,

@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
 import { CalculationFacade } from '../../core/calculation.facade';
 import { REASON_LABELS, type ExitReason } from '../../core/models';
-import { healthLabel } from '../../core/review.models';
+import { FindingSeverity, explainReview } from '../../core/gap-explainer';
 import { ReviewStore } from '../../core/review.store';
 import { WizardStore } from '../../core/wizard.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
@@ -100,6 +100,47 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
     /* Four equal choices: same size and style, none highlighted. */
     .exports ion-button { margin: 0; min-width: 120px; font-weight: 700; --box-shadow: none; }
 
+    .verdict.sev-serious { border-inline-start-color: var(--ion-color-danger); background: color-mix(in srgb, var(--ion-color-danger) 7%, transparent); }
+    .verdict.sev-serious .status { color: var(--ion-color-danger); }
+    .verdict.sev-check { border-inline-start-color: var(--rs-warn, #9a6b00); background: var(--rs-warn-bg, #fdf3dc); }
+    .verdict.sev-check .status { color: var(--rs-warn, #9a6b00); }
+    .verdict p + p { margin-top: 6px; }
+
+    .findings { display: grid; gap: 12px; }
+    .finding {
+      background: var(--ion-item-background, #fff); border: 1px solid var(--rs-line); border-radius: 14px;
+      padding: 14px 16px; border-inline-start: 4px solid var(--rs-line);
+    }
+    .finding.sev-serious { border-inline-start-color: var(--ion-color-danger); }
+    .finding.sev-check { border-inline-start-color: var(--rs-warn, #c9a227); }
+    .finding.sev-info { border-inline-start-color: var(--ion-color-primary); }
+    .finding header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+    .finding h4 { margin: 0; font-size: 15.5px; font-weight: 800; flex: 1 1 240px; }
+    .finding .amount { font-size: 16px; white-space: nowrap; }
+    .finding .chip { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 20px; background: var(--rs-soft); color: var(--ion-color-primary); }
+    .finding.sev-serious .chip { background: color-mix(in srgb, var(--ion-color-danger) 12%, transparent); color: var(--ion-color-danger); }
+    .finding.sev-check .chip { background: var(--rs-warn-bg, #fdf3dc); color: var(--rs-warn, #9a6b00); }
+    .finding .months { margin: 4px 0 0; font-size: 13px; color: var(--ion-color-medium); }
+    .finding .what { margin: 8px 0; font-size: 14.5px; line-height: 1.55; }
+    .finding details { margin: 6px 0; font-size: 14px; }
+    .finding summary { cursor: pointer; font-weight: 700; color: var(--ion-color-primary); }
+    .finding ul { margin: 6px 0 0; padding-inline-start: 20px; line-height: 1.5; }
+    .finding .todo { margin-top: 8px; font-size: 14px; }
+    .finding .todo a { color: var(--ion-color-primary); font-weight: 700; }
+
+    .why-docs { margin: 10px 0; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.5; color: var(--ion-color-medium); }
+    .why-docs b { color: var(--ion-text-color); }
+
+    .expert-cards { display: grid; gap: 10px; }
+    @media (min-width: 720px) { .expert-cards { grid-template-columns: 1fr 1fr; } }
+    .expert {
+      display: grid; gap: 4px; padding: 14px 16px; border-radius: 14px; text-decoration: none; color: inherit;
+      border: 1px solid var(--rs-line); background: var(--ion-item-background, #fff);
+    }
+    .expert:hover { border-color: var(--ion-color-primary); }
+    .expert b { color: var(--ion-color-primary); font-size: 15px; }
+    .expert span { font-size: 13.5px; color: var(--ion-color-medium); line-height: 1.45; }
+
     .legal {
       margin: 16px 0 0; font-size: 12.5px; line-height: 1.4;
       color: var(--ion-color-medium);
@@ -109,96 +150,125 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
     <h2>הסיכום שלכם</h2>
 
     @if (a(); as analysis) {
-      <section class="verdict" aria-label="מסקנה">
-        <div class="status">{{ healthLabel(analysis.summary.health.status) }}</div>
-        <p>{{ analysis.summary.health.messageHe }}</p>
-        <span class="cover">
-          כיסוי מידע: {{ (analysis.summary.health.coverageRatio * 100) | number:'1.0-0' }}%
-          ({{ analysis.summary.monthsWithData }}/{{ analysis.summary.totalMonths }} חודשים)
-        </span>
-      </section>
+      @if (explanation(); as e) {
+        <section [class]="'verdict sev-' + e.headlineSeverity" aria-label="מסקנה">
+          <div class="status">{{ e.headline }}</div>
+          @for (line of e.story; track line) { <p>{{ line }}</p> }
+          <span class="cover">
+            נבדקו {{ e.monthsWithPayslip }} מתוך {{ e.monthsWithPayslip + e.monthsWithoutPayslip }} חודשים · כיסוי מידע {{ (analysis.summary.health.coverageRatio * 100) | number:'1.0-0' }}%
+          </span>
+        </section>
+
+        <section class="sec" aria-label="מה מצאנו">
+          <h3>מה מצאנו — ומה זה אומר</h3>
+          @if (e.findings.length) {
+            <p class="lead">כל ממצא מוסבר: מה ראינו, למה זה יכול לקרות, ומה כדאי לעשות. לא כל פער הוא הפרה — חלק מהפערים מוסברים ומקובלים.</p>
+            <div class="findings">
+              @for (f of e.findings; track f.id) {
+                <article [class]="'finding sev-' + f.severity">
+                  <header>
+                    <span class="chip">{{ severityLabel(f.severity) }}</span>
+                    <h4>{{ f.title }}</h4>
+                    @if (f.amount != null) { <b class="amount">{{ store.fmt(f.amount) }}</b> }
+                  </header>
+                  @if (f.months.length) { <p class="months">{{ f.months.join(' · ') }}</p> }
+                  <p class="what">{{ f.what }}</p>
+                  <details>
+                    <summary>למה זה יכול לקרות?</summary>
+                    <ul>@for (w of f.why; track w) { <li>{{ w }}</li> }</ul>
+                  </details>
+                  <div class="todo">
+                    <b>מה לעשות</b>
+                    <ul>
+                      @for (act of f.actions; track act.text) {
+                        <li>{{ act.text }} @if (act.link) { <a [routerLink]="act.link">{{ act.linkLabel }}</a> }</li>
+                      }
+                    </ul>
+                  </div>
+                </article>
+              }
+            </div>
+          } @else {
+            <p class="ok-note">לא נמצאו פערים בנתונים שיש. עדיין מומלץ לעבור על פירוט ההפקדות. <a routerLink="/review/check">לפירוט הפקדות</a></p>
+          }
+        </section>
+
+        <section class="sec" aria-label="המספרים">
+          <h3>המספרים</h3>
+          <p class="lead">סיכום ההפקדות לפנסיה, לפיצויים ולקרן ההשתלמות בחודשים שיש להם תלוש.</p>
+          <ul class="money">
+            <li>
+              <span class="k">היה צריך להיות מופקד</span>
+              <span class="v" [class.muted]="analysis.summary.expectedTotal == null">{{ store.fmt(analysis.summary.expectedTotal) }}</span>
+              <span class="hint">חישוב שלנו: השכר בכל חודש כפול שיעורי ההפרשה (פנסיה, פיצויים, וקרן השתלמות עד התקרה — אם יש).</span>
+            </li>
+            <li>
+              <span class="k">מופיע בתלושים</span>
+              <span class="v" [class.muted]="analysis.summary.reportedTotal == null">{{ store.fmt(analysis.summary.reportedTotal) }}</span>
+              <span class="hint">מה שהמעסיק דיווח בתלוש שניכה מהשכר והפריש.</span>
+            </li>
+            <li>
+              <span class="k">ההפרש בין השניים</span>
+              <span class="v" [class.warn]="(e.payslipGap ?? 0) > 1" [class.muted]="e.payslipGap == null">{{ store.fmt(e.payslipGap) }}</span>
+              <span class="hint">הפירוט וההסבר — למעלה, ב"מה מצאנו".</span>
+            </li>
+            <li>
+              <span class="k">נכנס בפועל לקופות</span>
+              <span class="v" [class.muted]="analysis.summary.actualTotal == null">{{ store.fmt(analysis.summary.actualTotal) }}</span>
+              <span class="hint">{{ analysis.summary.actualTotal == null ? 'לא ידוע — נדע רק מדוח הפקדות של הקופה.' : 'לפי דוחות הקופה שהועלו.' }}</span>
+            </li>
+            @if (e.estimatedForMissing != null) {
+              <li>
+                <span class="k">אומדן לחודשים בלי תלוש</span>
+                <span class="v muted">{{ store.fmt(e.estimatedForMissing) }}</span>
+                <span class="hint">{{ e.monthsWithoutPayslip }} חודשים · הערכה לפי השכר בשאר החודשים — לא נכללת בהפרש.</span>
+              </li>
+            }
+          </ul>
+        </section>
+      }
 
       <section class="sec" aria-label="על התקופה">
         <h3>על התקופה</h3>
         <p class="lead">המעסיק, התקופה וסיבת הסיום שעליהם מבוססת הבדיקה.</p>
         <ul class="facts">
-          <li>
-            <span class="k">מעסיק</span>
-            <span class="v">{{ employer() }}</span>
-          </li>
-          <li>
-            <span class="k">תקופה</span>
-            <span class="v">{{ periodLabel() }}</span>
-          </li>
-          <li>
-            <span class="k">סיבת סיום</span>
-            <span class="v">{{ reasonLabel() }}</span>
-          </li>
+          <li><span class="k">מעסיק</span><span class="v">{{ employer() }}</span></li>
+          <li><span class="k">תקופה</span><span class="v">{{ periodLabel() }}</span></li>
+          <li><span class="k">סיבת סיום</span><span class="v">{{ reasonLabel() }}</span></li>
         </ul>
-      </section>
-
-      <section class="sec" aria-label="הפקדות">
-        <h3>ההפקדות במבט אחד</h3>
-        <p class="lead">מה שהיה אמור להיכנס, מה שדווח, ומה שנכנס לקופה — אם ידוע.</p>
-        <ul class="money">
-          <li>
-            <span class="k">אמור היה להיות מופקד</span>
-            <span class="v" [class.muted]="analysis.summary.expectedTotal == null">{{ store.fmt(analysis.summary.expectedTotal) }}</span>
-            <span class="hint">לפי השכר ושיעורי ההפרשות</span>
-          </li>
-          <li>
-            <span class="k">דווח בתלושים / 106</span>
-            <span class="v" [class.muted]="analysis.summary.reportedTotal == null">{{ store.fmt(analysis.summary.reportedTotal) }}</span>
-            <span class="hint">מה שמופיע במסמכי השכר</span>
-          </li>
-          <li>
-            <span class="k">נכנס בפועל לקופות</span>
-            <span class="v" [class.muted]="analysis.summary.actualTotal == null">{{ store.fmt(analysis.summary.actualTotal) }}</span>
-            <span class="hint">מדוחות הקופה — אם יש</span>
-          </li>
-          <li>
-            <span class="k">פער משוער</span>
-            <span class="v"
-              [class.warn]="analysis.summary.gapTotal != null && analysis.summary.gapTotal < 0"
-              [class.muted]="analysis.summary.gapTotal == null">
-              {{ store.fmt(analysis.summary.gapTotal) }}
-            </span>
-            <span class="hint">הפרש בין מה שאמור לבין מה שנכנס (כשיש נתונים)</span>
-          </li>
-        </ul>
-      </section>
-
-      <section class="sec" aria-label="תשומת לב">
-        <h3>מה דורש תשומת לב</h3>
-        @if (attention().length) {
-          <p class="lead">נקודות שכדאי לבדוק לפני שממשיכים הלאה.</p>
-          <ul class="attention">
-            @for (item of attention(); track item.text) {
-              <li>
-                {{ item.text }}
-                @if (item.link) {
-                  · <a [routerLink]="item.link">{{ item.linkLabel }}</a>
-                }
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="ok-note">לא סומנו פערים או חריגות משמעותיות בנתונים שיש. עדיין מומלץ לעבור על פירוט ההפקדות.</p>
-          <p class="ok-note"><a routerLink="/review/check">לפירוט הפקדות</a></p>
-        }
       </section>
 
       <section class="sec" aria-label="מסמכים חסרים">
-        <h3>מה חסר</h3>
+        <h3>מה חסר — ולמה זה חשוב</h3>
         @if (missingDocs().length) {
-          <p class="lead">כדאי לבקש מהמעסיק או מהקופה — כל מסמך שמתווסף משפר את הבדיקה.</p>
+          <p class="lead">כל מסמך שמתווסף משפר את הבדיקה:</p>
           <ul class="attention">
             @for (d of missingDocs(); track d) { <li>{{ d }}</li> }
+          </ul>
+          <ul class="why-docs">
+            <li><b>תלוש שכר</b> — מראה מה נוכה מהשכר ומה המעסיק הפריש בכל חודש. בלעדיו החודש לא נבדק.</li>
+            <li><b>טופס 106</b> — סיכום שנתי של השכר. עוזר לוודא שלא חסרים תלושים ושהשכר נקרא נכון. הוא לא משנה את חישוב ההפרש.</li>
+            <li><b>דוח פנסיה / קופות</b> — הדרך היחידה לדעת שהכסף שדווח בתלוש באמת נכנס לקופה, ומתי.</li>
           </ul>
           <p class="ok-note"><a routerLink="/review/documents">להעלאת מסמכים</a></p>
         } @else {
           <p class="ok-note">כל המסמכים הבסיסיים הועלו או סומנו כלא זמינים.</p>
         }
+      </section>
+
+      <section class="sec experts" aria-label="בדיקה עם איש מקצוע">
+        <h3>רוצים שמישהו יבדוק לעומק?</h3>
+        <p class="lead">הבדיקה כאן היא הערכה. כשיש פער שלא מוסבר, מחלוקת עם המעסיק, או צורך בתביעה — כדאי לפנות לגורם מקצועי. אפשר לקרוא דירוגים והמלצות של משתמשים אחרים ולבחור.</p>
+        <div class="expert-cards">
+          <a class="expert" routerLink="/help/professionals">
+            <b>בודקי שכר ופנסיה</b>
+            <span>אנשי מקצוע שבודקים תלושים, הפקדות לפנסיה ולקרן השתלמות, ומכינים דרישה מסודרת מהמעסיק.</span>
+          </a>
+          <a class="expert" routerLink="/help/lawyers">
+            <b>עורכי דין לדיני עבודה</b>
+            <span>כשצריך לפנות למעסיק באופן רשמי, לנהל משא ומתן, או להגיש תביעה.</span>
+          </a>
+        </div>
       </section>
 
       <section class="sec estimate" aria-label="אומדן סיום">
@@ -252,9 +322,19 @@ export class ReviewReportPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly wizard = inject(WizardStore);
   private readonly calc = inject(CalculationFacade);
-  readonly healthLabel = healthLabel;
 
   readonly a = computed(() => this.store.analysis());
+
+  /** Conclusions in plain words: every gap with its likely cause and what to do about it. */
+  readonly explanation = computed(() => {
+    const analysis = this.a();
+    const review = this.store.review();
+    return analysis && review ? explainReview(review, analysis) : null;
+  });
+
+  severityLabel(s: FindingSeverity): string {
+    return s === 'serious' ? 'חשוב לבדוק' : s === 'check' ? 'כדאי לבדוק' : s === 'info' ? 'לידיעה' : 'תקין';
+  }
 
   readonly employer = computed(() => this.store.review()?.period?.employerName?.trim() || 'לא צוין');
 
@@ -295,53 +375,14 @@ export class ReviewReportPage implements OnInit {
     return out;
   });
 
-  readonly attention = computed(() => {
-    const analysis = this.a();
-    if (!analysis) return [] as { text: string; link?: string; linkLabel?: string }[];
-    const s = analysis.summary;
-    const items: { text: string; link?: string; linkLabel?: string }[] = [];
-
-    if (s.monthsNoInfo > 0) {
-      items.push({
-        text: `${s.monthsNoInfo} חודשים בלי מידע על שכר או הפקדות`,
-        link: '/review/documents',
-        linkLabel: 'להעלאת תלושים'
-      });
-    }
-    if (s.monthsWithGap > 0) {
-      items.push({
-        text: `${s.monthsWithGap} חודשים עם פער בהפקדות`,
-        link: '/review/check',
-        linkLabel: 'לפירוט'
-      });
-    }
-    if (analysis.anomalies.length > 0) {
-      items.push({
-        text: `${analysis.anomalies.length} חריגות שזוהו בניתוח`,
-        link: '/review/check',
-        linkLabel: 'לפירוט'
-      });
-    }
-    if (s.actualTotal == null) {
-      items.push({
-        text: 'אין עדיין אישור מהקופות על מה שנכנס בפועל',
-        link: '/review/documents',
-        linkLabel: 'להעלאת דוח'
-      });
-    }
-    if (this.store.hasAnyWaiver()) {
-      items.push({
-        text: 'חלק מהמסמכים סומנו כלא זמינים — החישוב מתבסס על מה שיש'
-      });
-    }
-    if (s.gapTotal != null && s.gapTotal < 0) {
-      items.push({ text: `פער שלילי משוער: ${this.store.fmt(s.gapTotal)}` });
-    }
-    return items.slice(0, 5);
-  });
-
   async ngOnInit(): Promise<void> {
-    if (!this.store.analysis()) await this.store.analyze();
+    // Same order as the check step: fresh expected deposits (current rules), then a fresh analysis.
+    try {
+      await this.store.fillExpectedFromServer();
+    } catch {
+      // Rules endpoint down — analyse what is stored.
+    }
+    await this.store.analyze();
   }
 
   async dl(format: 'html' | 'csv' | 'json'): Promise<void> {

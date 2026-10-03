@@ -132,6 +132,8 @@ public sealed class EmploymentReviewHandlers(
     {
         var existing = await GetOrCreateAsync(workspaceId, ct);
         var list = new List<EmploymentMonth>();
+        // A training fund is not mandatory: expect it only when the payslips show one.
+        var hasTrainingFund = existing.Months.Any(m => m.TrainingFundEmployee.Reported > 0 || m.TrainingFundEmployer.Reported > 0);
         foreach (var m in existing.Months)
         {
             var salary = m.PensionableSalary ?? m.GrossSalary;
@@ -141,7 +143,7 @@ public sealed class EmploymentReviewHandlers(
                 continue;
             }
             var monthStart = new DateOnly(m.Year, m.Month, 1);
-            var expected = await contributionRules.ComputeExpectedAsync(salary.Value, monthStart, ct);
+            var expected = await contributionRules.ComputeExpectedAsync(salary.Value, monthStart, ct, hasTrainingFund);
             list.Add(ContributionRulesEngine.ApplyExpected(m, expected));
         }
         var updated = existing with { Months = list, UpdatedAt = DateTimeOffset.UtcNow };

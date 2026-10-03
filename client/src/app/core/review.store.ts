@@ -183,6 +183,8 @@ export class ReviewStore {
     const rules = await firstValueFrom(this.http.get<ContributionRuleDto[]>(`${this.base}/rules`));
     const r = this.review();
     if (!r) return;
+    // A training fund is not mandatory: expect it only when the payslips show one.
+    const hasTrainingFund = r.months.some(m => (m.trainingFundEmployee.reported ?? 0) > 0 || (m.trainingFundEmployer.reported ?? 0) > 0);
     const months = r.months.map(m => {
       const salary = m.pensionableSalary ?? m.grossSalary;
       if (salary == null || salary <= 0) return m;
@@ -193,14 +195,17 @@ export class ReviewStore {
       if (!rule) return m;
       const base = rule.salaryCeiling != null && salary > rule.salaryCeiling ? rule.salaryCeiling : salary;
       const round = (v: number) => Math.round(v * 100) / 100;
+      // Employers commonly pay the training fund up to the tax-exempt ceiling — capped there is not a shortfall.
+      const trainingBase = !hasTrainingFund ? 0
+        : rule.trainingFundSalaryCeiling != null && base > rule.trainingFundSalaryCeiling ? rule.trainingFundSalaryCeiling : base;
       return {
         ...m,
         employeePension: { ...m.employeePension, expected: round(base * rule.pensionEmployeeRate / 100) },
         employerPension: { ...m.employerPension, expected: round(base * rule.pensionEmployerRate / 100) },
         employeeCompensation: { ...m.employeeCompensation, expected: 0 },
         employerCompensation: { ...m.employerCompensation, expected: round(base * rule.compensationRate / 100) },
-        trainingFundEmployee: { ...m.trainingFundEmployee, expected: round(base * rule.trainingFundEmployeeRate / 100) },
-        trainingFundEmployer: { ...m.trainingFundEmployer, expected: round(base * rule.trainingFundEmployerRate / 100) }
+        trainingFundEmployee: { ...m.trainingFundEmployee, expected: round(trainingBase * rule.trainingFundEmployeeRate / 100) },
+        trainingFundEmployer: { ...m.trainingFundEmployer, expected: round(trainingBase * rule.trainingFundEmployerRate / 100) }
       };
     });
     this.persist({ ...r, months, updatedAt: new Date().toISOString() });
@@ -730,6 +735,7 @@ interface ContributionRuleDto {
   trainingFundEmployeeRate: number;
   trainingFundEmployerRate: number;
   salaryCeiling: number | null;
+  trainingFundSalaryCeiling?: number | null;
   sourceNote: string;
   isEstimate: boolean;
 }

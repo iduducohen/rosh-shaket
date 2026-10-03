@@ -19,19 +19,22 @@ public sealed class ContributionRulesEngine(IContributionRuleProvider rules)
             .FirstOrDefault();
     }
 
-    public async Task<ExpectedContributions> ComputeExpectedAsync(decimal pensionableSalary, DateOnly monthStart, CancellationToken ct)
+    /// <param name="hasTrainingFund">False when the employee has no training fund at all — it is not mandatory by law.</param>
+    public async Task<ExpectedContributions> ComputeExpectedAsync(decimal pensionableSalary, DateOnly monthStart, CancellationToken ct, bool hasTrainingFund = true)
     {
         var rule = await RuleForAsync(monthStart, ct)
             ?? throw new InvalidOperationException($"No contribution rule for {monthStart:yyyy-MM}.");
 
         var baseSalary = rule.SalaryCeiling is { } cap && pensionableSalary > cap ? cap : pensionableSalary;
+        var trainingBase = !hasTrainingFund ? 0m
+            : rule.TrainingFundSalaryCeiling is { } tcap && baseSalary > tcap ? tcap : baseSalary;
         return new ExpectedContributions(
             rule,
             Round(baseSalary * rule.PensionEmployeeRate / 100m),
             Round(baseSalary * rule.PensionEmployerRate / 100m),
             Round(baseSalary * rule.CompensationRate / 100m),
-            Round(baseSalary * rule.TrainingFundEmployeeRate / 100m),
-            Round(baseSalary * rule.TrainingFundEmployerRate / 100m));
+            Round(trainingBase * rule.TrainingFundEmployeeRate / 100m),
+            Round(trainingBase * rule.TrainingFundEmployerRate / 100m));
     }
 
     public static EmploymentMonth ApplyExpected(EmploymentMonth month, ExpectedContributions expected) =>
