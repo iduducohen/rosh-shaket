@@ -27,6 +27,8 @@ services:
       Authentication__RedirectOrigin: ${AUTH_REDIRECT_ORIGIN:-http://localhost:5051}
       Authentication__Otp__Pepper: ${AUTH_OTP_PEPPER:-dev-insecure-otp-pepper-change-me}
       Authentication__Smtp__Host: ${SMTP_HOST:-}
+      Authentication__Smtp__Port: ${SMTP_PORT:-587}
+      Authentication__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
       Authentication__Smtp__User: ${SMTP_USER:-}
       Authentication__Smtp__Password: ${SMTP_PASSWORD:-}
       Authentication__Smtp__From: ${SMTP_FROM:-}

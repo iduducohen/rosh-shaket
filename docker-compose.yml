@@ -52,6 +52,8 @@ services:
       Authentication__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
       Authentication__Microsoft__TenantId: ${MICROSOFT_TENANT_ID:-common}
       Authentication__Smtp__Host: ${SMTP_HOST:-}
+      Authentication__Smtp__Port: ${SMTP_PORT:-587}
+      Authentication__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
       Authentication__Smtp__User: ${SMTP_USER:-}
       Authentication__Smtp__Password: ${SMTP_PASSWORD:-}
       Authentication__Smtp__From: ${SMTP_FROM:-}

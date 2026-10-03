@@ -199,6 +199,8 @@ Set `Cors__Origins__0` to the production frontend. `*.vercel.app` previews are a
 | `Authentication__RedirectOrigin` | Apple/MS web | Frontend origin |
 | `Authentication__Otp__Pepper` | **Prod yes** | HMAC pepper for OTP |
 | `Authentication__Smtp__Host` | Prod email | SMTP |
+| `Authentication__Smtp__Port` | Optional | Default `587` |
+| `Authentication__Smtp__EnableSsl` | Optional | Default `true` |
 | `Authentication__Smtp__User` / `Password` / `From` | As needed | SMTP |
 | `ConnectionStrings__Postgres` | **Yes** | Users + **Data Protection keys** |
 | `ConnectionStrings__Redis` | Strongly recommended | OTP + refresh denylist |
@@ -237,6 +239,21 @@ Set `Cors__Origins__0` to the production frontend. `*.vercel.app` previews are a
 1. Set `Authentication:Smtp:*` via User Secrets locally / Railway in production.
 2. Without SMTP host, codes are logged (`DEV login code…`) — development only.
 3. OTP: 6 digits, HMAC with pepper, 10 min TTL, 5 attempts, ~60s cooldown, 5/hour/email.
+
+#### Resend (SMTP)
+
+Set on the .NET server (Railway) — and on Vercel if it also runs server-side code that sends mail:
+
+| Variable | Value |
+|---|---|
+| `Authentication__Smtp__Host` | `smtp.resend.com` |
+| `Authentication__Smtp__Port` | `587` |
+| `Authentication__Smtp__EnableSsl` | `true` |
+| `Authentication__Smtp__User` | `resend` |
+| `Authentication__Smtp__Password` | Resend API key (`re_...`) |
+| `Authentication__Smtp__From` | `onboarding@resend.dev` (testing only; use a verified domain in production) |
+
+Never commit the API key.
 
 ---
 
