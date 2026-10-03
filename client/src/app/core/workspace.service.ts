@@ -231,6 +231,11 @@ export class WorkspaceService {
     );
   }
 
+  /** Delete a document from the account: the server marks the row deleted and removes the stored file. */
+  async deleteDocument(documentId: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`${environment.apiBaseUrl}/api/documents/${documentId}`));
+  }
+
   clearLocal(): void {
     this.workspace.set(null);
     this.saveStatus.set('idle');

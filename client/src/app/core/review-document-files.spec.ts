@@ -43,6 +43,17 @@ describe('ReviewDocumentFilesService — syncing to the account', () => {
     expect(store.review()!.documents[0].serverDocumentId).toBe('srv-1');
   });
 
+  it('deletes the account copy of a removed document, but not one another entry still uses', async () => {
+    const del = spyOn(workspaces, 'deleteDocument').and.returnValue(Promise.resolve());
+
+    await files.removeFromServer('srv-9', 'd1');
+    expect(del).toHaveBeenCalledOnceWith('srv-9');
+
+    store.updateDocument('d1', { serverDocumentId: 'srv-shared' });
+    await files.removeFromServer('srv-shared', 'other-doc');
+    expect(del).toHaveBeenCalledTimes(1);
+  });
+
   it('uploads once even when two triggers run at the same time', async () => {
     workspaces.workspace.set({ documents: [] } as unknown as WorkspaceDto);
     const upload = spyOn(workspaces, 'uploadDocument').and.returnValue(Promise.resolve(serverDoc('srv-2')));

@@ -111,7 +111,8 @@ public sealed class WorkspaceHandlers(
 
         var docId = Guid.NewGuid();
         var safeName = SanitizeFileName(originalFileName);
-        var storageKey = $"{userId:N}/{workspaceId:N}/{docId:N}-{safeName}";
+        // The document id is a folder, so the stored object keeps the uploaded file name and two uploads never collide.
+        var storageKey = $"{userId:N}/{workspaceId:N}/{docId:N}/{safeName}";
 
         var pending = new DocumentInfo(
             docId, workspaceId, userId, documentType, safeName, contentType, buffer.Length,
@@ -153,7 +154,15 @@ public sealed class WorkspaceHandlers(
             ?? throw new NotFoundException("Document not found");
         await documents.SoftDeleteAsync(userId, documentId, ct);
         await audit.RecordAsync(userId, info.WorkspaceId, "DOCUMENT_DELETED", "Document", documentId, null, null, null, ct);
-        // Soft-delete keeps the blob for recovery; a later purge job removes orphans.
+        // The row stays (DeletedAt) as a record of the deletion; the file itself goes, as the privacy policy promises.
+        try
+        {
+            await files.DeleteAsync(info.StorageKey, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "Document {DocumentId} deleted but its file {StorageKey} could not be removed", documentId, info.StorageKey);
+        }
     }
 
     private static string SanitizeFileName(string name)

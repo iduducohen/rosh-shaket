@@ -37,7 +37,9 @@ public sealed class S3FileStorage(IAmazonS3 s3, IOptions<FileStorageOptions> opt
             InputStream = content,
             AutoCloseStream = false, // the caller owns the buffer
             ContentType = contentType,
-            ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
+            ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256,
+            // A download from the S3 console saves under the uploaded name, Hebrew included.
+            Headers = { ContentDisposition = $"inline; filename*=UTF-8''{Uri.EscapeDataString(Path.GetFileName(storageKey))}" }
         }, ct);
         log.LogInformation("Stored file {StorageKey} in S3 bucket {Bucket} ({ContentType})", storageKey, O.Bucket, contentType);
     }

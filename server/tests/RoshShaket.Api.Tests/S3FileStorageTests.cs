@@ -74,11 +74,12 @@ public class S3FileStorageTests
         var (storage, s3) = Build(prefix: "documents/");
         var body = new MemoryStream("%PDF-1.7 payslip"u8.ToArray());
 
-        await storage.SaveAsync("user/ws/doc-payslip.pdf", body, "application/pdf", default);
+        await storage.SaveAsync("user/ws/doc/תלוש_12.pdf", body, "application/pdf", default);
 
-        var (stored, request) = s3.Objects["rosh-shaket-dev-docs/documents/user/ws/doc-payslip.pdf"];
+        var (stored, request) = s3.Objects["rosh-shaket-dev-docs/documents/user/ws/doc/תלוש_12.pdf"];
         stored.Should().Equal("%PDF-1.7 payslip"u8.ToArray());
         request.ContentType.Should().Be("application/pdf");
+        request.Headers.ContentDisposition.Should().Be("inline; filename*=UTF-8''%D7%AA%D7%9C%D7%95%D7%A9_12.pdf");
         request.ServerSideEncryptionMethod.Should().Be(ServerSideEncryptionMethod.AES256);
         body.CanRead.Should().BeTrue("the caller owns the stream and disposes it");
         storage.ProviderName.Should().Be("s3");

@@ -100,6 +100,20 @@ export class ReviewDocumentFilesService {
     }
   }
 
+  /**
+   * Remove a document's copy from the account (row + stored file), unless another entry in the case still
+   * points at it. Soft-fails: the local list is the user's intent either way.
+   */
+  async removeFromServer(serverDocumentId: string | null | undefined, exceptDocId: string): Promise<void> {
+    if (!serverDocumentId || (!this.auth.isSignedIn() && !this.auth.hasSession())) return;
+    if (this.linkedElsewhere(serverDocumentId, exceptDocId)) return;
+    try {
+      await this.workspaces.deleteDocument(serverDocumentId);
+    } catch {
+      // Already gone or offline — nothing more to do here.
+    }
+  }
+
   /** Uploads in flight, so a second trigger (page re-init, replace) never sends the same document twice. */
   private readonly syncing = new Set<string>();
 
