@@ -177,11 +177,6 @@ interface FlagOption {
     <h2>ספרו לנו על תקופת העבודה</h2>
     <p class="lead">נתחיל מהתאריכים והסיבה — בלי מספרים כבדים עדיין.</p>
 
-    <div class="field">
-      <label for="employer">שם המעסיק (אופציונלי)</label>
-      <input id="employer" [(ngModel)]="employerName" placeholder="למשל: חברת דוגמה בע״מ" />
-    </div>
-
     <div class="date-row">
       <app-date-field
         class="in-row"
@@ -287,6 +282,7 @@ export class ReviewEmploymentPage {
   readonly latestEnd = latestEndDate();
   readonly info = signal<ReasonOption | null>(null);
 
+  /** Not asked here — it is read from the first payslip / Form 106. Kept so re-saving the period doesn't erase it. */
   employerName = this.store.review()?.period?.employerName ?? '';
   startDate = this.store.review()?.period?.startDate ?? '';
   endDate = this.store.review()?.period?.endDate ?? '';

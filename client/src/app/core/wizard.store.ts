@@ -42,7 +42,8 @@ export class WizardStore {
       vacationBalanceDays: d.vacationBalanceDays ?? p.vacationBalanceDays,
       recuperationDaysPaidLastYear: d.recuperationDaysPaidLastYear ?? p.recuperationDaysPaidLastYear,
       section14: d.section14Suggestion ?? p.section14,
-      hasStudyFund: d.hasStudyFund ?? p.hasStudyFund
+      hasStudyFund: d.hasStudyFund ?? p.hasStudyFund,
+      employerName: d.employerName ?? p.employerName ?? null
     });
     this.filledFields.set(d.filled);
     this.funds.set(d.funds ?? null);

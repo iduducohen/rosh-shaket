@@ -20,6 +20,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         חלץ רק את הנתונים הבאים, והחזר JSON בלבד, בלי טקסט נוסף ובלי סימוני קוד:
         {"is_payslip": true|false,
          "readable": true|false,
+         "employer_name": "שם המעסיק או מחרוזת ריקה",
          "payslip_month": "YYYY-MM" או null,
          "start_date": "YYYY-MM-DD" או null (תאריך תחילת עבודה / ותק),
          "base_salary": מספר או null (שכר יסוד חודשי ברוטו, בלי שעות נוספות והחזרים),
@@ -38,6 +39,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         name הוא שם הקופה. detail הוא מידע נוסף שמופיע באותה שורה, כמו מספר פוליסה או בסיס שכר, בלי תעודת זהות, מספר עובד או חשבון בנק.
         אם אותה קופה מופיעה לכמה רכיבים, החזר שורה נפרדת לכל רכיב. אם אין שורה, אל תמציא. מערך ריק אם אין טבלה.
         אם נתון לא מופיע בבירור, החזר null. אל תנחש ואל תשלים.
+        employer_name הוא שם המעסיק (חברה / עסק) כפי שמודפס בכותרת התלוש. לעולם לא שם העובד. אם לא מופיע, מחרוזת ריקה.
         is_payslip הוא true רק אם זה בבירור תלוש שכר ישראלי. אחרת false. לא חוזה, לא חשבונית, לא תעודה ולא תמונה אחרת.
         readable הוא true רק אם הטקסט חד וקריא מספיק כדי לקרוא שכר ותאריכים. false אם התמונה מטושטשת, חשוכה, חתוכה, או חסר בה חלק מהדף.
         אל תחזיר שם, תעודת זהות, כתובת, מספר עובד, פרטי מעסיק או מספר חשבון.
@@ -158,8 +160,16 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
                 isPayslip, ReadString(raw, "payslip_month"), startDate, Positive(ReadDecimal(raw, "base_salary")),
                 Percent(ReadDecimal(raw, "job_percent")), workDays, NonNegative(ReadDecimal(raw, "vacation_balance")),
                 NonNegative(ReadDecimal(raw, "recuperation_days_paid")), Positive(ReadDecimal(raw, "severance_rate")),
-                ReadBool(raw, "has_keren_hishtalmut"), ReadBool(raw, "readable") ?? isPayslip, ReadFunds(raw));
+                ReadBool(raw, "has_keren_hishtalmut"), ReadBool(raw, "readable") ?? isPayslip, ReadFunds(raw),
+                EmployerName(ReadString(raw, "employer_name")));
         }
+    }
+
+    private static string? EmployerName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var name = value.Trim();
+        return name.Length <= 120 ? name : name[..120];
     }
 
     internal static string? SliceJson(string text)
@@ -284,6 +294,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
           "properties": {
             "is_payslip": { "type": "boolean" },
             "readable": { "type": "boolean" },
+            "employer_name": { "type": "string" },
             "payslip_month": { "type": ["string", "null"] },
             "start_date": { "type": ["string", "null"] },
             "base_salary": { "type": ["number", "null"] },
@@ -310,7 +321,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["is_payslip", "readable", "payslip_month", "start_date", "base_salary", "job_percent", "work_days_per_week", "vacation_balance", "recuperation_days_paid", "severance_rate", "has_keren_hishtalmut", "funds"]
+          "required": ["is_payslip", "readable", "employer_name", "payslip_month", "start_date", "base_salary", "job_percent", "work_days_per_week", "vacation_balance", "recuperation_days_paid", "severance_rate", "has_keren_hishtalmut", "funds"]
         }
         """;
 }

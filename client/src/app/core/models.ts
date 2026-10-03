@@ -16,6 +16,8 @@ export interface ProfileDto {
   recuperationDaysPaidLastYear: number;
   section14: Section14;
   hasStudyFund: boolean;
+  /** Read from the payslip, shown on the results and in reports only (not used in the calculation). */
+  employerName?: string | null;
 }
 
 export interface ComponentDto {
@@ -67,6 +69,8 @@ export interface ProfileDraft {
   missing: string[];
   /** null when the server did not return fund rows. An empty array means the payslip had none. */
   funds?: FundLine[] | null;
+  /** The employer printed on the payslip, or null. */
+  employerName?: string | null;
 }
 
 export interface ChecklistItem {
@@ -127,6 +131,7 @@ export interface ReportBasis {
   hasStudyFund: boolean;
   fromPayslip: boolean;
   payslipMonth: string | null;
+  employerName?: string | null;
 }
 
 export interface RightsReport {

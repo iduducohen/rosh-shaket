@@ -26,6 +26,7 @@ export class ApiService {
     fromPayslip: boolean;
     payslipMonth: string | null;
     funds: FundLine[];
+    employerName?: string | null;
   }): Promise<RightsReport> {
     return firstValueFrom(this.http.post<RightsReport>(`${this.base}/api/reports`, body));
   }
@@ -38,6 +39,7 @@ export class ApiService {
       fromPayslip: boolean;
       payslipMonth: string | null;
       funds: FundLine[];
+      employerName?: string | null;
     },
     format: 'html' | 'csv' | 'json'
   ): Promise<Blob> {
@@ -135,6 +137,8 @@ export interface DocumentVerificationResult {
   overallOk: boolean;
   messageHe: string;
   summaryHe: string | null;
+  /** The employer printed on a payslip / Form 106, or null. */
+  employerName?: string | null;
   grossSalary?: number | null;
   annualGross?: number | null;
   funds?: Array<{

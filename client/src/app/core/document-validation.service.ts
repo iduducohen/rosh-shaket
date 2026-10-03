@@ -165,6 +165,11 @@ export class DocumentValidationService {
       if (err instanceof HttpErrorResponse && (err.status === 401 || err.status === 402)) {
         const reason = err.status === 402 ? 'payment' : 'signin';
         this.paywall.set(reason);
+        // The PDF text already gave the payslip month — fill it so the user isn't asked to pick it by hand.
+        if (doc.documentType === 'payslip' && doc.month == null && local?.year === doc.year && local.month != null
+          && !this.payslipMonthIssue(doc.year, local.month, docId)) {
+          this.store.updateDocument(docId, { month: local.month, detectedYear: local.year, detectedMonth: local.month });
+        }
         this.store.updateDocument(docId, {
           validationStatus: 'unavailable',
           validationMessage: reason === 'payment'
@@ -298,6 +303,12 @@ export class DocumentValidationService {
   ): boolean {
     const before = this.find(docId);
     if (!before || before.year == null) return false;
+
+    // The employment form no longer asks for the employer: take it from a matching payslip / Form 106.
+    if (result.employerName && result.typeMatches && result.yearMatches
+      && (result.detectedType === 'payslip' || result.detectedType === 'form106')) {
+      this.store.adoptEmployerName(result.employerName);
+    }
 
     if (!result.readable) {
       this.store.updateDocument(docId, {

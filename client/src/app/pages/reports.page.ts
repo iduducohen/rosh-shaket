@@ -151,6 +151,7 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
             <section class="card wide">
               <h3>בסיס הדוח</h3>
               <p class="small">
+                @if (r.basis.employerName) { <b>{{ r.basis.employerName }}</b> · }
                 שכר ₪{{ r.basis.monthlySalary | number:'1.0-0' }}, משרה {{ r.basis.jobPercent }}%,
                 התחלה {{ r.basis.startDate }}, סיום {{ r.basis.endDate }},
                 חופשה {{ r.basis.vacationBalanceDays }} ימים
@@ -314,7 +315,8 @@ export class ReportsPage implements ViewWillEnter {
       compare,
       fromPayslip: this.store.fromPayslip(),
       payslipMonth: this.store.payslipMonth(),
-      funds: this.store.funds() ?? []
+      funds: this.store.funds() ?? [],
+      employerName: this.store.profile().employerName ?? null
     };
   }
 }

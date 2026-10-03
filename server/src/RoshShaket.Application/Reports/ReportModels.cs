@@ -17,7 +17,9 @@ public sealed record BuildReportCommand(
     bool Compare,
     bool FromPayslip,
     string? PayslipMonth,
-    IReadOnlyList<ReportFundInput> Funds);
+    IReadOnlyList<ReportFundInput> Funds,
+    /// <summary>Read from the payslip; shown in the report header only.</summary>
+    string? EmployerName = null);
 
 public sealed record ChartSlice(string Key, string Label, decimal Value, string Unit);
 
@@ -53,7 +55,8 @@ public sealed record ReportBasis(
     string Section14,
     bool HasStudyFund,
     bool FromPayslip,
-    string? PayslipMonth);
+    string? PayslipMonth,
+    string? EmployerName = null);
 
 public sealed record RightsReport(
     DateTimeOffset GeneratedAt,

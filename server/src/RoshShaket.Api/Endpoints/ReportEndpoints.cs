@@ -37,7 +37,8 @@ public static class ReportEndpoints
             req.Compare,
             req.FromPayslip,
             req.PayslipMonth,
-            (req.Funds ?? []).Select(f => new ReportFundInput(f.Kind, f.Name, f.Employee, f.Employer, f.Unit, f.Detail)).ToList());
+            (req.Funds ?? []).Select(f => new ReportFundInput(f.Kind, f.Name, f.Employee, f.Employer, f.Unit, f.Detail)).ToList(),
+            string.IsNullOrWhiteSpace(req.EmployerName) ? null : req.EmployerName.Trim());
 
     private static IResult FileResult(byte[] bytes, string contentType, string fileName) =>
         Results.File(bytes, contentType, fileName);

@@ -85,6 +85,7 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
           </ion-segment>
         }
         @if (store.active(); as r) {
+          @if (store.profile().employerName; as employer) { <p class="employer muted small">{{ employer }}</p> }
           <h2>{{ store.results().length > 1 ? (store.activeIndex() === 0 ? 'אם תפוטרו' : 'אם תתפטרו') : 'מה מגיע לכם' }}</h2>
           <div class="sum">
           <div class="sum-total">

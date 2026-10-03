@@ -17,7 +17,8 @@ public sealed record BuildReportRequest(
     bool Compare = false,
     bool FromPayslip = false,
     string? PayslipMonth = null,
-    IReadOnlyList<ReportFundDto>? Funds = null);
+    IReadOnlyList<ReportFundDto>? Funds = null,
+    string? EmployerName = null);
 
 public sealed record ChartSliceDto(string Key, string Label, decimal Value, string Unit);
 
@@ -53,7 +54,8 @@ public sealed record ReportBasisDto(
     string Section14,
     bool HasStudyFund,
     bool FromPayslip,
-    string? PayslipMonth);
+    string? PayslipMonth,
+    string? EmployerName);
 
 public sealed record RightsReportDto(
     DateTimeOffset GeneratedAt,
@@ -72,7 +74,7 @@ public sealed record RightsReportDto(
         new ReportBasisDto(
             r.Basis.StartDate, r.Basis.EndDate, r.Basis.MonthlySalary, r.Basis.JobPercent,
             r.Basis.WorkWeek.ToString(), r.Basis.VacationBalanceDays, r.Basis.RecuperationDaysPaidLastYear,
-            r.Basis.Section14, r.Basis.HasStudyFund, r.Basis.FromPayslip, r.Basis.PayslipMonth),
+            r.Basis.Section14, r.Basis.HasStudyFund, r.Basis.FromPayslip, r.Basis.PayslipMonth, r.Basis.EmployerName),
         r.Scenarios.Select(s => new ScenarioReportDto(
             s.Reason, s.ReasonLabel, s.SeniorityYears, s.EstimatedTotal,
             s.Components.Select(c => new ReportComponentDto(

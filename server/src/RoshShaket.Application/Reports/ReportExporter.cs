@@ -68,6 +68,7 @@ public static class ReportExporter
 
         var b = report.Basis;
         sb.Append("<h2>בסיס החישוב</h2><table><tbody>");
+        if (b.EmployerName is { } employer) Row(sb, "מעסיק", employer);
         Row(sb, "שכר חודשי", $"₪{b.MonthlySalary:0}");
         Row(sb, "אחוז משרה", $"{b.JobPercent:0}%");
         Row(sb, "התחלה", b.StartDate.ToString("dd/MM/yyyy"));

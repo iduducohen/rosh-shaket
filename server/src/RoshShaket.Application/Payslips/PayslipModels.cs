@@ -27,6 +27,8 @@ public sealed record PayslipExtraction(
     bool? HasStudyFund,
     bool Readable = true,
     IReadOnlyList<FundLine>? Funds = null,
+    /// <summary>The employer printed on the payslip (a company, never the employee).</summary>
+    string? EmployerName = null,
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
     Documents.AiUsage? Usage = null);
 
@@ -45,7 +47,8 @@ public sealed record ProfileDraft(
     IReadOnlyList<string> Filled,
     IReadOnlyList<string> Missing,
     bool Readable,
-    IReadOnlyList<FundLine> Funds);
+    IReadOnlyList<FundLine> Funds,
+    string? EmployerName = null);
 
 public sealed class PayslipUploadPolicy
 {
@@ -96,7 +99,7 @@ public static class PayslipMapper
         if (x.BaseSalary is null) missing.Add("monthlySalary");
 
         return new ProfileDraft(x.IsPayslip, x.PayslipMonth, x.StartDate, x.BaseSalary, x.JobPercent, week,
-            x.VacationBalance, x.RecuperationDaysPaid, s14, study, filled, missing, x.Readable, funds);
+            x.VacationBalance, x.RecuperationDaysPaid, s14, study, filled, missing, x.Readable, funds, x.EmployerName);
     }
 }
 

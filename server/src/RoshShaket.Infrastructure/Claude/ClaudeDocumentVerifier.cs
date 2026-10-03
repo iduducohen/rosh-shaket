@@ -81,6 +81,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "detected_month": מספר 1 עד 12 או null,
              "period_label": "תיאור קצר של תקופה לדוח פנסיה או null",
              "summary_he": "משפט קצר בעברית על מה שזוהה, בלי פרטים מזהים",
+             "employer_name": "שם המעסיק כפי שמופיע בתלוש או בטופס 106, או מחרוזת ריקה",
              "gross_salary": מספר או null,
              "pension_base": מספר או null,
              "annual_gross": מספר או null,
@@ -88,6 +89,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "contributions": [{"kind":"pension"|"managers"|"severance"|"disability"|"study","payer":"employee"|"employer","provider":"שם הקופה או מחרוזת ריקה","rate_percent":מספר או 0,"amount":מספר,"for_year":שנה או 0,"for_month":חודש או 0}],
              "funds": [{"kind":"pension"|"severance"|"study"|"managers","provider":"שם הגוף או null","balance":מספר או null,"as_of":"YYYY-MM-DD או null","fee_annual_percent":מספר או null,"return_annual_percent":מספר או null,"track":"מסלול או null"}]}
             כללים:
+            - employer_name: שם המעסיק (חברה / עסק) בלבד, כפי שמודפס בכותרת התלוש או בטופס 106. לעולם לא שם העובד. בדוח פנסיה או אם לא מופיע — מחרוזת ריקה.
             - detected_type=payslip רק לתלוש שכר ישראלי.
             - detected_type=form106 רק לטופס 106 שנתי.
             - detected_type=pension_report לדוח פנסיה, הפקדות, גמל, השתלמות או ביטוח מנהלים.
@@ -202,7 +204,8 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 ReadFunds(raw),
                 ReadContributionKinds(raw),
                 ReadDecimal(raw, "pension_base"),
-                ReadContributions(raw));
+                ReadContributions(raw),
+                Clip(ReadString(raw, "employer_name")));
         }
     }
 
@@ -323,6 +326,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             "detected_month": { "type": ["integer", "null"] },
             "period_label": { "type": ["string", "null"] },
             "summary_he": { "type": ["string", "null"] },
+            "employer_name": { "type": "string" },
             "gross_salary": { "type": ["number", "null"] },
             "pension_base": { "type": ["number", "null"] },
             "annual_gross": { "type": ["number", "null"] },
@@ -365,7 +369,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "gross_salary", "pension_base", "annual_gross", "contribution_kinds", "contributions", "funds"]
+          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "employer_name", "gross_salary", "pension_base", "annual_gross", "contribution_kinds", "contributions", "funds"]
         }
         """;
 }

@@ -67,6 +67,8 @@ public sealed record DocumentExtraction(
     IReadOnlyList<string>? ContributionKinds = null,
     decimal? PensionBase = null,
     IReadOnlyList<ExtractedContributionLine>? Contributions = null,
+    /// <summary>The employer as printed on a payslip / Form 106 (a company, not the employee).</summary>
+    string? EmployerName = null,
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
     AiUsage? Usage = null);
 
@@ -90,7 +92,8 @@ public sealed record DocumentVerificationResult(
     IReadOnlyList<ExtractedFundLine>? Funds = null,
     IReadOnlyList<string>? ContributionKinds = null,
     decimal? PensionBase = null,
-    IReadOnlyList<ExtractedContributionLine>? Contributions = null);
+    IReadOnlyList<ExtractedContributionLine>? Contributions = null,
+    string? EmployerName = null);
 
 public static class DocumentVerificationMapper
 {
@@ -130,7 +133,8 @@ public static class DocumentVerificationMapper
             x.Funds,
             x.ContributionKinds,
             Positive(x.PensionBase),
-            x.Contributions);
+            x.Contributions,
+            x.EmployerName);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;
