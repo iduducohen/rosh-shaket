@@ -24,13 +24,15 @@
         @if (act() === 'quick') {
           <div class="stage" role="img" aria-label="הדגמה: תלוש אחד הופך לתשובה ברורה — מה מגיע לכם והאם ההפרשות תקינות">
             @for (s of quickSheets; track s.label; let i = $index) {
-              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's' }">
+              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's', '--g': (i * 0.28) + 's' }">
                 <span class="tag" [style.background]="s.tone">{{ s.label }}</span>
                 <i class="ln w90"></i><i class="ln w70"></i><i class="ln w80"></i><i class="ln w55"></i><i class="ln w75"></i>
                 <span class="corner"></span>
+                <span class="ai-mark" aria-hidden="true">✦ AI</span>
               </div>
             }
             <div class="scan"></div>
+            <div class="ai-chip" aria-hidden="true"><span class="spark">✦</span>ניתוח AI · קוראים כל מסמך</div>
 
             <div class="result">
               <div class="result-top">
@@ -49,13 +51,15 @@
         } @else {
           <div class="stage" role="img" aria-label="הדגמה: כל המסמכים נבדקים חודש אחרי חודש, ונמצא חודש שבו המעסיק לא הפריש לפנסיה">
             @for (s of fullSheets; track s.label; let i = $index) {
-              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's' }">
+              <div class="sheet" [style]="{ '--x': s.x + 'px', '--y': s.y + 'px', '--r': s.r + 'deg', '--d': (i * 0.07) + 's', '--g': (i * 0.28) + 's' }">
                 <span class="tag" [style.background]="s.tone">{{ s.label }}</span>
                 <i class="ln w90"></i><i class="ln w70"></i><i class="ln w80"></i><i class="ln w55"></i><i class="ln w75"></i>
                 <span class="corner"></span>
+                <span class="ai-mark" aria-hidden="true">✦ AI</span>
               </div>
             }
             <div class="scan"></div>
+            <div class="ai-chip" aria-hidden="true"><span class="spark">✦</span>ניתוח AI · קוראים כל מסמך</div>
 
             <div class="result result-full">
               <div class="result-top">
@@ -101,7 +105,7 @@
       <ul class="trust">
         <li><ion-icon name="lock-closed-outline"></ion-icon>המסמכים לא נשמרים</li>
         <li><ion-icon name="ribbon-outline"></ion-icon>לפי החוק בישראל</li>
-        <li><ion-icon name="sparkles-outline"></ion-icon>בלי עלות</li>
+        <li><ion-icon name="sparkles-outline"></ion-icon>ניתוח AI לכל מסמך</li>
       </ul>
     </section>
 
