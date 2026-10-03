@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
@@ -5,6 +6,7 @@ import { addIcons } from 'ionicons';
 import { arrowBackOutline, linkOutline } from 'ionicons/icons';
 import { ApiService, describeError, PartnerOffer } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { StarsComponent } from '../core/stars.component';
 import { WizardStore } from '../core/wizard.store';
 
 type HelpKind = 'Professional' | 'Lawyer';
@@ -12,7 +14,7 @@ type HelpKind = 'Professional' | 'Lawyer';
 @Component({
   selector: 'app-partners',
   standalone: true,
-  imports: [DeskHeaderComponent, RouterLink, IonContent, IonButton, IonIcon, IonSpinner],
+  imports: [DeskHeaderComponent, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
   styles: [`
     .back { margin: 0 0 12px; }
     .grid { display: grid; gap: 14px; }
@@ -36,18 +38,33 @@ type HelpKind = 'Professional' | 'Lawyer';
       color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 3px;
     }
     .site ion-icon { font-size: 16px; }
+    .sort { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; }
+    .sort button {
+      font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--rs-line); background: transparent; color: var(--ion-text-color);
+    }
+    .sort button[aria-pressed="true"] { border-color: var(--ion-color-primary); color: var(--ion-color-primary); background: var(--rs-soft); }
+    .how { margin: 0 0 16px; font-size: 14px; color: var(--ion-color-medium); line-height: 1.5; }
   `],
   template: `
     <ion-content>
       <app-desk-header [step]="headerStep()" [tabs]="!!store.results().length"></app-desk-header>
       <div class="page ion-padding">
-        <ion-button class="back" fill="clear" routerLink="/results/summary">
+        <ion-button class="back" fill="clear" (click)="back()">
           <ion-icon slot="start" name="arrow-back-outline"></ion-icon>
-          חזרה לתוצאה
+          חזרה
         </ion-button>
 
         <h2>{{ title() }}</h2>
         <p class="muted">{{ lead() }}</p>
+        <p class="how">אנחנו רק מחברים אתכם: הפנייה, ההצעה והתשלום נעשים ישירות מולם. הדירוגים והתגובות נכתבו על ידי משתמשים שפנו אליהם.</p>
+        @if (partners().length > 1) {
+          <div class="sort" role="group" aria-label="סידור הרשימה">
+            <span class="muted">סידור:</span>
+            <button type="button" [attr.aria-pressed]="sortBy() === 'recommended'" (click)="sortBy.set('recommended')">מומלצים</button>
+            <button type="button" [attr.aria-pressed]="sortBy() === 'rating'" (click)="sortBy.set('rating')">לפי דירוג</button>
+          </div>
+        }
 
         @if (busy()) {
           <p><ion-spinner name="crescent"></ion-spinner> טוענים…</p>
@@ -57,11 +74,12 @@ type HelpKind = 'Professional' | 'Lawyer';
           <p class="muted">עוד אין רשימה להצגה כרגע. נסו שוב מאוחר יותר.</p>
         } @else {
           <div class="grid">
-            @for (p of partners(); track p.id) {
+            @for (p of sorted(); track p.id) {
               <article class="card">
                 <div>
                   <h3>{{ p.name }}</h3>
                   @if (p.specialty) { <p class="specialty">{{ p.specialty }}</p> }
+                  <app-stars [value]="p.ratingAverage ?? 0" [count]="p.ratingCount ?? 0" />
                 </div>
                 <div class="badges">
                   @if (p.cooperation) { <span class="badge">שיתוף פעולה</span> }
@@ -81,7 +99,7 @@ type HelpKind = 'Professional' | 'Lawyer';
                     </a>
                   }
                 </div>
-                <ion-button expand="block" (click)="open(p)">בחירה והשארת פרטים</ion-button>
+                <ion-button expand="block" (click)="open(p)">דירוגים, תגובות והשארת פרטים</ion-button>
               </article>
             }
           </div>
@@ -96,7 +114,13 @@ export class PartnersPage implements ViewWillEnter {
   private readonly router = inject(Router);
   readonly store = inject(WizardStore);
 
+  private readonly location = inject(Location);
   readonly kind = signal<HelpKind>('Professional');
+  readonly sortBy = signal<'recommended' | 'rating'>('recommended');
+  /** "Recommended" keeps the server order (partners first); "rating" puts the best-rated first, unrated last. */
+  readonly sorted = computed(() => this.sortBy() === 'recommended'
+    ? this.partners()
+    : [...this.partners()].sort((a, b) => (b.ratingAverage ?? -1) - (a.ratingAverage ?? -1) || (b.ratingCount ?? 0) - (a.ratingCount ?? 0)));
   readonly partners = signal<PartnerOffer[]>([]);
   readonly busy = signal(false);
   readonly error = signal('');
@@ -128,6 +152,12 @@ export class PartnersPage implements ViewWillEnter {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /** Back to wherever the user came from (results, report); straight from a link → the quick-check results. */
+  back(): void {
+    if (window.history.length > 1) this.location.back();
+    else void this.router.navigateByUrl('/results/summary');
   }
 
   open(p: PartnerOffer): void {

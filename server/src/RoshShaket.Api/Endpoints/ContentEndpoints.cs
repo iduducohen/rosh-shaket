@@ -20,11 +20,21 @@ public static class ContentEndpoints
         group.MapGet("/sources", async (GetSourcesHandler handler, CancellationToken ct) =>
             TypedResults.Ok(await handler.HandleAsync(ct)));
 
-        group.MapGet("/partners", async (string? kind, GetPartnersHandler handler, CancellationToken ct) =>
+        group.MapGet("/partners", async (string? kind, GetPartnersHandler handler, IServiceProvider services, CancellationToken ct) =>
         {
             if (kind is not (null or "Professional" or "Lawyer"))
                 throw new DomainValidationException(new Dictionary<string, string> { ["kind"] = "בחרו איש מקצוע או עורך דין." });
-            return TypedResults.Ok(await handler.HandleAsync(kind, ct));
+            var offers = await handler.HandleAsync(kind, ct);
+            // Ratings are extra: when the database is unavailable the list still shows, just without stars.
+            IReadOnlyDictionary<string, RoshShaket.Infrastructure.Postgres.PartnerRating> ratings;
+            try { ratings = await services.GetRequiredService<RoshShaket.Infrastructure.Postgres.IPartnerReviewStore>().RatingsAsync(ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { ratings = new Dictionary<string, RoshShaket.Infrastructure.Postgres.PartnerRating>(); }
+            return TypedResults.Ok(offers.Select(o => new
+            {
+                o.Id, o.Name, o.Kind, o.Summary, o.Cooperation, o.DiscountPercent, o.Email, o.Whatsapp, o.Website, o.Specialty, o.Recommendations,
+                RatingAverage = ratings.TryGetValue(o.Id, out var r) ? Math.Round(r.Average, 1) : (double?)null,
+                RatingCount = ratings.TryGetValue(o.Id, out var c) ? c.Count : 0
+            }).ToList());
         });
 
         // Diagnostic: shows whether Railway Mongo is reachable and seeded (Compass stays empty until this is ok).

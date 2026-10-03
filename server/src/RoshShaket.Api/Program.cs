@@ -132,6 +132,7 @@ app.MapReviewEndpoints();
 app.MapEmploymentReviewEndpoints();
 app.MapBillingEndpoints();
 app.MapPdfPasswordEndpoints();
+app.MapPartnerReviewEndpoints();
 
 // End-to-end tests run the API in memory with fake stores and skip the real databases.
 if (app.Configuration.GetValue("Database:InitializeOnStartup", true))

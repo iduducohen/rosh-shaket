@@ -84,6 +84,18 @@ export class ApiService {
     return firstValueFrom(this.http.get<PartnerOffer[]>(`${this.base}/api/partners`, { params: { kind } }));
   }
 
+  partnerReviews(partnerId: string): Promise<PartnerReview[]> {
+    return firstValueFrom(this.http.get<PartnerReview[]>(`${this.base}/api/partners/${encodeURIComponent(partnerId)}/reviews`));
+  }
+
+  saveReview(partnerId: string, rating: number, text: string): Promise<void> {
+    return firstValueFrom(this.http.put<void>(`${this.base}/api/partners/${encodeURIComponent(partnerId)}/reviews/me`, { rating, text }));
+  }
+
+  deleteReview(partnerId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/api/partners/${encodeURIComponent(partnerId)}/reviews/me`));
+  }
+
   requestPaidHelp(body: PaidHelpRequest): Promise<void> {
     return firstValueFrom(this.http.post<void>(`${this.base}/api/help-requests`, body));
   }
@@ -105,6 +117,19 @@ export interface PartnerOffer {
   website?: string | null;
   specialty?: string | null;
   recommendations?: string[] | null;
+  /** Average of users' ratings (1–5), null when nobody rated yet. */
+  ratingAverage?: number | null;
+  ratingCount?: number;
+}
+
+/** A user's rating of a professional, shown with a short display name only. */
+export interface PartnerReview {
+  partnerId: string;
+  rating: number;
+  text: string | null;
+  displayName: string;
+  updatedAt: string;
+  mine: boolean;
 }
 
 export interface PaidHelpRequest {

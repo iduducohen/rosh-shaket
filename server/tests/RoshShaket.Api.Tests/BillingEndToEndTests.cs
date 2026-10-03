@@ -27,6 +27,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public FakeVerifier Verifier { get; } = new();
     public CapturingEmail Email { get; } = new();
     public MemoryPdfPasswords PdfPasswords { get; } = new();
+    public MemoryPartnerReviews PartnerReviews { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -55,6 +56,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             s.AddSingleton<IEmailSender>(Email);
             s.RemoveAll<RoshShaket.Infrastructure.Postgres.IPdfPasswordStore>();
             s.AddSingleton<RoshShaket.Infrastructure.Postgres.IPdfPasswordStore>(PdfPasswords);
+            s.RemoveAll<RoshShaket.Infrastructure.Postgres.IPartnerReviewStore>();
+            s.AddSingleton<RoshShaket.Infrastructure.Postgres.IPartnerReviewStore>(PartnerReviews);
         });
     }
 }
@@ -142,6 +145,19 @@ public sealed class MemoryUsers : IUserRepository
     public Task<IReadOnlyList<LinkedIdentity>> ListIdentitiesAsync(Guid userId, CancellationToken ct) => Task.FromResult<IReadOnlyList<LinkedIdentity>>([]);
     public Task LinkAsync(Guid userId, ExternalIdentity identity, DateTimeOffset now, CancellationToken ct) => Task.CompletedTask;
     public Task UnlinkAsync(Guid userId, AuthProvider provider, CancellationToken ct) => Task.CompletedTask;
+}
+
+public sealed class MemoryPartnerReviews : RoshShaket.Infrastructure.Postgres.IPartnerReviewStore
+{
+    private readonly ConcurrentDictionary<(string Partner, Guid User), (int Rating, string? Text)> _all = new();
+    public Task<IReadOnlyList<RoshShaket.Infrastructure.Postgres.PartnerReview>> ListAsync(string partnerId, Guid? viewer, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<RoshShaket.Infrastructure.Postgres.PartnerReview>>(_all.Where(kv => kv.Key.Partner == partnerId)
+            .Select(kv => new RoshShaket.Infrastructure.Postgres.PartnerReview(partnerId, kv.Value.Rating, kv.Value.Text, "משתמש/ת", DateTimeOffset.UtcNow, kv.Key.User == viewer)).ToList());
+    public Task<IReadOnlyDictionary<string, RoshShaket.Infrastructure.Postgres.PartnerRating>> RatingsAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<string, RoshShaket.Infrastructure.Postgres.PartnerRating>>(_all.GroupBy(kv => kv.Key.Partner)
+            .ToDictionary(g => g.Key, g => new RoshShaket.Infrastructure.Postgres.PartnerRating(g.Key, g.Average(x => x.Value.Rating), g.Count())));
+    public Task SaveAsync(Guid userId, string partnerId, int rating, string? text, CancellationToken ct) { _all[(partnerId, userId)] = (rating, text); return Task.CompletedTask; }
+    public Task DeleteAsync(Guid userId, string partnerId, CancellationToken ct) { _all.TryRemove((partnerId, userId), out _); return Task.CompletedTask; }
 }
 
 public sealed class MemoryPdfPasswords : RoshShaket.Infrastructure.Postgres.IPdfPasswordStore

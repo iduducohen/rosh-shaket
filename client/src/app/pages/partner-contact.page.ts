@@ -4,7 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { arrowBackOutline, linkOutline, logoWhatsapp, mailOutline } from 'ionicons/icons';
-import { ApiService, describeError, PartnerOffer } from '../core/api.service';
+import { ApiService, describeError, PartnerOffer, PartnerReview } from '../core/api.service';
+import { AuthService } from '../core/auth/auth.service';
+import { StarsComponent } from '../core/stars.component';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { REASON_LABELS } from '../core/models';
 import { SITE_NAME } from '../core/seo';
@@ -15,8 +17,18 @@ type HelpKind = 'Professional' | 'Lawyer';
 @Component({
   selector: 'app-partner-contact',
   standalone: true,
-  imports: [DeskHeaderComponent, FormsModule, RouterLink, IonContent, IonButton, IonIcon, IonSpinner],
+  imports: [DeskHeaderComponent, FormsModule, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
   styles: [`
+    .reviews h3 { margin: 0 0 6px; }
+    .review { padding: 10px 0; border-bottom: 1px solid var(--rs-line); }
+    .review:last-child { border-bottom: 0; }
+    .review .who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; color: var(--ion-color-medium); }
+    .review .who b { color: var(--ion-text-color); }
+    .review p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.5; white-space: pre-line; }
+    .mine-form { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rs-line); }
+    .mine-form textarea { min-height: 80px; }
+    .mine-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mine-actions ion-button { margin: 0; }
     .card {
       background: var(--ion-item-background); border: 1px solid var(--rs-line);
       border-radius: 16px; padding: 18px; margin-bottom: 16px;
@@ -101,6 +113,39 @@ type HelpKind = 'Professional' | 'Lawyer';
               }
             </div>
 
+            <div class="card reviews">
+              <h3>דירוגים ותגובות</h3>
+              <app-stars [value]="p.ratingAverage ?? 0" [count]="p.ratingCount ?? 0" />
+              @for (r of reviews(); track r.displayName + r.updatedAt) {
+                <div class="review">
+                  <div class="who">
+                    <b>{{ r.mine ? 'התגובה שלכם' : r.displayName }}</b>
+                    <app-stars [value]="r.rating" />
+                    <span>{{ dateLabel(r.updatedAt) }}</span>
+                  </div>
+                  @if (r.text) { <p>{{ r.text }}</p> }
+                </div>
+              } @empty {
+                <p class="muted small">עוד אין תגובות. אם פניתם אליהם — ספרו לאחרים איך היה.</p>
+              }
+
+              @if (signedIn()) {
+                <form class="mine-form" (ngSubmit)="saveReview()">
+                  <b>{{ myReview() ? 'עדכון הדירוג שלכם' : 'פניתם אליהם? דרגו' }}</b>
+                  <app-stars [editable]="true" [(value)]="myRating" />
+                  <textarea name="reviewText" [(ngModel)]="myText" maxlength="1000" placeholder="מה עבד, מה פחות, האם הייתם ממליצים (רשות)" [disabled]="reviewBusy()"></textarea>
+                  @if (reviewError()) { <div class="note">{{ reviewError() }}</div> }
+                  <div class="mine-actions">
+                    <ion-button type="submit" [disabled]="reviewBusy() || myRating() < 1">{{ myReview() ? 'עדכון' : 'פרסום הדירוג' }}</ion-button>
+                    @if (myReview()) { <ion-button fill="outline" color="danger" (click)="deleteReview()" [disabled]="reviewBusy()">מחיקת הדירוג</ion-button> }
+                  </div>
+                  <p class="muted small">התגובה מוצגת לכולם עם השם הפרטי והאות הראשונה של שם המשפחה בלבד.</p>
+                </form>
+              } @else {
+                <p class="muted small"><a routerLink="/login">התחברו</a> כדי לדרג ולכתוב תגובה.</p>
+              }
+            </div>
+
             <div class="card">
               <h3>השאירו פרטים להמשך</h3>
               <p class="muted small">נצרף את סכום ההערכה ואת סיבת העזיבה, בלי תמונת התלוש.</p>
@@ -155,6 +200,15 @@ export class PartnerContactPage implements ViewWillEnter {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   readonly store = inject(WizardStore);
+  private readonly auth = inject(AuthService);
+
+  readonly reviews = signal<PartnerReview[]>([]);
+  readonly myReview = computed(() => this.reviews().find(r => r.mine) ?? null);
+  readonly myRating = signal(0);
+  myText = '';
+  readonly reviewBusy = signal(false);
+  readonly reviewError = signal('');
+  readonly signedIn = () => this.auth.isSignedIn() || this.auth.hasSession();
 
   readonly kind = signal<HelpKind>('Professional');
   readonly partner = signal<PartnerOffer | null>(null);
@@ -202,11 +256,65 @@ export class PartnerContactPage implements ViewWillEnter {
       const found = list.find(p => p.id === id) ?? null;
       this.partner.set(found);
       if (!found) this.loadError.set('בעל המקצוע לא נמצא ברשימה.');
+      else await this.loadReviews(found.id);
     } catch (err) {
       this.loadError.set(describeError(err).message);
     } finally {
       this.busyLoad.set(false);
     }
+  }
+
+  private async loadReviews(partnerId: string): Promise<void> {
+    try {
+      this.reviews.set(await this.api.partnerReviews(partnerId));
+    } catch {
+      this.reviews.set([]);
+    }
+    const mine = this.myReview();
+    this.myRating.set(mine?.rating ?? 0);
+    this.myText = mine?.text ?? '';
+  }
+
+  /** Re-read the partner too, so the average and count update with the new review. */
+  private async refreshPartner(id: string): Promise<void> {
+    const list = await this.api.partners(this.kind()).catch(() => null);
+    const found = list?.find(p => p.id === id);
+    if (found) this.partner.set(found);
+    await this.loadReviews(id);
+  }
+
+  async saveReview(): Promise<void> {
+    const p = this.partner();
+    if (!p || this.myRating() < 1) return;
+    this.reviewBusy.set(true);
+    this.reviewError.set('');
+    try {
+      await this.api.saveReview(p.id, this.myRating(), this.myText.trim());
+      await this.refreshPartner(p.id);
+    } catch (err) {
+      this.reviewError.set(describeError(err).message);
+    } finally {
+      this.reviewBusy.set(false);
+    }
+  }
+
+  async deleteReview(): Promise<void> {
+    const p = this.partner();
+    if (!p) return;
+    this.reviewBusy.set(true);
+    try {
+      await this.api.deleteReview(p.id);
+      await this.refreshPartner(p.id);
+    } catch (err) {
+      this.reviewError.set(describeError(err).message);
+    } finally {
+      this.reviewBusy.set(false);
+    }
+  }
+
+  dateLabel(iso: string): string {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
   }
 
   async submit(): Promise<void> {
