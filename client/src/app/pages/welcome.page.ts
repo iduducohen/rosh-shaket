@@ -10,17 +10,18 @@ import { PhotoService, isUserCancel } from '../core/photo.service';
 import { WizardStore } from '../core/wizard.store';
 import { AuthService } from '../core/auth/auth.service';
 import { LogoComponent } from '../core/logo.component';
+import { ReadingPhase, ReadingProgressComponent } from '../core/reading-progress.component';
 import { WorkspaceService } from '../core/workspace.service';
 
 @Component({
   selector: 'app-welcome',
   standalone: true,
-  imports: [IonContent, IonButton, IonIcon, IonSpinner, DeskHeaderComponent, LogoComponent],
+  imports: [IonContent, IonButton, IonIcon, DeskHeaderComponent, LogoComponent, ReadingProgressComponent],
   styles: [`
     .promise { list-style: none; padding: 0; margin: 18px 0 22px; }
     .promise li { padding: 12px 0; border-bottom: 1px solid var(--rs-line); }
     .promise b { display: block; font-size: 17px; }
-    .upload { border: 1px solid var(--rs-line); border-radius: 14px; padding: 16px; margin-bottom: 12px;
+    .upload { box-shadow: var(--rs-card-shadow); border: 1px solid var(--rs-line); border-radius: 14px; padding: 16px; margin-bottom: 12px;
               background: var(--ion-item-background); }
     .upload > b { display: block; font-size: 17px; }
     .upload .sub { display: block; margin: 4px 0 12px; }
@@ -80,8 +81,7 @@ import { WorkspaceService } from '../core/workspace.service';
                (click)="!busy() && fileInput.click()" (keydown.enter)="!busy() && fileInput.click()"
                (dragover)="onDragOver($event)" (dragleave)="dragOver.set(false)" (drop)="onDrop($event)">
             @if (busy()) {
-              <ion-spinner name="crescent"></ion-spinner>
-              <span class="t">קוראים את התלוש…</span>
+              <app-reading-progress [phase]="phase()"></app-reading-progress>
             } @else {
               <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
               <span class="t">גררו לכאן את התלוש או לחצו לבחירה</span>
@@ -139,6 +139,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
   readonly status = signal('');
   readonly verdict = signal<'ok' | 'bad' | ''>('');
   readonly dragOver = signal(false);
+  readonly phase = signal<ReadingPhase>('file');
   readonly native = Capacitor.isNativePlatform();
   private readonly alerts = inject(AlertController);
   private continueTimer: ReturnType<typeof setTimeout> | undefined;
@@ -213,6 +214,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
     clearTimeout(this.continueTimer);
     this.verdict.set('');
     this.status.set('');
+    this.phase.set('file');
     this.busy.set(true);
     let images: Blob[];
     try {
@@ -231,6 +233,7 @@ export class WelcomePage implements ViewWillEnter, OnDestroy {
     }
 
     let accepted = false;
+    this.phase.set('reading');
     try {
       const draft = await this.api.extractPayslips(images);
       if (!draft.isPayslip) {

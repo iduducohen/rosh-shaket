@@ -54,7 +54,7 @@ interface FlagOption {
     }
     .structure-intro p { margin: 0 0 8px; }
     .structure-intro p:last-child { margin: 0; font-size: 13.5px; color: var(--ion-color-medium); }
-    .option {
+    .option { box-shadow: var(--rs-card-shadow);
       background: var(--ion-item-background, var(--ion-background-color)); color: var(--ion-text-color);
       border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 10px; margin: 0;
       height: 100%;

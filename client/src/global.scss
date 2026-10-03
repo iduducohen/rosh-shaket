@@ -30,13 +30,14 @@ h2 { font-size: 26px; margin: 4px 0 10px; }
   .desk-actions ion-button:last-child { min-width: 240px; }
   .choice { margin: 0; min-height: 86px; }
   .choice:hover { border-color: var(--ion-color-primary); }
-  .card { background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 16px; padding: 22px 24px; }
+  .card { background: var(--ion-item-background); border: 1px solid var(--rs-line); border-radius: 16px; padding: 22px 24px; box-shadow: var(--rs-card-shadow); }
 }
 
 .choice {
   display: block; width: 100%; text-align: start; font: inherit;
   background: var(--ion-item-background, var(--ion-background-color)); color: var(--ion-text-color);
   border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px; margin: 0 0 10px;
+  box-shadow: var(--rs-card-shadow);
 }
 .choice small { display: block; color: var(--ion-color-medium); font-size: 14px; }
 .choice.selected { border-color: var(--ion-color-primary); background: var(--rs-soft); }
@@ -55,3 +56,16 @@ h2 { font-size: 26px; margin: 4px 0 10px; }
 
 .desk-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 .desk-actions ion-button:last-child { min-width: 180px; }
+
+/* Phones: keep the primary action in reach without scrolling. */
+@media (max-width: 720px) {
+  .sticky-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: 24px -16px 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--ion-background-color);
+    border-top: 1px solid var(--rs-line);
+    box-shadow: 0 -4px 12px rgba(14, 34, 41, .06);
+  }
+  .desk-actions.sticky-actions { justify-content: space-between; }
+  .desk-actions.sticky-actions ion-button:last-child { flex: 1; min-width: 0; }
+}

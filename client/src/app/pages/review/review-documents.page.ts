@@ -63,7 +63,7 @@ interface YearGap {
     @media (min-width: 900px) {
       .year-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
     }
-    .year-cube {
+    .year-cube { box-shadow: var(--rs-card-shadow);
       font: inherit; cursor: pointer; border-radius: 12px; padding: 10px 8px;
       border: 1.5px solid var(--rs-line); background: var(--ion-item-background);
       color: inherit; text-align: center;
@@ -72,7 +72,7 @@ interface YearGap {
     }
     .year-cube:hover { border-color: var(--ion-color-primary); }
     .year-cube b { font-size: 15px; font-weight: 700; }
-    .year-cube .st { font-size: 11.5px; line-height: 1.25; color: var(--ion-color-medium); }
+    .year-cube .st { font-size: 12.5px; line-height: 1.25; color: var(--ion-color-medium); }
     .year-cube.ok {
       border-color: var(--ion-color-success);
       background: rgba(var(--ion-color-success-rgb, 45, 170, 90), .1);
@@ -127,11 +127,11 @@ interface YearGap {
       border-color: color-mix(in srgb, var(--ion-color-danger) 40%, var(--rs-line));
     }
     .type-chip b { display: block; font-size: 13px; font-weight: 700; line-height: 1.3; }
-    .type-chip .meta { display: block; font-size: 11.5px; margin-top: 3px; color: var(--ion-color-medium); }
+    .type-chip .meta { display: block; font-size: 12.5px; margin-top: 3px; color: var(--ion-color-medium); }
     .type-chip.need:not(.have) .meta { color: var(--ion-color-danger); font-weight: 600; }
     .type-chip .chip-waive {
       background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
-      font-size: 11.5px; font-weight: 700; color: var(--ion-color-danger);
+      font-size: 12.5px; font-weight: 700; color: var(--ion-color-danger);
       text-decoration: underline; text-underline-offset: 2px; margin-top: 4px;
       display: inline-block;
     }
@@ -295,7 +295,7 @@ interface YearGap {
       font: inherit; text-align: center; display: flex; flex-direction: column; gap: 2px;
     }
     .month-chip b { font-size: 13px; font-weight: 700; }
-    .month-chip .meta { font-size: 11px; color: var(--ion-color-medium); }
+    .month-chip .meta { font-size: 12.5px; color: var(--ion-color-medium); }
     .month-chip.have {
       border-color: var(--ion-color-success);
       background: rgba(var(--ion-color-success-rgb, 45, 170, 90), .1);
@@ -326,11 +326,11 @@ interface YearGap {
     .check-list li.waived-item .check-mark {
       background: color-mix(in srgb, var(--ion-color-medium) 35%, transparent);
       color: var(--ion-color-medium-shade, #5E6F73);
-      font-size: 11px;
+      font-size: 12.5px;
     }
     .check-list li.miss .check-mark {
       background: transparent; border: 1.5px solid var(--ion-color-danger); color: var(--ion-color-danger);
-      font-size: 10px;
+      font-size: 12.5px;
     }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .count { font-size: 13px; color: var(--ion-color-medium); }

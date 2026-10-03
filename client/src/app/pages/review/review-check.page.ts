@@ -75,7 +75,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
     h4 { margin: 16px 0 6px; font-size: 14.5px; }
 
     .year-list { display: flex; flex-direction: column; gap: 10px; }
-    .year-card { border: 1.5px solid var(--rs-line); border-radius: 14px; background: var(--ion-item-background); overflow: hidden; }
+    .year-card { box-shadow: var(--rs-card-shadow); border: 1.5px solid var(--rs-line); border-radius: 14px; background: var(--ion-item-background); overflow: hidden; }
     .year-card.ok { border-color: color-mix(in srgb, var(--ion-color-success) 45%, var(--rs-line)); }
     .year-card.bad { border-color: color-mix(in srgb, var(--ion-color-danger) 35%, var(--rs-line)); }
     .year-head {
@@ -90,12 +90,12 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
 
     .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 4px; }
     .totals div { background: var(--rs-soft); border-radius: 10px; padding: 10px 12px; }
-    .totals span { display: block; font-size: 11.5px; color: var(--ion-color-medium); margin-bottom: 2px; }
+    .totals span { display: block; font-size: 12.5px; color: var(--ion-color-medium); margin-bottom: 2px; }
     .totals b { font-size: 15px; }
 
     .tbl-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-    th { font-size: 11.5px; font-weight: 600; color: var(--ion-color-medium); text-align: start; padding: 6px; white-space: nowrap; }
+    th { font-size: 12.5px; font-weight: 600; color: var(--ion-color-medium); text-align: start; padding: 6px; white-space: nowrap; }
     td { padding: 8px 6px; border-top: 1px solid var(--rs-line); white-space: nowrap; }
     td.n { font-weight: 700; font-variant-numeric: tabular-nums; }
     td.unk { color: var(--ion-color-medium); }
@@ -107,9 +107,9 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
     .issues li.warn { color: var(--ion-color-warning-shade, #8a6d00); }
     .lines { margin-top: 8px; }
     .lines td { border-top-color: color-mix(in srgb, var(--rs-line) 60%, transparent); background: transparent; padding: 5px 6px; }
-    .retro { font-size: 11px; color: var(--ion-color-medium); }
+    .retro { font-size: 12.5px; color: var(--ion-color-medium); }
 
-    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .tag { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
     .tag.ok { background: rgba(var(--ion-color-success-rgb, 45, 170, 90), .12); color: var(--ion-color-success-shade, #1a7a3c); }
     .tag.low, .tag.none, .tag.missing { background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), .1); color: var(--ion-color-danger); }
     .tag.waiting { background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), .16); color: var(--ion-color-warning-shade, #8a6d00); }
@@ -119,7 +119,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
     .compare { margin: 12px 0 0; font-size: 13px; line-height: 1.5; }
 
     .funds { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-    .fund { border: 1px solid var(--rs-line); border-radius: 12px; padding: 12px 14px; background: var(--ion-item-background); }
+    .fund { box-shadow: var(--rs-card-shadow); border: 1px solid var(--rs-line); border-radius: 12px; padding: 12px 14px; background: var(--ion-item-background); }
     .fund b { display: block; font-size: 14px; }
     .fund .amt { font-size: 18px; font-weight: 800; margin: 4px 0; }
     .fund .small { font-size: 12px; color: var(--ion-color-medium); line-height: 1.4; }

@@ -26,22 +26,26 @@ const REVIEW_STEPS = [
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
     }
-    .nav ion-button {
-      margin: 0;
-      min-width: 132px;
-      flex: 0 0 auto;
+    .nav ion-button { margin: 0; flex: 0 0 auto; }
+    .nav .back { --color: var(--ion-color-medium); font-weight: 600; }
+    .nav .next { min-width: 200px; font-weight: 700; --box-shadow: none; }
+    @media (max-width: 720px) {
+      :host { border-top: 0; padding-top: 0; }
+      .nav { flex-wrap: nowrap; }
+      .nav .next { flex: 1; min-width: 0; }
     }
   `],
   template: `
-    <nav class="nav" aria-label="ניווט בין שלבי הבדיקה">
-      <ion-button fill="outline" (click)="goBack()" [attr.aria-label]="'חזרה לשלב קודם'">
+    <nav class="nav sticky-actions" aria-label="ניווט בין שלבי הבדיקה">
+      <ion-button class="back" fill="clear" (click)="goBack()" [attr.aria-label]="'חזרה לשלב קודם'">
         <ion-icon slot="start" name="arrow-back-outline" aria-hidden="true"></ion-icon>
         חזרה
       </ion-button>
       @if (nextLabel()) {
-        <ion-button fill="outline" [disabled]="nextDisabled()" (click)="next.emit()" [attr.aria-label]="nextLabel()!">
+        <ion-button class="next" [disabled]="nextDisabled()" (click)="next.emit()" [attr.aria-label]="nextLabel()!">
           {{ nextLabel() }}
           <ion-icon slot="end" name="arrow-forward-outline" aria-hidden="true"></ion-icon>
         </ion-button>

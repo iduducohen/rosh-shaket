@@ -18,17 +18,21 @@
   --ion-color-primary-shade: #0C6D5E;
   --ion-color-primary-tint: #26897A;
 
-  --ion-color-medium: #5E6F73;
-  --ion-color-medium-rgb: 94, 111, 115;
+  // ~6.4:1 on the paper background — secondary text stays readable at small sizes.
+  --ion-color-medium: #4C5C60;
+  --ion-color-medium-rgb: 76, 92, 96;
+  --ion-color-medium-shade: #3E4D51;
 
   --rs-ink: #0B1F26;          // dark storytelling panel
   --rs-ink-2: #103A36;
   --rs-accent: #F2A93B;       // amber: highlights only
-  --rs-line: #E3DED3;
+  --rs-line: #D6CFC1;
   --rs-soft: #E4F1ED;
   --rs-field: #F1EEE7;        // field surface — softer than pure white on paper bg
   --rs-warn: #8A5A00;
   --rs-warn-bg: #FDF1DC;
+  // Cards separate from the paper by surface + shadow, not by a hairline alone.
+  --rs-card-shadow: 0 1px 2px rgba(14, 34, 41, .06), 0 2px 8px rgba(14, 34, 41, .04);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +52,8 @@
     --ion-color-primary-tint: #52BFAC;
     --ion-color-medium: #9DB1B7;
     --ion-color-medium-rgb: 157, 177, 183;
+    --ion-color-medium-shade: #B4C5CA;
+    --rs-card-shadow: 0 1px 2px rgba(0, 0, 0, .3);
     --rs-ink: #06141A;
     --rs-ink-2: #0C2E2A;
     --rs-accent: #F2B24F;

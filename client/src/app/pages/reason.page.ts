@@ -19,7 +19,7 @@ interface Option extends ExitReasonGuide {
   imports: [DeskHeaderComponent, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonButton, IonIcon],
   styles: [`
     .reason-lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 14px; }
-    .option {
+    .option { box-shadow: var(--rs-card-shadow);
       background: var(--ion-item-background, var(--ion-background-color)); color: var(--ion-text-color);
       border: 1.5px solid var(--rs-line); border-radius: 14px; padding: 14px 16px 10px; margin: 0 0 10px;
     }
@@ -93,9 +93,9 @@ interface Option extends ExitReasonGuide {
           </div>
         }
         </div>
-        <div class="desk-actions">
-          <ion-button fill="outline" (click)="back()">חזרה</ion-button>
-          <ion-button [disabled]="!store.choice()" (click)="next()">המשך</ion-button>
+        <div class="desk-actions sticky-actions">
+          <ion-button fill="clear" color="medium" (click)="back()">חזרה</ion-button>
+          <ion-button [disabled]="!store.choice()" (click)="next()">המשך לפרטים</ion-button>
         </div>
       </div>
     </ion-content>

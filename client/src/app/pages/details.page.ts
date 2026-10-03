@@ -228,10 +228,10 @@ import { WizardStore } from '../core/wizard.store';
         }
 
         @if (error()) { <div class="note">{{ error() }}</div> }
-        <div class="desk-actions">
-          <ion-button fill="outline" (click)="back()">חזרה</ion-button>
+        <div class="desk-actions sticky-actions">
+          <ion-button fill="clear" color="medium" (click)="back()">חזרה</ion-button>
           <ion-button [disabled]="busy()" (click)="submit()">
-            @if (busy()) { <ion-spinner name="crescent"></ion-spinner> } @else { מה מגיע לי }
+            @if (busy()) { <ion-spinner name="crescent"></ion-spinner> } @else { חישוב מה מגיע לי }
           </ion-button>
         </div>
       </div>

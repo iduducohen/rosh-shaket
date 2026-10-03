@@ -41,7 +41,7 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
     .tag.partial { background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), .18); color: var(--ion-color-warning-shade, #8a6d00); }
     .tag.low, .tag.missing { background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), .1); color: var(--ion-color-danger); }
     .tag.info { background: var(--rs-soft); color: var(--ion-color-medium-shade, #5E6F73); }
-    .full-cta { margin: 22px 0 6px; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--rs-line); background: var(--ion-item-background); }
+    .full-cta { box-shadow: var(--rs-card-shadow); margin: 22px 0 6px; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--rs-line); background: var(--ion-item-background); }
     .full-cta b { display: block; font-size: 16px; }
     .full-cta p { margin: 6px 0 10px; font-size: 14px; color: var(--ion-color-medium); line-height: 1.45; }
     .full-cta ion-button { margin: 0; }
