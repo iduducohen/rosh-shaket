@@ -25,6 +25,8 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
     }
     .results-nav a.on { border-color: var(--ion-color-primary); background: var(--rs-soft); color: var(--ion-color-primary); }
     .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+    /* Equal choices: same size and style, none highlighted. */
+    .toolbar ion-button { margin: 0; min-width: 120px; font-weight: 700; --box-shadow: none; }
     .grid { display: grid; gap: 18px; }
     .card {
       background: var(--ion-item-background); border: 1px solid var(--rs-line);
@@ -78,7 +80,7 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
         <p class="muted small">פירוט ויזואלי של מה שחושב, ושיעורי ההפרשות מהתלוש (אם זוהו).</p>
 
         <div class="toolbar no-print">
-          <ion-button size="small" [disabled]="busy() || !report()" (click)="print()">הדפסה / PDF</ion-button>
+          <ion-button size="small" fill="outline" [disabled]="busy() || !report()" (click)="print()">הדפסה / PDF</ion-button>
           <ion-button size="small" fill="outline" [disabled]="busy()" (click)="download('html')">HTML</ion-button>
           <ion-button size="small" fill="outline" [disabled]="busy()" (click)="download('csv')">CSV</ion-button>
           <ion-button size="small" fill="outline" [disabled]="busy()" (click)="download('json')">JSON</ion-button>

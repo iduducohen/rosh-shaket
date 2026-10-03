@@ -97,7 +97,8 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
       display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
       margin-top: 8px;
     }
-    .exports ion-button { margin: 0; }
+    /* Four equal choices: same size and style, none highlighted. */
+    .exports ion-button { margin: 0; min-width: 120px; font-weight: 700; --box-shadow: none; }
 
     .legal {
       margin: 16px 0 0; font-size: 12.5px; line-height: 1.4;
@@ -119,7 +120,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
 
       <section class="sec" aria-label="על התקופה">
         <h3>על התקופה</h3>
-        <p class="lead">מי אתם בודקים — בלי מספרים.</p>
+        <p class="lead">המעסיק, התקופה וסיבת הסיום שעליהם מבוססת הבדיקה.</p>
         <ul class="facts">
           <li>
             <span class="k">מעסיק</span>
@@ -232,10 +233,10 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
         <h3>שמירה והדפסה</h3>
         <p class="lead">לשמירה אצלכם או לשיתוף עם יועץ — לא חובה להבין את הפורמט.</p>
         <div class="exports">
-          <ion-button (click)="dl('html')">הורדת דוח</ion-button>
+          <ion-button fill="outline" (click)="dl('html')">הורדת דוח</ion-button>
           <ion-button fill="outline" (click)="print()">הדפסה / PDF</ion-button>
-          <ion-button fill="clear" size="small" (click)="dl('csv')">CSV</ion-button>
-          <ion-button fill="clear" size="small" (click)="dl('json')">JSON</ion-button>
+          <ion-button fill="outline" (click)="dl('csv')">CSV</ion-button>
+          <ion-button fill="outline" (click)="dl('json')">JSON</ion-button>
         </div>
       </section>
 
