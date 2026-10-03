@@ -141,8 +141,17 @@ public static class DependencyInjection
         services.AddScoped<IEmploymentReviewStore, PostgresEmploymentReviewStore>();
         services.Configure<BillingOptions>(config.GetSection(BillingOptions.Section));
         services.AddScoped<IBillingStore, PostgresBillingStore>();
-        if (!string.IsNullOrWhiteSpace(config[$"{AuthOptions.Section}:Smtp:Host"]) ||
-            !string.IsNullOrWhiteSpace(config[$"{AuthOptions.LegacySection}:Smtp:Host"]))
+        // Email: Resend API (templates) when a key is available, then plain SMTP, then the dev log.
+        var mail = new AuthOptions();
+        config.GetSection(AuthOptions.LegacySection).Bind(mail);
+        config.GetSection(AuthOptions.Section).Bind(mail);
+        if (!string.IsNullOrWhiteSpace(mail.Resend.ResolveApiKey(mail.Smtp)))
+            services.AddHttpClient<IEmailSender, ResendEmailSender>((sp, http) =>
+            {
+                http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<AuthOptions>>().Value.Resend.BaseUrl);
+                http.Timeout = TimeSpan.FromSeconds(15);
+            });
+        else if (!string.IsNullOrWhiteSpace(mail.Smtp.Host))
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
         else
             services.AddSingleton<IEmailSender, LoggingEmailSender>();

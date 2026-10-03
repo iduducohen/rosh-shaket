@@ -255,6 +255,28 @@ Set on the .NET server (Railway) — and on Vercel if it also runs server-side c
 
 Never commit the API key.
 
+#### Resend templates (designed in the dashboard)
+
+SMTP cannot reference a Resend template, so when a Resend key is available the server sends through the
+Resend **API** instead (`POST https://api.resend.com/emails`). With the SMTP settings above nothing else is
+needed: the API reuses the same `re_...` key and `From`. Each email kind can then point at a template:
+
+| Variable | Value |
+|---|---|
+| `Authentication__Resend__Templates__LoginCode` | Template id from the Resend editor URL (`/templates/<id>/editor`) |
+| `Authentication__Resend__ApiKey` | Optional — only if it differs from the SMTP password |
+| `Authentication__Resend__From` | Optional — only if it differs from the SMTP `From` |
+
+In the template:
+
+1. Put `{{{CODE}}}` where the 6-digit code goes (optionally `{{{EXPIRES_MINUTES}}}`). Variables without a fallback are required.
+2. **Publish** the template — drafts cannot be sent.
+3. Leave the subject empty or anything you like: the server always sends its own subject with the code in it.
+
+An email kind with no template configured falls back to the built-in HTML, so adding a new email never
+blocks on design. New kinds: add a factory in `EmailContent` (kind name + variables), then one
+`Authentication__Resend__Templates__<Kind>` line.
+
 ---
 
 ## Security notes

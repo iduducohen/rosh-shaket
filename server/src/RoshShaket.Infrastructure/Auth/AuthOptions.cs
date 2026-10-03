@@ -15,6 +15,7 @@ public sealed class AuthOptions
     public AppleAuthOptions Apple { get; set; } = new();
     public MicrosoftAuthOptions Microsoft { get; set; } = new();
     public SmtpOptions Smtp { get; set; } = new();
+    public ResendOptions Resend { get; set; } = new();
     public OtpAuthOptions Otp { get; set; } = new();
 
     public string? WebRedirectUri =>
@@ -50,6 +51,28 @@ public sealed class SmtpOptions
     public string Password { get; set; } = "";
     public string From { get; set; } = "";
     public bool EnableSsl { get; set; } = true;
+}
+
+/// <summary>
+/// Resend HTTP API — needed to use templates designed in the Resend dashboard (SMTP cannot reference them).
+/// ApiKey / From fall back to the SMTP values when SMTP already points at smtp.resend.com.
+/// </summary>
+public sealed class ResendOptions
+{
+    public string ApiKey { get; set; } = "";
+    public string From { get; set; } = "";
+    public string BaseUrl { get; set; } = "https://api.resend.com/";
+    /// <summary>Email kind → published template id, e.g. Templates:LoginCode. A kind without one sends the built-in HTML.</summary>
+    public Dictionary<string, string> Templates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string ResolveApiKey(SmtpOptions smtp) =>
+        !string.IsNullOrWhiteSpace(ApiKey) ? ApiKey
+        : IsResendSmtp(smtp) ? smtp.Password : "";
+
+    public string ResolveFrom(SmtpOptions smtp) => !string.IsNullOrWhiteSpace(From) ? From : smtp.From;
+
+    private static bool IsResendSmtp(SmtpOptions smtp) =>
+        smtp.Host.Equals("smtp.resend.com", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class OtpAuthOptions
