@@ -35,6 +35,7 @@ public static class ApplicationModule
         services.AddScoped<BuildReportHandler>();
         services.AddScoped<ExtractPayslipHandler>();
         services.AddScoped<VerifyDocumentHandler>();
+        services.AddScoped<RoshShaket.Application.Billing.BillingHandlers>();
         services.AddScoped<GetChecklistHandler>();
         services.AddScoped<GetSourcesHandler>();
         services.AddScoped<GetPartnersHandler>();

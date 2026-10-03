@@ -42,9 +42,11 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
 
         o.ApiKey = apiKey;
         var reply = await CompleteAsync(content, o, ct);
+        log.LogInformation("Document verify usage: model={Model} input={Input} output={Output} stop={Stop}",
+            o.Model, reply.InputTokens, reply.OutputTokens, reply.StopReason);
         try
         {
-            return Parse(reply.Text);
+            return Parse(reply.Text) with { Usage = new AiUsage(o.Model, reply.InputTokens, reply.OutputTokens) };
         }
         catch (PayslipExtractionException)
         {
@@ -138,8 +140,9 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         var root = doc.RootElement;
         var stop = root.TryGetProperty("stop_reason", out var stopEl) ? stopEl.GetString() : null;
-        var tokens = root.TryGetProperty("usage", out var usage) && usage.TryGetProperty("output_tokens", out var tokenEl) && tokenEl.TryGetInt32(out var n)
-            ? n : 0;
+        var hasUsage = root.TryGetProperty("usage", out var usage);
+        var tokens = hasUsage && usage.TryGetProperty("output_tokens", out var tokenEl) && tokenEl.TryGetInt32(out var n) ? n : 0;
+        var inputTokens = hasUsage && usage.TryGetProperty("input_tokens", out var inEl) && inEl.TryGetInt32(out var i) ? i : 0;
 
         var text = new StringBuilder();
         if (root.TryGetProperty("content", out var blocks) && blocks.ValueKind == JsonValueKind.Array)
@@ -153,7 +156,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             }
         }
 
-        return new ModelReply(text.ToString(), stop, tokens);
+        return new ModelReply(text.ToString(), stop, tokens, inputTokens);
     }
 
     internal static DocumentExtraction Parse(string text)
@@ -307,7 +310,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         return text.Length <= 200 ? text : text[..200];
     }
 
-    private sealed record ModelReply(string Text, string? StopReason, int OutputTokens);
+    private sealed record ModelReply(string Text, string? StopReason, int OutputTokens, int InputTokens);
 
     private const string OutputSchema = """
         {

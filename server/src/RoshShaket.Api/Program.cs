@@ -121,6 +121,7 @@ app.MapAuthEndpoints();
 app.MapHelpEndpoints();
 app.MapReviewEndpoints();
 app.MapEmploymentReviewEndpoints();
+app.MapBillingEndpoints();
 
 await app.Services.InitializeDatabasesAsync();
 app.Run();

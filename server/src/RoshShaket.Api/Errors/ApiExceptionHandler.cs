@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RoshShaket.Application.Auth;
+using RoshShaket.Application.Billing;
 using RoshShaket.Application.Payslips;
 using RoshShaket.Application.Workspaces;
 using RoshShaket.Domain;
@@ -21,6 +22,9 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
             RateLimitedException r => (StatusCodes.Status429TooManyRequests, r.Message, (IReadOnlyDictionary<string, string>?)null),
             NotFoundException n => (StatusCodes.Status404NotFound, n.Message, (IReadOnlyDictionary<string, string>?)null),
             ForbiddenException f => (StatusCodes.Status403Forbidden, f.Message, (IReadOnlyDictionary<string, string>?)null),
+            PaymentRequiredException pr => (StatusCodes.Status402PaymentRequired, pr.Message, (IReadOnlyDictionary<string, string>?)null),
+            SignInRequiredException s => (StatusCodes.Status401Unauthorized, s.Message, (IReadOnlyDictionary<string, string>?)null),
+            PaymentsUnavailableException pu => (StatusCodes.Status503ServiceUnavailable, pu.Message, (IReadOnlyDictionary<string, string>?)null),
             ConcurrencyConflictException => (StatusCodes.Status409Conflict, "המצב עודכן במכשיר אחר. רעננו והמשיכו.", (IReadOnlyDictionary<string, string>?)null),
             BadHttpRequestException => (StatusCodes.Status400BadRequest, "בקשה לא תקינה", (IReadOnlyDictionary<string, string>?)null),
             _ => (StatusCodes.Status500InternalServerError, "שגיאה בשרת", (IReadOnlyDictionary<string, string>?)null)

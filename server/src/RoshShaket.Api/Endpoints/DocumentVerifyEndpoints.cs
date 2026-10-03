@@ -14,6 +14,7 @@ public static class DocumentVerifyEndpoints
     {
         app.MapPost("/api/documents/verify", async (
                 HttpRequest http,
+                System.Security.Claims.ClaimsPrincipal user,
                 VerifyDocumentHandler handler,
                 CancellationToken ct) =>
             {
@@ -48,7 +49,7 @@ public static class DocumentVerifyEndpoints
                 }
 
                 var request = new DocumentVerifyRequest(expectedType, expectedYear, expectedMonth);
-                return TypedResults.Ok(await handler.HandleAsync(images, request, ct));
+                return TypedResults.Ok(await handler.HandleAsync(images, request, BillingEndpoints.UserId(user), ct));
             })
             .WithTags("Documents")
             .DisableAntiforgery()

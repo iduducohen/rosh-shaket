@@ -1,4 +1,5 @@
 using RoshShaket.Application.Abstractions;
+using RoshShaket.Application.Billing;
 using RoshShaket.Application.Calculation;
 using RoshShaket.Application.Documents;
 using RoshShaket.Application.Payslips;
@@ -50,16 +51,32 @@ public sealed class ExtractPayslipHandler(IPayslipExtractor extractor, PayslipUp
     }
 }
 
-public sealed class VerifyDocumentHandler(IDocumentVerifier verifier, DocumentVerifyUploadPolicy policy)
+public sealed class VerifyDocumentHandler(IDocumentVerifier verifier, DocumentVerifyUploadPolicy policy, BillingHandlers billing)
 {
     public async Task<DocumentVerificationResult> HandleAsync(
         IReadOnlyList<PayslipImage> images,
         DocumentVerifyRequest request,
+        Guid? userId,
         CancellationToken ct)
     {
         var normalized = request with { ExpectedType = ReviewDocumentTypes.Normalize(request.ExpectedType) };
         policy.Validate(images, normalized);
-        var extraction = await verifier.ExtractAsync(images, normalized, ct);
+
+        await billing.ChargeDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, ct);
+        DocumentExtraction extraction;
+        try
+        {
+            extraction = await verifier.ExtractAsync(images, normalized, ct);
+        }
+        catch
+        {
+            // The AI call failed on our side — the user keeps the credit.
+            await billing.RefundDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, CancellationToken.None);
+            throw;
+        }
+
+        if (extraction.Usage is { } u)
+            await billing.RecordUsageAsync(userId, "document_verify", u.Model, u.InputTokens, u.OutputTokens, CancellationToken.None);
         return DocumentVerificationMapper.Compare(extraction, normalized);
     }
 }

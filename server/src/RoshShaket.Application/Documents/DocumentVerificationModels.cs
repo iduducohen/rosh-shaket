@@ -66,7 +66,11 @@ public sealed record DocumentExtraction(
     /// <summary>Payslip contribution kinds: pension, severance, disability, study.</summary>
     IReadOnlyList<string>? ContributionKinds = null,
     decimal? PensionBase = null,
-    IReadOnlyList<ExtractedContributionLine>? Contributions = null);
+    IReadOnlyList<ExtractedContributionLine>? Contributions = null,
+    /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
+    AiUsage? Usage = null);
+
+public sealed record AiUsage(string Model, int InputTokens, int OutputTokens);
 
 /// <summary>Extraction + match against the user's selection.</summary>
 public sealed record DocumentVerificationResult(

@@ -16,6 +16,7 @@ using RoshShaket.Infrastructure.Storage;
 using RoshShaket.Application.Workspaces;
 using RoshShaket.Application.EmploymentReview;
 using RoshShaket.Application.Rules.Contribution;
+using RoshShaket.Application.Billing;
 
 namespace RoshShaket.Infrastructure;
 
@@ -138,6 +139,8 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IContributionRuleProvider, StaticContributionRuleProvider>();
         services.AddScoped<IEmploymentReviewStore, PostgresEmploymentReviewStore>();
+        services.Configure<BillingOptions>(config.GetSection(BillingOptions.Section));
+        services.AddScoped<IBillingStore, PostgresBillingStore>();
         if (!string.IsNullOrWhiteSpace(config[$"{AuthOptions.Section}:Smtp:Host"]) ||
             !string.IsNullOrWhiteSpace(config[$"{AuthOptions.LegacySection}:Smtp:Host"]))
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
@@ -207,6 +210,7 @@ public static class DependencyInjection
                 await db.Database.EnsureCreatedAsync();
                 await WorkspaceSchema.EnsureAsync(db, logger);
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
+                await BillingSchema.EnsureAsync(db, logger);
 
                 await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS data_protection_keys CASCADE");
                 await db.Database.ExecuteSqlRawAsync(

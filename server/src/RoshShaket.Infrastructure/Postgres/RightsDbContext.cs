@@ -16,6 +16,10 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
     public DbSet<DocumentRow> Documents => Set<DocumentRow>();
     public DbSet<WorkspaceAuditRow> WorkspaceAudits => Set<WorkspaceAuditRow>();
     public DbSet<EmploymentReviewRow> EmploymentReviews => Set<EmploymentReviewRow>();
+    public DbSet<BillingAccountRow> BillingAccounts => Set<BillingAccountRow>();
+    public DbSet<BillingLedgerRow> BillingLedger => Set<BillingLedgerRow>();
+    public DbSet<BillingPurchaseRow> BillingPurchases => Set<BillingPurchaseRow>();
+    public DbSet<ApiUsageRow> ApiUsage => Set<ApiUsageRow>();
     /// <summary>ASP.NET Data Protection key ring — survives Railway container replacements.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -139,6 +143,23 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.ToTable("employment_reviews");
             e.HasKey(x => x.WorkspaceId);
             e.Property(x => x.PayloadJson).HasColumnType("jsonb");
+        });
+
+        b.Entity<BillingAccountRow>(e => { e.ToTable("billing_accounts"); e.HasKey(x => x.UserId); });
+        b.Entity<BillingLedgerRow>(e => { e.ToTable("billing_ledger"); e.HasKey(x => x.Id); e.HasIndex(x => new { x.UserId, x.CreatedAt }); });
+        b.Entity<BillingPurchaseRow>(e =>
+        {
+            e.ToTable("billing_purchases");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.AmountIls).HasPrecision(10, 2);
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+        });
+        b.Entity<ApiUsageRow>(e =>
+        {
+            e.ToTable("api_usage");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.CostUsd).HasPrecision(12, 6);
+            e.HasIndex(x => x.CreatedAt);
         });
     }
 }
