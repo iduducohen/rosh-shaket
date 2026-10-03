@@ -4,17 +4,13 @@ import { IonBackButton, IonButton, IonButtons, IonContent, IonHeader, IonIcon, I
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { EXIT_REASON_GUIDE, ExitReasonGuide } from '../core/exit-reason-guide';
 import { ExitChoice } from '../core/models';
 import { WizardStore } from '../core/wizard.store';
 import { WorkspaceService } from '../core/workspace.service';
 
-interface InfoSection { title: string; paragraphs: string[]; }
-interface Option {
+interface Option extends ExitReasonGuide {
   value: ExitChoice;
-  label: string;
-  hint: string;
-  sections: InfoSection[];
-  link?: { href: string; label: string };
 }
 
 @Component({
@@ -67,6 +63,9 @@ interface Option {
       border-bottom: 1px solid var(--rs-soft);
     }
     .term p { margin: 0 0 8px; }
+    .term ul { margin: 0 0 8px; padding-inline-start: 20px; }
+    .term li { margin: 0 0 6px; line-height: 1.5; }
+    .term ul.links { list-style: none; padding: 0; }
     .sheet a { font-weight: 700; }
     .sheet-note { margin: 18px 0 0; }
     @media (min-width: 992px) {
@@ -113,11 +112,21 @@ interface Option {
           @for (section of current.sections; track section.title) {
             <section class="term">
               <h3>{{ section.title }}</h3>
-              @for (paragraph of section.paragraphs; track paragraph) { <p>{{ paragraph }}</p> }
+              @for (paragraph of section.paragraphs ?? []; track paragraph) { <p>{{ paragraph }}</p> }
+              @if (section.bullets?.length) {
+                <ul>@for (b of section.bullets; track b) { <li>{{ b }}</li> }</ul>
+              }
             </section>
           }
-          @if (current.link) {
-            <p><a [href]="current.link.href" target="_blank" rel="noopener noreferrer">{{ current.link.label }}</a></p>
+          @if (current.links.length) {
+            <section class="term">
+              <h3>לקריאה נוספת</h3>
+              <ul class="links">
+                @for (l of current.links; track l.href) {
+                  <li><a [href]="l.href" target="_blank" rel="noopener noreferrer">{{ l.label }}</a></li>
+                }
+              </ul>
+            </section>
           }
           <p class="sheet-note note">הסבר על איך המחשבון מחלק את המקרים. זו הערכה, לא ייעוץ משפטי. חוזה אישי או הסכם קיבוצי יכולים לשנות את התוצאה.</p>
         </div>
@@ -135,139 +144,8 @@ export class ReasonPage {
     addIcons({ closeOutline });
   }
 
-  readonly options: Option[] = [
-    {
-      value: 'Fired',
-      label: 'פוטרתי',
-      hint: 'המעסיק סיים את העבודה',
-      link: { href: 'https://www.kolzchut.org.il/he/שימוע_לפני_פיטורים', label: 'עוד על שימוע לפני פיטורים' },
-      sections: [
-        {
-          title: 'מה זה',
-          paragraphs: [
-            'המעסיק הוא שסיים את העבודה. זו לא החלטה שלכם לעזוב.'
-          ]
-        },
-        {
-          title: 'שימוע',
-          paragraphs: [
-            'שימוע הוא שיחה לפני פיטורים. המעסיק מציג את הכוונה לסיים את העבודה, ולכם יש הזדמנות להגיב.',
-            'זימון לשימוע הוא לא פיטורים. פיטורים הם ההחלטה שאחרי השימוע, אם המעסיק בכל זאת מסיים את העבודה.',
-            'הזכות לשימוע נקבעה בפסיקת בתי הדין לעבודה. היא לא מוסיפה סכום לחישוב. החישוב מתחיל כשהעבודה נגמרת.'
-          ]
-        },
-        {
-          title: 'מה זה משנה בחישוב',
-          paragraphs: [
-            'פיצויי פיטורים מגיעים בדרך כלל אחרי שנת עבודה. הודעה מוקדמת היא חובה של המעסיק: או שעובדים אותה, או שמשלמים אותה.',
-            'פדיון חופשה ודמי הבראה מגיעים לפי היתרה, כמעט בלי קשר לסיבה.',
-            'אם בחוזה יש סעיף 14, חלק מהפיצויים כבר הופרש לפנסיה. את זה בודקים במסך הפרטים.'
-          ]
-        },
-        {
-          title: 'אם רק זומנתם לשימוע',
-          paragraphs: [
-            'אתם עוד עובדים. אפשר לבחור כאן כדי לראות מה מגיע אם הפיטורים ייצאו לפועל, או «עוד לא החלטתי» כדי להשוות לפיטורים ולהתפטרות.'
-          ]
-        }
-      ]
-    },
-    {
-      value: 'Resigned',
-      label: 'התפטרתי',
-      hint: 'בחרתי לעזוב',
-      sections: [
-        {
-          title: 'מה זה',
-          paragraphs: [
-            'בחרתם לעזוב, למשל בגלל עבודה חדשה. אין צורך לכתוב את הסיבה האישית.'
-          ]
-        },
-        {
-          title: 'מה זה משנה בחישוב',
-          paragraphs: [
-            'זו התפטרות רגילה. בדרך כלל אין פיצויי פיטורים.',
-            'הודעה מוקדמת היא חובה של העובד כלפי המעסיק. פדיון חופשה ודמי הבראה עדיין מגיעים לפי היתרה.',
-            'אם הנסיבה היא אחת שהחוק מונה, כמו הרעת תנאים, זו לא התפטרות רגילה. בוחרים «התפטרתי בדין מפוטר».'
-          ]
-        }
-      ]
-    },
-    {
-      value: 'ResignedJustified',
-      label: 'התפטרתי בדין מפוטר',
-      hint: 'החוק משווה את זה לפיטורים',
-      link: { href: 'https://www.kolzchut.org.il/he/התפטרות_בדין_מפוטר', label: 'עוד על התפטרות בדין מפוטר' },
-      sections: [
-        {
-          title: 'מה זה',
-          paragraphs: [
-            '«מוצדקת» הוא לא שיפוט של המעסיק או שלכם. זה הכינוי של החוק למקרים שבהם מי שמתפטר זכאי לפיצויים כאילו פוטר.'
-          ]
-        },
-        {
-          title: 'אילו נסיבות',
-          paragraphs: [
-            'החוק מונה נסיבות, למשל הרעת תנאים מוחשית, מצב בריאות של העובד או של בן משפחה, ומעבר דירה במרחק שהחוק קובע.',
-            'נסיבה שלא ברשימה היא התפטרות רגילה, גם אם היא מרגישה מוצדקת.'
-          ]
-        },
-        {
-          title: 'מה זה משנה בחישוב',
-          paragraphs: [
-            'החישוב מתייחס לפיצויים כמו בפיטורים. פדיון חופשה והבראה נשארים לפי היתרה.',
-            'ההתאמה לנסיבה עצמה לא נבדקת כאן. אם יש ספק, כדאי לבדוק מול המקור או מול איש מקצוע לפני שמסתמכים על הסכום.'
-          ]
-        }
-      ]
-    },
-    {
-      value: 'ContractEnded',
-      label: 'נגמר חוזה העבודה ולא חידשו',
-      hint: 'עבודה עם תאריך סיום',
-      sections: [
-        {
-          title: 'מה זה',
-          paragraphs: [
-            'עובד בשכר שעבד לפי חוזה עם תאריך סיום, והמעסיק לא הציע לחדש את ההעסקה.'
-          ]
-        },
-        {
-          title: 'מה זה לא',
-          paragraphs: [
-            'זו עדיין העסקה, עם יחסי עובד-מעסיק. פרילנס, עוסק או קבלן בלי יחסי עובד-מעסיק לא נכנסים לכאן, והמחשבון לא מיועד להם.'
-          ]
-        },
-        {
-          title: 'מה זה משנה בחישוב',
-          paragraphs: [
-            'כשחוזה עבודה של שנה לפחות נגמר בלי חידוש, חוק פיצויי פיטורים יכול להשוות את זה לפיטורים.',
-            'פדיון חופשה והבראה מגיעים לפי היתרה, כמו בשאר המסלולים.'
-          ]
-        }
-      ]
-    },
-    {
-      value: 'Considering',
-      label: 'עוד לא החלטתי',
-      hint: 'השוואה בין שני מסלולים',
-      sections: [
-        {
-          title: 'מה זה',
-          paragraphs: [
-            'זה למי שעוד לא יודע אם יפטרו אותו או שהוא יתפטר. החישוב מציג את שני המסלולים זה לצד זה.'
-          ]
-        },
-        {
-          title: 'מה רואים',
-          paragraphs: [
-            'מסלול אחד הוא פיטורים, והשני התפטרות. כך אפשר לראות את ההפרש לפני שמחליטים.',
-            'ההשוואה לא כוללת התפטרות בדין מפוטר וסיום חוזה. אלה אפשרויות נפרדות, עם מידע משלהן.'
-          ]
-        }
-      ]
-    }
-  ];
+  readonly options: Option[] = (['Fired', 'Resigned', 'ResignedJustified', 'ContractEnded', 'Considering'] as const)
+    .map(value => ({ value, ...EXIT_REASON_GUIDE[value] }));
 
   @HostListener('document:keydown.escape')
   onEscape(): void {

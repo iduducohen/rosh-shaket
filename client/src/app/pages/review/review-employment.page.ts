@@ -5,16 +5,12 @@ import { IonButton, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
 import { DateFieldComponent } from '../../core/date-field.component';
+import { EXIT_REASON_GUIDE, ExitReasonGuide } from '../../core/exit-reason-guide';
 import { ReviewStore } from '../../core/review.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 
-interface InfoSection { title: string; paragraphs: string[]; }
-interface ReasonOption {
+interface ReasonOption extends ExitReasonGuide {
   value: string;
-  label: string;
-  hint: string;
-  sections: InfoSection[];
-  link?: { href: string; label: string };
 }
 
 interface FlagOption {
@@ -152,6 +148,10 @@ interface FlagOption {
       border-bottom: 1px solid var(--rs-soft);
     }
     .term p { margin: 0 0 8px; }
+    .term ul { margin: 0 0 8px; padding-inline-start: 20px; }
+    .term li { margin: 0 0 6px; line-height: 1.5; }
+    .term ul.links { list-style: none; padding: 0; }
+    .term a { font-weight: 700; color: var(--ion-color-primary); }
     .sheet a { font-weight: 700; }
     .sheet-note { margin: 18px 0 0; color: var(--ion-color-medium); font-size: 13.5px; }
     @media (min-width: 992px) {
@@ -246,11 +246,21 @@ interface FlagOption {
           @for (section of current.sections; track section.title) {
             <section class="term">
               <h3>{{ section.title }}</h3>
-              @for (paragraph of section.paragraphs; track paragraph) { <p>{{ paragraph }}</p> }
+              @for (paragraph of section.paragraphs ?? []; track paragraph) { <p>{{ paragraph }}</p> }
+              @if (section.bullets?.length) {
+                <ul>@for (b of section.bullets; track b) { <li>{{ b }}</li> }</ul>
+              }
             </section>
           }
-          @if (current.link) {
-            <p><a [href]="current.link.href" target="_blank" rel="noopener noreferrer">{{ current.link.label }}</a></p>
+          @if (current.links.length) {
+            <section class="term">
+              <h3>לקריאה נוספת</h3>
+              <ul class="links">
+                @for (l of current.links; track l.href) {
+                  <li><a [href]="l.href" target="_blank" rel="noopener noreferrer">{{ l.label }}</a></li>
+                }
+              </ul>
+            </section>
           }
           <p class="sheet-note">הסבר כללי להערכת זכויות בסיום. זו הערכה, לא ייעוץ משפטי.</p>
         </div>
@@ -274,76 +284,8 @@ export class ReviewEmploymentPage {
   multiple = this.store.review()?.period?.multiplePeriods ?? false;
   err = '';
 
-  readonly reasons: ReasonOption[] = [
-    {
-      value: 'Fired',
-      label: 'פוטרתי',
-      hint: 'המעסיק סיים את העבודה',
-      link: { href: 'https://www.kolzchut.org.il/he/שימוע_לפני_פיטורים', label: 'עוד על שימוע לפני פיטורים' },
-      sections: [
-        { title: 'מה זה', paragraphs: ['המעסיק הוא שסיים את העבודה. זו לא החלטה שלכם לעזוב.'] },
-        { title: 'מה זה משנה כאן', paragraphs: [
-          'באומדן סיום העסקה נבדוק פיצויי פיטורים, הודעה מוקדמת, פדיון חופשה והבראה.',
-          'בדיקת ההפקדות החודשיות (פנסיה / השתלמות) נשארת זהה — הסיבה לא משנה כמה היה צריך להפקיד בכל חודש.'
-        ]}
-      ]
-    },
-    {
-      value: 'Resigned',
-      label: 'התפטרתי',
-      hint: 'בחרתי לעזוב',
-      sections: [
-        { title: 'מה זה', paragraphs: ['בחרתם לעזוב, למשל בגלל עבודה חדשה.'] },
-        { title: 'מה זה משנה כאן', paragraphs: [
-          'בדרך כלל אין פיצויי פיטורים בהתפטרות רגילה. עדיין נבדוק פדיון חופשה, הבראה, והפקדות לאורך השנים.',
-          'אם הנסיבה היא מהחוק (הרעת תנאים וכו׳) — בחרו «התפטרתי בדין מפוטר».'
-        ]}
-      ]
-    },
-    {
-      value: 'ResignedJustified',
-      label: 'התפטרתי בדין מפוטר',
-      hint: 'החוק משווה את זה לפיטורים',
-      link: { href: 'https://www.kolzchut.org.il/he/התפטרות_בדין_מפוטר', label: 'עוד על התפטרות בדין מפוטר' },
-      sections: [
-        { title: 'מה זה', paragraphs: ['מקרים שבהם מי שמתפטר זכאי לפיצויים כאילו פוטר, לפי נסיבות שהחוק מונה.'] },
-        { title: 'מה זה משנה כאן', paragraphs: ['אומדן הפיצויים בסיום יתייחס כמו בפיטורים. בדיקת ההפקדות החודשיות לא משתנה.'] }
-      ]
-    },
-    {
-      value: 'ContractEnded',
-      label: 'נגמר חוזה ולא חידשו',
-      hint: 'עבודה עם תאריך סיום',
-      sections: [
-        { title: 'מה זה', paragraphs: ['חוזה עם תאריך סיום, והמעסיק לא חידש את ההעסקה.'] },
-        { title: 'מה זה משנה כאן', paragraphs: ['ייתכן שסיום חוזה יושווה לפיטורים לצורך פיצויים. עדיין נבנה Timeline של הפקדות לכל חודשי החוזה.'] }
-      ]
-    },
-    {
-      value: 'Retirement',
-      label: 'פרישה',
-      hint: 'יציאה לפנסיה / פרישה',
-      sections: [
-        { title: 'מה זה', paragraphs: ['סיום העסקה עקב פרישה לגיל פרישה או פרישה מוסכמת.'] },
-        { title: 'מה זה משנה כאן', paragraphs: [
-          'דגש על מצב הקופות והצבירה לאורך השנים, יותר מאשר על פיצויי פיטורים קלאסיים.',
-          'עדיין חשוב לוודא שההפקדות לאורך השנים בוצעו.'
-        ]}
-      ]
-    },
-    {
-      value: 'Other',
-      label: 'אחר',
-      hint: 'סיבה שלא ברשימה',
-      sections: [
-        { title: 'מה זה', paragraphs: ['למשל הסכמה לסיום, חל״ת ארוך שהפך לסיום, או מקרה מורכב.'] },
-        { title: 'מה זה משנה כאן', paragraphs: [
-          'נבנה את היסטוריית השכר וההפקדות כמו תמיד.',
-          'אומדן הזכויות בסיום יוצג בזהירות רבה יותר — ייתכן שתידרש בדיקה אנושית.'
-        ]}
-      ]
-    }
-  ];
+  readonly reasons: ReasonOption[] = (['Fired', 'Resigned', 'ResignedJustified', 'ContractEnded', 'Retirement', 'Other'] as const)
+    .map(value => ({ value, ...EXIT_REASON_GUIDE[value] }));
 
   readonly flags: FlagOption[] = [
     {
