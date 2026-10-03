@@ -124,7 +124,7 @@ interface DayCell {
                     (click)="pick(cell)">{{ cell.day }}</button>
           }
         </div>
-        @if (!max() || today <= max()!) {
+        @if ((!max() || today <= max()!) && (!min() || today >= min()!)) {
           <button type="button" class="today-btn" (click)="pickToday()">היום</button>
         }
       </div>
@@ -135,6 +135,8 @@ export class DateFieldComponent implements OnDestroy {
   readonly label = input.required<string>();
   readonly value = input('');
   readonly max = input<string | null>(null);
+  /** Earliest selectable day (yyyy-MM-dd), e.g. an end date at least 3 months after the start. */
+  readonly min = input<string | null>(null);
   readonly filled = input(false);
   readonly state = input<'valid' | 'invalid' | ''>('');
   readonly error = input('');
@@ -192,7 +194,7 @@ export class DateFieldComponent implements OnDestroy {
       this.close();
       return;
     }
-    const base = this.value() || this.today;
+    const base = this.value() || clampIso(this.today, this.min(), this.max());
     const [year, month] = base.split('-').map(Number);
     this.viewYear = year;
     this.viewMonth = month - 1;
@@ -232,7 +234,10 @@ export class DateFieldComponent implements OnDestroy {
     const date = new Date(this.viewYear, this.viewMonth + offset, 1);
     if (date.getFullYear() < 1970) return false;
     const limit = this.max();
-    return !limit || isoDate(date) <= limit;
+    if (limit && isoDate(date) > limit) return false;
+    // The target month has a selectable day if its last day is on or after the minimum.
+    const floor = this.min();
+    return !floor || isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0)) >= floor;
   }
 
   shift(offset: number): void {
@@ -246,6 +251,7 @@ export class DateFieldComponent implements OnDestroy {
     const first = new Date(this.viewYear, this.viewMonth, 1);
     const start = new Date(this.viewYear, this.viewMonth, 1 - first.getDay());
     const limit = this.max();
+    const floor = this.min();
     const cells: DayCell[] = [];
     for (let i = 0; i < 42; i++) {
       const date = new Date(start);
@@ -255,7 +261,7 @@ export class DateFieldComponent implements OnDestroy {
         iso,
         day: date.getDate(),
         inMonth: date.getMonth() === this.viewMonth,
-        disabled: !!limit && iso > limit
+        disabled: (!!limit && iso > limit) || (!!floor && iso < floor)
       });
     }
     return cells;
@@ -270,6 +276,8 @@ export class DateFieldComponent implements OnDestroy {
   pickToday(): void {
     const limit = this.max();
     if (limit && this.today > limit) return;
+    const floor = this.min();
+    if (floor && this.today < floor) return;
     this.valueChange.emit(this.today);
     this.close();
   }
@@ -299,9 +307,37 @@ export const END_TOO_FAR = 'תאריך הסיום יכול להיות עד חו�
  * so someone who already gave notice can check their rights before the last day.
  */
 export function latestEndDate(from = new Date()): string {
-  const day = from.getDate();
-  const next = new Date(from.getFullYear(), from.getMonth() + 1, 1);
-  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-  next.setDate(Math.min(day, lastDay));
-  return isoDate(next);
+  return addMonths(isoDate(from), 1);
+}
+
+/** Shortest employment the calculation accepts, in months. */
+export const MIN_EMPLOYMENT_MONTHS = 3;
+
+export const END_TOO_SOON = `תאריך הסיום צריך להיות לפחות ${MIN_EMPLOYMENT_MONTHS} חודשים אחרי תחילת העבודה.`;
+
+/** The earliest end date for a start date (null when there is no start yet). */
+export function earliestEndDate(start: string | null | undefined): string | null {
+  return start ? addMonths(start, MIN_EMPLOYMENT_MONTHS) : null;
+}
+
+/** The latest start that still leaves room for the minimum employment before the latest allowed end. */
+export function latestStartDate(from = new Date()): string {
+  const today = isoDate(from);
+  const room = addMonths(latestEndDate(from), -MIN_EMPLOYMENT_MONTHS);
+  return room < today ? room : today;
+}
+
+/** yyyy-MM-dd plus n months, clamped to the target month's last day (31 Jan + 1 → 28/29 Feb). */
+export function addMonths(iso: string, months: number): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  const target = new Date(year, month - 1 + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, lastDay));
+  return isoDate(target);
+}
+
+function clampIso(iso: string, min: string | null, max: string | null): string {
+  if (min && iso < min) return min;
+  if (max && iso > max) return max;
+  return iso;
 }

@@ -1,4 +1,17 @@
-import { latestEndDate } from './date-field.component';
+import { earliestEndDate, latestEndDate, latestStartDate } from './date-field.component';
+
+describe('employment length rules', () => {
+  it('the end date is at least 3 months after the start', () => {
+    expect(earliestEndDate('2023-10-01')).toBe('2024-01-01');
+    expect(earliestEndDate('2023-11-30')).toBe('2024-02-29', 'clamped to the last day of a short month');
+    expect(earliestEndDate('')).toBeNull();
+  });
+
+  it('the latest start leaves 3 months before the latest allowed end', () => {
+    // Latest end is 3 Nov 2026, so a start after 3 Aug 2026 could never reach 3 months.
+    expect(latestStartDate(new Date(2026, 9, 3))).toBe('2026-08-03');
+  });
+});
 
 describe('latestEndDate', () => {
   it('is the same day next month', () => {

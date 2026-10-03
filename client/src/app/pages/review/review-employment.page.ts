@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { IonButton, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { closeOutline } from 'ionicons/icons';
-import { DateFieldComponent, END_TOO_FAR, latestEndDate } from '../../core/date-field.component';
+import { DateFieldComponent, END_TOO_FAR, END_TOO_SOON, earliestEndDate, latestEndDate, latestStartDate } from '../../core/date-field.component';
 import { EXIT_REASON_GUIDE, ExitReasonGuide } from '../../core/exit-reason-guide';
 import { ReviewStore } from '../../core/review.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
@@ -182,7 +182,7 @@ interface FlagOption {
         class="in-row"
         label="תחילת עבודה"
         [value]="startDate"
-        [max]="today"
+        [max]="latestStart"
         [state]="dateState('start')"
         [error]="dateError('start')"
         (valueChange)="startDate = $event">
@@ -191,6 +191,7 @@ interface FlagOption {
         class="in-row"
         label="סיום / מתוכנן"
         [value]="endDate"
+        [min]="earliestEnd()"
         [max]="latestEnd"
         [state]="dateState('end')"
         [error]="dateError('end')"
@@ -280,6 +281,8 @@ export class ReviewEmploymentPage {
 
   readonly today = new Date().toISOString().slice(0, 10);
   readonly latestEnd = latestEndDate();
+  readonly latestStart = latestStartDate();
+  earliestEnd(): string | null { return earliestEndDate(this.startDate); }
   readonly info = signal<ReasonOption | null>(null);
 
   /** Not asked here — it is read from the first payslip / Form 106. Kept so re-saving the period doesn't erase it. */
@@ -351,6 +354,8 @@ export class ReviewEmploymentPage {
       if (!this.endDate) return '';
       if (this.startDate && this.endDate < this.startDate) return 'תאריך הסיום לפני ההתחלה.';
       if (this.endDate > this.latestEnd) return END_TOO_FAR;
+      const earliest = earliestEndDate(this.startDate);
+      if (earliest && this.endDate < earliest) return END_TOO_SOON;
     }
     return '';
   }
@@ -372,6 +377,11 @@ export class ReviewEmploymentPage {
     }
     if (this.endDate > this.latestEnd) {
       this.err = END_TOO_FAR;
+      return;
+    }
+    const earliest = earliestEndDate(this.startDate);
+    if (earliest && this.endDate < earliest) {
+      this.err = END_TOO_SOON;
       return;
     }
     if (!this.exitReason) {
