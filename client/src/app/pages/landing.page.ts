@@ -58,12 +58,21 @@ interface ShareTarget {
       position: fixed; inset: 0; z-index: 20; background: rgba(11, 31, 38, .48);
       display: flex; align-items: flex-end; justify-content: center; padding: 12px;
     }
+    /* The title and close button stay in view; only .share-body scrolls. */
     .share-sheet {
-      width: min(440px, 100%); background: var(--ion-background-color); color: var(--ion-text-color);
-      border-radius: 18px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+      width: min(440px, 100%); max-height: min(85vh, 720px);
+      display: flex; flex-direction: column; overflow: hidden;
+      background: var(--ion-background-color); color: var(--ion-text-color);
+      border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
     }
-    .share-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .share-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      flex: none; padding: 14px 16px 10px; border-bottom: 1px solid var(--rs-line);
+    }
+    .share-body {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    }
     .share-head h2 { margin: 0; font-size: 22px; }
     .share-close {
       background: none; border: 0; color: var(--ion-color-medium); cursor: pointer;
@@ -167,6 +176,7 @@ interface ShareTarget {
                 <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
               </button>
             </div>
+            <div class="share-body">
             <div class="share-list">
               @for (target of targets; track target.id) {
                 <a [href]="target.href(pageUrl)" target="_blank" rel="noopener noreferrer" (click)="closeShare()">
@@ -184,6 +194,7 @@ interface ShareTarget {
               </button>
             </div>
             @if (instagramNote()) { <p class="share-note muted">{{ instagramNote() }}</p> }
+            </div>
           </div>
         </div>
       }

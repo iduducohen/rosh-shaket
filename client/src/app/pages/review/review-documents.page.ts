@@ -366,11 +366,16 @@ interface YearGap {
       position: fixed; inset: 0; z-index: 30; background: rgba(11, 31, 38, .48);
       display: flex; align-items: center; justify-content: center; padding: 16px;
     }
+    /* The title and close button stay in view; only .sheet-body scrolls. */
     .sheet {
-      width: min(980px, 100%); max-height: min(90vh, 820px); overflow: auto;
+      width: min(980px, 100%); max-height: min(90vh, 820px);
+      display: flex; flex-direction: column; overflow: hidden;
       background: var(--ion-background-color); color: var(--ion-text-color);
-      border-radius: 18px; padding: 18px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+      border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+    }
+    .sheet-body {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
     }
     .sheet.narrow { width: min(420px, 100%); }
     .sheet.guide-sheet { width: min(520px, 100%); }
@@ -380,7 +385,10 @@ interface YearGap {
       justify-content: flex-end; /* שמאל במסך RTL */
     }
     .confirm-actions ion-button { margin: 0; min-width: 110px; }
-    .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .sheet-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      flex: none; padding: 16px 20px 10px; border-bottom: 1px solid var(--rs-line);
+    }
     .sheet-head h2 { margin: 0; font-size: 22px; }
     .sheet-close {
       background: none; border: 0; color: var(--ion-color-medium); cursor: pointer;
@@ -390,8 +398,6 @@ interface YearGap {
     .sheet-cols { display: grid; gap: 18px; }
     @media (min-width: 860px) {
       .sheet-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; }
-      .sheet { overflow: hidden; display: flex; flex-direction: column; }
-      .sheet-scroll { overflow: auto; flex: 1; min-height: 0; }
     }
   `],
   template: `
@@ -467,7 +473,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
-          <div class="sheet-scroll">
+          <div class="sheet-body">
             <div class="sheet-cols">
               <div>
                 @if (gapFor(y); as g) {
@@ -710,6 +716,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           @if (g.ok) {
             <p>{{ g.hasWaivers ? 'אפשר להמשיך — חלק מהמסמכים דולגו.' : 'כיסוי בסיסי מלא לשנה זו.' }}</p>
           } @else {
@@ -718,6 +725,7 @@ interface YearGap {
           <div class="actions">
             <ion-button (click)="openYearFromGap(g.year)">השלמה לשנה</ion-button>
             <ion-button fill="outline" (click)="exportMissing(g.year)">ייצוא שנה זו</ion-button>
+          </div>
           </div>
         </div>
       </div>
@@ -732,6 +740,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           <p class="confirm-msg">
             למחוק את <b>{{ labelFor(doc.documentType) }}</b>
             @if (doc.fileName || doc.extractedSummary) {
@@ -742,6 +751,7 @@ interface YearGap {
           <div class="confirm-actions">
             <ion-button fill="outline" (click)="cancelRemove()">ביטול</ion-button>
             <ion-button (click)="confirmRemove()">מחיקה</ion-button>
+          </div>
           </div>
         </div>
       </div>
@@ -756,6 +766,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           <p class="hint">משנים רק את שם התצוגה ברשימה — סוג המסמך והחודש לא משתנים כאן.</p>
           <div class="field">
             <label for="rename-name">שם תצוגה</label>
@@ -765,6 +776,7 @@ interface YearGap {
           <div class="confirm-actions">
             <ion-button fill="outline" (click)="cancelRename()">ביטול</ion-button>
             <ion-button (click)="saveRename()">שמירה</ion-button>
+          </div>
           </div>
         </div>
       </div>
@@ -779,6 +791,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           @if (previewUrl()) {
             @if (previewIsPdf()) {
               <iframe class="preview-frame" [src]="previewUrl()" title="תצוגת מסמך"></iframe>
@@ -790,6 +803,7 @@ interface YearGap {
           }
           <div class="confirm-actions" style="margin-top:12px">
             <ion-button fill="outline" (click)="closePreview()">סגירה</ion-button>
+          </div>
           </div>
         </div>
       </div>
@@ -804,6 +818,7 @@ interface YearGap {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           <p class="hint">{{ pensionGuide.intro }}</p>
           <ul class="guide-list">
             @for (g of pensionGuide.gov; track g.name) {
@@ -829,6 +844,7 @@ interface YearGap {
           <p class="foot">{{ pensionGuide.note }}</p>
           <div class="confirm-actions" style="margin-top:14px">
             <ion-button fill="outline" (click)="closePensionGuide()">סגירה</ion-button>
+          </div>
           </div>
         </div>
       </div>

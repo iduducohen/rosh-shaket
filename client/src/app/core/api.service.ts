@@ -156,8 +156,9 @@ export interface DocumentVerificationResult {
 export function describeError(err: unknown): { message: string; fields: Record<string, string> } {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 0) return { message: 'אין חיבור לשרת. בדקו את החיבור לאינטרנט.', fields: {} };
-    if (err.status === 429) return { message: 'יותר מדי ניסיונות. נסו שוב בעוד דקה.', fields: {} };
     const body = err.error as { title?: string; errors?: Record<string, string> } | null;
+    // The server's own 429s say how long to wait (a minute, an hour); the generic text covers the gateway limiter.
+    if (err.status === 429) return { message: body?.title ?? 'יותר מדי ניסיונות. נסו שוב בעוד דקה.', fields: {} };
     return { message: body?.title ?? 'משהו השתבש. נסו שוב.', fields: body?.errors ?? {} };
   }
   return { message: 'משהו השתבש. נסו שוב.', fields: {} };

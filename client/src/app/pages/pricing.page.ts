@@ -62,12 +62,21 @@ const DOCS_PER_YEAR = 14;
       position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .48);
       display: flex; align-items: flex-end; justify-content: center; padding: 12px;
     }
+    /* The title and close button stay in view; only .sheet-body scrolls. */
     .sheet {
-      width: min(480px, 100%); background: var(--ion-background-color); color: var(--ion-text-color);
-      border-radius: 18px; padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+      width: min(480px, 100%); max-height: min(85vh, 720px);
+      display: flex; flex-direction: column; overflow: hidden;
+      background: var(--ion-background-color); color: var(--ion-text-color);
+      border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
     }
-    .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sheet-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      flex: none; padding: 14px 20px 10px; border-bottom: 1px solid var(--rs-line);
+    }
+    .sheet-body {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      padding: 0 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    }
     .sheet-head h2 { margin: 0; font-size: 22px; }
     .sheet-close { background: none; border: 0; color: var(--ion-color-medium); cursor: pointer; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; }
     .sheet-close ion-icon { font-size: 24px; }
@@ -157,6 +166,7 @@ const DOCS_PER_YEAR = 14;
             <button type="button" class="sheet-close" (click)="close()" aria-label="סגירה"><ion-icon name="close-outline" aria-hidden="true"></ion-icon></button>
           </div>
 
+          <div class="sheet-body">
           @if (done(); as balance) {
             <p class="ok"><ion-icon name="checkmark-outline" aria-hidden="true"></ion-icon> {{ p.documents }} מסמכים נוספו. היתרה שלכם: {{ balance }} מסמכים.</p>
             <ion-button expand="block" (click)="goAccount()">לחשבון שלי</ion-button>
@@ -178,6 +188,7 @@ const DOCS_PER_YEAR = 14;
               @if (busy()) { <ion-spinner name="crescent"></ion-spinner> } @else { לתשלום ₪{{ p.priceIls | number:'1.0-0' }} }
             </ion-button>
           }
+          </div>
         </div>
       </div>
     }

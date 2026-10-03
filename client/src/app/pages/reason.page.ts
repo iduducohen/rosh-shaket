@@ -42,13 +42,21 @@ interface Option extends ExitReasonGuide {
       position: fixed; inset: 0; z-index: 20; background: rgba(11, 31, 38, .48);
       display: flex; align-items: flex-end; justify-content: center; padding: 12px;
     }
+    /* The title and close button stay in view; only .sheet-body scrolls. */
     .sheet {
-      width: min(560px, 100%); max-height: min(85vh, 720px); overflow: auto;
+      width: min(560px, 100%); max-height: min(85vh, 720px);
+      display: flex; flex-direction: column; overflow: hidden;
       background: var(--ion-background-color); color: var(--ion-text-color);
-      border-radius: 18px; padding: 16px 18px calc(16px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+      border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
     }
-    .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sheet-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      flex: none; padding: 14px 18px 10px; border-bottom: 1px solid var(--rs-line);
+    }
+    .sheet-body {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      padding: 0 18px calc(16px + env(safe-area-inset-bottom, 0px));
+    }
     .sheet-head h2 { margin: 0; font-size: 22px; }
     .sheet-close {
       background: none; border: 0; color: var(--ion-color-medium); cursor: pointer;
@@ -109,6 +117,7 @@ interface Option extends ExitReasonGuide {
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
+          <div class="sheet-body">
           @for (section of current.sections; track section.title) {
             <section class="term">
               <h3>{{ section.title }}</h3>
@@ -129,6 +138,7 @@ interface Option extends ExitReasonGuide {
             </section>
           }
           <p class="sheet-note note">הסבר על איך המחשבון מחלק את המקרים. זו הערכה, לא ייעוץ משפטי. חוזה אישי או הסכם קיבוצי יכולים לשנות את התוצאה.</p>
+          </div>
         </div>
       </div>
     }
