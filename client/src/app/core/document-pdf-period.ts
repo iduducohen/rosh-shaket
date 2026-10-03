@@ -6,6 +6,8 @@ export type PdfDocHint = {
   month: number | null;
   /** null = no text / inconclusive; other = text present but not a known employment doc. */
   detectedType: 'payslip' | 'form106' | 'pension_report' | 'other' | null;
+  /** Every employment-doc type whose markers appear in the text (a payslip also mentions pension funds). */
+  matchedTypes?: Array<'payslip' | 'form106' | 'pension_report'>;
 };
 
 const YEAR_RE = /\b(20[0-3]\d)\b/g;
@@ -66,13 +68,22 @@ async function extractPdfText(file: File): Promise<string> {
 export function parseDocFromText(text: string): PdfDocHint {
   const normalized = text.replace(/\s+/g, ' ');
   const detectedType = detectTypeFromText(normalized);
+  const matchedTypes = matchedTypesIn(normalized);
   // Form 106 carries an issue date from the following year ("תאריך הפקה: 02/04/2024") — use the tax year.
   const taxYear = detectedType === 'form106' ? normalized.match(TAX_YEAR_RE) : null;
   if (taxYear) {
-    return { year: Number(taxYear[1]), month: null, detectedType };
+    return { year: Number(taxYear[1]), month: null, detectedType, matchedTypes };
   }
   const period = parsePeriodFromText(normalized);
-  return { year: period.year, month: period.month, detectedType };
+  return { year: period.year, month: period.month, detectedType, matchedTypes };
+}
+
+function matchedTypesIn(text: string): Array<'payslip' | 'form106' | 'pension_report'> {
+  const types: Array<'payslip' | 'form106' | 'pension_report'> = [];
+  if (PAYSLIP_RE.test(text)) types.push('payslip');
+  if (FORM106_RE.test(text)) types.push('form106');
+  if (PENSION_RE.test(text)) types.push('pension_report');
+  return types;
 }
 
 function detectTypeFromText(text: string): PdfDocHint['detectedType'] {

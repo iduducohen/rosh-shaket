@@ -83,15 +83,40 @@ export class ReviewDocumentFilesService {
   async syncToServer(docId: string, file: File, documentType: string): Promise<void> {
     if (!this.auth.isSignedIn() && !this.auth.hasSession()) return;
     const meta = this.store.review()?.documents.find(d => d.id === docId);
-    if (meta?.serverDocumentId) return;
+    if (meta?.serverDocumentId || this.syncing.has(docId)) return;
+    this.syncing.add(docId);
     try {
-      const uploaded = await this.workspaces.uploadDocument(file, file.name, documentType);
-      this.store.updateDocument(docId, {
-        serverDocumentId: uploaded.id,
-        storageKey: uploaded.id
-      });
+      // The file may already be in the account (an earlier upload whose id never reached this case): link, don't copy.
+      const ws = this.workspaces.workspace() ?? await this.workspaces.restore().catch(() => null);
+      const existing = ws?.documents.find(s =>
+        s.originalFileName === file.name && s.fileSize === file.size && s.documentType === documentType
+        && !this.linkedElsewhere(s.id, docId));
+      const serverId = existing?.id ?? (await this.workspaces.uploadDocument(file, file.name, documentType)).id;
+      this.store.updateDocument(docId, { serverDocumentId: serverId, storageKey: serverId });
     } catch {
       // Keep local-only; user can still continue on this device.
+    } finally {
+      this.syncing.delete(docId);
+    }
+  }
+
+  /** Uploads in flight, so a second trigger (page re-init, replace) never sends the same document twice. */
+  private readonly syncing = new Set<string>();
+
+  private linkedElsewhere(serverId: string, docId: string): boolean {
+    return (this.store.review()?.documents ?? []).some(d => d.id !== docId && d.serverDocumentId === serverId);
+  }
+
+  /**
+   * Upload documents that are on this device but never reached the account (e.g. the storage was down
+   * at upload time). Only the stored file is sent — no new AI check, so no credit is used.
+   */
+  async syncPending(): Promise<void> {
+    if (!this.auth.isSignedIn() && !this.auth.hasSession()) return;
+    const pending = (this.store.review()?.documents ?? []).filter(d => !d.serverDocumentId);
+    for (const d of pending) {
+      const file = await this.idbGet(d.id).catch(() => null) ?? this.mem.get(d.id) ?? null;
+      if (file) await this.syncToServer(d.id, file, d.documentType);
     }
   }
 

@@ -55,6 +55,30 @@ describe('DocumentValidationService — paid checks', () => {
     expect(store.review()!.documents[0].validationMessage).toContain('למשתמשים מחוברים');
   });
 
+  it('retries once when the server is unreachable, then keeps the document for a re-check', async () => {
+    const verify = spyOn(api, 'verifyDocument').and.rejectWith(new HttpErrorResponse({ status: 0 }));
+    spyOn(console, 'error');
+
+    const kept = await validation.validateDocument('d1', await pngFile());
+
+    expect(verify).toHaveBeenCalledTimes(2);
+    expect(kept).toBeTrue();
+    const doc = store.review()!.documents[0];
+    expect(doc.validationStatus).toBe('unavailable');
+    expect(doc.validationMessage).toContain('לבדוק עכשיו');
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('still rejects an image the server could not accept for a non-transient reason', async () => {
+    const verify = spyOn(api, 'verifyDocument').and.rejectWith(new HttpErrorResponse({ status: 400 }));
+    spyOn(console, 'error');
+
+    const kept = await validation.validateDocument('d1', await pngFile());
+
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(kept).toBeFalse();
+  });
+
   it('reports a running check while it is in flight and clears it afterwards', async () => {
     let release!: () => void;
     spyOn(api, 'verifyDocument').and.returnValue(new Promise((_, reject) => {

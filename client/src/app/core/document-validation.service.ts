@@ -11,6 +11,40 @@ const ALLOWED_TYPES = new Set(['payslip', 'form106', 'pension_report']);
 const UNSUITABLE_FILE_MSG =
   'הקובץ שהועלה לא מתאים למסמכים החסרים — נא לבדוק את הקובץ.';
 
+const SERVER_UNAVAILABLE_MSG =
+  'הבדיקה האוטומטית לא הצליחה כרגע — אין חיבור לשרת או שהוא עמוס. המסמך נשמר; לחצו «לבדוק עכשיו» בעוד רגע.';
+
+/** Status codes worth one automatic retry: no connection, restart, overload, gateway timeouts. */
+const TRANSIENT_STATUSES = new Set([0, 429, 502, 503, 504]);
+
+/** Network failures and 5xx: the server could not check, which says nothing about the document. */
+export function isTransientVerifyError(err: unknown): boolean {
+  return err instanceof HttpErrorResponse && (TRANSIENT_STATUSES.has(err.status) || err.status >= 500);
+}
+
+const RETRY_DELAY_MS = 2500;
+
+const TYPE_LABELS: Record<string, string> = {
+  payslip: 'תלוש שכר',
+  form106: 'טופס 106',
+  pension_report: 'דוח פנסיה / קופות'
+};
+
+/**
+ * The PDF text names another employment document and none of the chosen type's markers.
+ * Only a clear case: a payslip that also lists pension funds still counts as a payslip.
+ */
+export function typeMismatchMessage(expected: string, local: PdfDocHint | null): string | null {
+  const detected = local?.detectedType;
+  if (!detected || !ALLOWED_TYPES.has(detected) || detected === expected || !ALLOWED_TYPES.has(expected)) return null;
+  if (local?.matchedTypes?.includes(expected as 'payslip' | 'form106' | 'pension_report')) return null;
+  return `העלית ${TYPE_LABELS[detected]}, אבל נבחר ${TYPE_LABELS[expected]}. בחרו למעלה «${TYPE_LABELS[detected]}» והעלו שוב.`;
+}
+
+/** Form 106 is a single yearly summary, so a year has at most one. */
+export const SECOND_FORM106_MSG =
+  'לשנה הזו כבר יש טופס 106 — יש רק אחד בשנה. כדי להחליף אותו, מחקו את הקיים או השתמשו ב«החלפת קובץ».';
+
 const MONTH_LABELS = [
   '', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
@@ -108,13 +142,16 @@ export class DocumentValidationService {
           : `במסמך מופיעה שנת ${local.year}, אבל המסך פתוח לשנת ${doc.year}.`;
         return this.rejectUpload(docId, msg);
       }
+      // Caught from the PDF text, before the paid AI check: e.g. a payslip uploaded under "Form 106".
+      const typeIssue = typeMismatchMessage(doc.documentType, local);
+      if (typeIssue) return this.rejectUpload(docId, typeIssue);
       if (local?.year === doc.year && doc.documentType === 'payslip' && doc.month == null && local.month != null) {
         const monthIssue = this.payslipMonthIssue(doc.year, local.month, docId);
         if (monthIssue) return this.rejectUpload(docId, monthIssue);
       }
 
       const images = await prepareDocumentImages(file);
-      const result = await this.api.verifyDocument({
+      const result = await this.verifyWithRetry({
         images,
         expectedType: doc.documentType,
         expectedYear: doc.year,
@@ -122,6 +159,8 @@ export class DocumentValidationService {
       });
       return this.applyResult(docId, result, local);
     } catch (err) {
+      // Keep the real cause visible in DevTools — the UI message is deliberately general.
+      console.error('Document check failed', docId, err);
       // Paid check refused (guest / no credits): keep the file and wait — it is not a broken document.
       if (err instanceof HttpErrorResponse && (err.status === 401 || err.status === 402)) {
         const reason = err.status === 402 ? 'payment' : 'signin';
@@ -129,23 +168,38 @@ export class DocumentValidationService {
         this.store.updateDocument(docId, {
           validationStatus: 'unavailable',
           validationMessage: reason === 'payment'
-            ? 'נגמרו המסמכים בחבילה — המסמך יישמר ויבדק אחרי הוספת מסמכים.'
-            : 'הבדיקה המלאה זמינה למשתמשים מחוברים — התחברו והמסמך ייבדק.',
+            ? 'המסמך נשמר אבל עוד לא נבדק — נגמרו המסמכים בחבילה. אחרי הוספת מסמכים לחצו «לבדוק עכשיו».'
+            : 'המסמך נשמר אבל עוד לא נבדק — הבדיקה זמינה למשתמשים מחוברים. אחרי ההתחברות לחצו «לבדוק עכשיו».',
           parsedOk: false,
           needsManualReview: true
         });
         return true;
       }
-      // OCR down: only keep when PDF text already looks like a matching employment doc for this year.
-      if (
-        local
+      const localMatch = !!local
         && local.year === doc.year
         && local.detectedType != null
-        && ALLOWED_TYPES.has(local.detectedType)
-      ) {
-        return this.acceptWithLocalHint(docId, local, local.detectedType);
+        && ALLOWED_TYPES.has(local.detectedType);
+      // Server unreachable / failing: the document was never judged, so keep it and offer a re-check.
+      if (isTransientVerifyError(err)) {
+        if (localMatch) this.acceptWithLocalHint(docId, local!, local!.detectedType!);
+        else this.store.updateDocument(docId, { validationStatus: 'unavailable', parsedOk: false, needsManualReview: true });
+        this.store.updateDocument(docId, { validationMessage: SERVER_UNAVAILABLE_MSG });
+        return true;
       }
+      // Any other failure: only keep when PDF text already looks like a matching employment doc for this year.
+      if (localMatch) return this.acceptWithLocalHint(docId, local!, local!.detectedType!);
       return this.rejectUpload(docId, UNSUITABLE_FILE_MSG);
+    }
+  }
+
+  /** One automatic retry on a transient failure (e.g. the API restarting), then give up. */
+  private async verifyWithRetry(body: Parameters<ApiService['verifyDocument']>[0]): Promise<DocumentVerificationResult> {
+    try {
+      return await this.api.verifyDocument(body);
+    } catch (err) {
+      if (!isTransientVerifyError(err)) throw err;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return this.api.verifyDocument(body);
     }
   }
 

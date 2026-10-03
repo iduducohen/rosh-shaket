@@ -13,7 +13,7 @@ import {
 } from 'ionicons/icons';
 import { DOC_CHECKLIST, ReviewDocumentMeta } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
-import { DocumentValidationService } from '../../core/document-validation.service';
+import { DocumentValidationService, SECOND_FORM106_MSG } from '../../core/document-validation.service';
 import { ReviewDocumentFilesService } from '../../core/review-document-files.service';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 import { PENSION_GUIDE } from './pension-guide';
@@ -410,7 +410,7 @@ interface YearGap {
         <div class="paywall" role="status">
           @if (reason === 'payment') {
             <b>נגמרו המסמכים בחבילה</b>
-            <span>המסמכים שהעליתם נשמרו. אחרי הוספת מסמכים לחצו «בדיקה מחדש» והבדיקה תמשיך.</span>
+            <span>המסמכים שהעליתם נשמרו. אחרי הוספת מסמכים לחצו «לבדוק עכשיו» ליד כל מסמך שממתין.</span>
             <ion-button size="small" routerLink="/pricing">הוספת מסמכים</ion-button>
           } @else {
             <b>הבדיקה המלאה למשתמשים מחוברים</b>
@@ -581,11 +581,15 @@ interface YearGap {
                               @if (canApplyDetected(d)) {
                                 <button type="button" (click)="applyDetected(d)">התאמה למה שזוהה</button>
                               }
-                              @if (!needsManualMonth(d)) {
-                                <button type="button" (click)="confirmManual(d)">אישור ידני</button>
-                              }
                               @if (hasSourceFile(d.id)) {
-                                <button type="button" (click)="revalidate(d)">בדיקה מחדש</button>
+                                <button type="button" (click)="revalidate(d)">{{ d.validationStatus === 'unavailable' ? 'לבדוק עכשיו' : 'בדיקה מחדש' }}</button>
+                              }
+                              @if (!needsManualMonth(d)) {
+                                <!-- Not checked (no credits / server down): the user vouches for type and year, and no data is read from it. -->
+                                <button type="button" (click)="confirmManual(d)"
+                                  [attr.title]="d.validationStatus === 'unavailable' ? 'המסמך יישאר ברשימה בלי קריאת הנתונים ממנו' : null">
+                                  {{ d.validationStatus === 'unavailable' ? 'להמשיך בלי בדיקה' : 'אישור ידני' }}
+                                </button>
                               }
                             </div>
                           } @else if (d.validationStatus === 'checking' && !validation.isRunning(d.id) && hasSourceFile(d.id)) {
@@ -902,7 +906,7 @@ export class ReviewDocumentsPage implements OnInit {
 
   ngOnInit(): void {
     const ids = (this.store.review()?.documents ?? []).map(d => d.id);
-    void this.files.hydrate(ids);
+    void this.files.hydrate(ids).then(() => this.files.syncPending());
     this.billing.plans().catch(() => undefined);
     if (this.auth.isSignedIn()) this.billing.refresh().catch(() => undefined);
     // A purchase or sign-in since the last refusal means checks can run again.
@@ -1148,6 +1152,7 @@ export class ReviewDocumentsPage implements OnInit {
 
     const seenInBatch = new Set<string>();
     let keptCount = 0;
+    let waitingCount = 0;
     this.uploading.set(true);
     try {
       for (const file of queued) {
@@ -1157,6 +1162,10 @@ export class ReviewDocumentsPage implements OnInit {
           continue;
         }
         seenInBatch.add(key);
+        if (this.docType === 'form106' && this.hasForm106(year)) {
+          this.validation.setBlockMessage(SECOND_FORM106_MSG);
+          break;
+        }
 
         this.uploadLabel.set(`בודקים את ${file.name}…`);
         const id = crypto.randomUUID();
@@ -1180,6 +1189,7 @@ export class ReviewDocumentsPage implements OnInit {
         if (!kept) await this.files.remove(id);
         else {
           keptCount++;
+          if (this.store.review()?.documents.find(d => d.id === id)?.validationStatus === 'unavailable') waitingCount++;
           void this.files.syncToServer(id, file, this.docType);
         }
       }
@@ -1189,12 +1199,21 @@ export class ReviewDocumentsPage implements OnInit {
     }
 
     if (keptCount > 0 && !this.validation.blockMessage()) {
+      const checked = keptCount - waitingCount;
+      // Saved but not checked yet (no credits / server down) is not "checked" — say so.
       this.uploadOk.set(
-        keptCount === 1
-          ? 'המסמך נבדק ונוסף לרשימה.'
-          : `${keptCount} מסמכים נבדקו ונוספו לרשימה.`
+        waitingCount === 0
+          ? (keptCount === 1 ? 'המסמך נבדק ונוסף לרשימה.' : `${keptCount} מסמכים נבדקו ונוספו לרשימה.`)
+          : checked === 0
+          ? (waitingCount === 1 ? 'המסמך נשמר וממתין לבדיקה.' : `${waitingCount} מסמכים נשמרו וממתינים לבדיקה.`)
+          : `${checked} נבדקו, ${waitingCount} נשמרו וממתינים לבדיקה.`
       );
     }
+  }
+
+  /** A form 106 already registered for the year (rejected uploads are removed, so anything left counts). */
+  private hasForm106(year: number): boolean {
+    return (this.store.review()?.documents ?? []).some(d => d.year === year && d.documentType === 'form106');
   }
 
   monthLabel(month: number): string {
