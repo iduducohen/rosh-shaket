@@ -34,9 +34,9 @@ describe('auth guards', () => {
     expect(await run(sessionGuard)).toBeTrue();
   });
 
-  it('skips the login screen when signed in', async () => {
+  it('skips the login screen when signed in and resumes the saved workspace', async () => {
     auth.isSignedIn.and.returnValue(true);
     const result = await run(loginGuard);
-    expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe('/details');
+    expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe('/resume');
   });
 });

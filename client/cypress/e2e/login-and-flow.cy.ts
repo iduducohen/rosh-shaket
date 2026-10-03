@@ -15,9 +15,9 @@ describe('Sign-in screen', () => {
     cy.visit('/login');
     cy.contains('להמשיך בלי חשבון').click();
     cy.location('pathname').should('eq', '/start');
-    cy.contains('בלי תלוש, למלא ידנית').click();
+    cy.contains('אין תלוש בהישג יד? למלא ידנית').click();
     cy.contains('button', 'פוטרתי').click();
-    cy.contains('ion-button', 'המשך').click();
+    cy.contains('ion-button', 'המשך לפרטים').click();
 
     // After clicking through, app should navigate forward
     cy.get('ion-app').should('exist');

@@ -1,0 +1,4 @@
+
+# Cypress run artifacts
+cypress/screenshots/
+cypress/videos/
