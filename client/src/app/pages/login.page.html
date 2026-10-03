@@ -194,18 +194,16 @@
           <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
         </button>
       </div>
-      <div class="legal-body">
-        <p class="legal-updated">עודכן לאחרונה: {{ doc.updated }}</p>
-        @for (section of doc.sections; track section.heading) {
-          <section class="term">
-            <h3>{{ section.heading }}</h3>
-            @for (paragraph of section.paragraphs; track paragraph) { <p>{{ paragraph }}</p> }
-          </section>
-        }
-        <p class="legal-more">
-          <button type="button" class="link" (click)="openLegal(doc.otherPath === '/privacy' ? 'privacy' : 'terms')">{{ doc.otherLabel }}</button>
-        </p>
-      </div>
+      <p class="legal-updated">עודכן לאחרונה: {{ doc.updated }}</p>
+      @for (section of doc.sections; track section.heading) {
+        <section class="term">
+          <h3>{{ section.heading }}</h3>
+          @for (paragraph of section.paragraphs; track paragraph) { <p>{{ paragraph }}</p> }
+        </section>
+      }
+      <p class="legal-more">
+        <button type="button" class="link" (click)="openLegal(doc.otherPath === '/privacy' ? 'privacy' : 'terms')">{{ doc.otherLabel }}</button>
+      </p>
     </div>
   </div>
 }

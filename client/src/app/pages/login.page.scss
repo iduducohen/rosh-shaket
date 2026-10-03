@@ -238,46 +238,46 @@ input.code { text-align: center; font-size: 30px; letter-spacing: 14px; font-fam
   background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
   text-decoration: underline; text-underline-offset: 3px;
 }
+/* Same look as the other info sheets (reason / employment «מידע נוסף»): bottom sheet on phones, centered card on desktop. */
 .legal-backdrop {
-  position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .52);
-  display: flex; align-items: stretch; justify-content: center; padding: 0;
+  position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .48);
+  display: flex; align-items: flex-end; justify-content: center; padding: 12px;
 }
 .legal-dialog {
-  position: relative; width: 100%; height: 100%; max-height: none; margin: 0;
-  display: flex; flex-direction: column; text-align: start; overflow: hidden;
+  width: min(680px, 100%); max-height: min(85vh, 760px); overflow: auto; text-align: start;
   background: var(--ion-background-color); color: var(--ion-text-color);
-  border-radius: 0; padding: 0;
-  box-shadow: none; animation: none; opacity: 1;
+  border-radius: 18px; padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+  scrollbar-width: thin; scrollbar-color: var(--rs-line) transparent;
 }
 .legal-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 12px;
-  border-bottom: 1px solid var(--rs-line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  position: sticky; top: -16px; margin: -16px -20px 0; padding: 16px 20px 10px;
+  background: var(--ion-background-color); z-index: 1;
 }
-.legal-head h2 { margin: 0; font-family: var(--rs-serif); font-size: 28px; }
+.legal-head h2 { margin: 0; font-size: 22px; }
 .legal-close {
   background: none; border: 0; color: var(--ion-color-medium); cursor: pointer;
-  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none;
 }
-.legal-close ion-icon { font-size: 26px; }
-.legal-body {
-  flex: 1; overflow: auto; padding: 8px 22px calc(28px + env(safe-area-inset-bottom, 0px));
-  width: min(760px, 100%); margin-inline: auto;
+.legal-close:hover { background: var(--rs-soft); }
+.legal-close ion-icon { font-size: 24px; }
+.legal-updated { margin: 4px 0 0; color: var(--ion-color-medium); font-size: 13.5px; }
+.term { margin-top: 18px; }
+.term h3 {
+  margin: 0 0 8px; padding-bottom: 4px;
+  font-family: var(--ion-font-family); font-size: 14px; font-weight: 700;
+  color: var(--ion-color-primary); letter-spacing: .01em;
+  border-bottom: 1px solid var(--rs-soft);
 }
-.legal-updated { margin: 16px 0 0; color: var(--ion-color-medium); font-size: 14px; }
-.term { margin-top: 22px; }
-.term h3 { margin: 0 0 8px; font-size: 18px; }
-.term p { margin: 0 0 10px; line-height: 1.7; font-size: 16px; }
-.legal-more { margin: 28px 0 0; }
+.term p { margin: 0 0 8px; line-height: 1.6; font-size: 15px; }
+.legal-more { margin: 20px 0 0; }
+.legal-more .link {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer;
+  color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 3px;
+}
 @media (min-width: 992px) {
-  .legal-backdrop { align-items: center; padding: 28px; }
-  .legal-dialog {
-    width: min(1040px, 92vw); height: min(860px, 90vh);
-    border-radius: 20px; box-shadow: 0 28px 80px rgba(0, 0, 0, .32);
-  }
-  .legal-head { padding: 22px 28px 16px; }
-  .legal-head h2 { font-size: 34px; }
-  .legal-body { padding: 8px 36px 36px; }
+  .legal-backdrop { align-items: center; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
