@@ -4,6 +4,7 @@ using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RoshShaket.Application.Auth;
+using RoshShaket.Infrastructure.Postgres;
 
 namespace RoshShaket.Infrastructure.Auth;
 
@@ -18,23 +19,82 @@ public static class EmailContent
 {
     public const string LoginCodeKind = "LoginCode";
 
-    /// <summary>Template variables: CODE (6 digits), EXPIRES_MINUTES.</summary>
-    public static EmailMessage LoginCode(string to, string code) => new(
-        LoginCodeKind,
-        to,
-        $"קוד הכניסה שלך: {code}",
-        "<div dir=\"rtl\" style=\"font-family:Arial,sans-serif;font-size:16px\">" +
-        $"<p>קוד הכניסה ל'יוצאים בראש שקט':</p><p style=\"font-size:28px;letter-spacing:6px;font-weight:bold\">{code}</p>" +
-        "<p style=\"color:#666\">הקוד בתוקף ל-10 דקות. אם לא ביקשתם אותו, אפשר להתעלם מההודעה.</p></div>",
-        new Dictionary<string, string> { ["CODE"] = code, ["EXPIRES_MINUTES"] = "10" });
+    /// <summary>Template variables: CODE (6 digits), EXPIRES_MINUTES, EMAIL.</summary>
+    public static EmailMessage LoginCode(string to, string code)
+    {
+        var variables = new Dictionary<string, string> { ["CODE"] = code, ["EXPIRES_MINUTES"] = "10", ["EMAIL"] = to };
+        return new(LoginCodeKind, to, $"קוד הכניסה שלכם: {code}", Render("login-code.html", variables), variables);
+    }
+
+    /// <summary>
+    /// Fills a built-in template (Auth/EmailTemplates, the same HTML that is pasted into the Resend dashboard)
+    /// by replacing its {{{KEY}}} placeholders with HTML-encoded values.
+    /// </summary>
+    public static string Render(string templateName, IReadOnlyDictionary<string, string> variables)
+    {
+        var html = Templates.GetOrAdd(templateName, Load);
+        foreach (var (key, value) in variables)
+            html = html.Replace("{{{" + key + "}}}", WebUtility.HtmlEncode(value));
+        return html;
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Templates = new();
+
+    private static string Load(string name)
+    {
+        using var stream = typeof(EmailContent).Assembly.GetManifestResourceStream("EmailTemplates." + name)
+            ?? throw new InvalidOperationException($"Email template '{name}' is not embedded.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 }
 
-public sealed class SmtpEmailSender(IOptions<AuthOptions> options) : IEmailSender
+/// <summary>What a transport reports back: the provider's message id (to find it in the Resend dashboard) and the template used.</summary>
+public sealed record EmailReceipt(string? MessageId = null, string? TemplateId = null);
+
+/// <summary>One way of delivering an <see cref="EmailMessage"/>: Resend, SMTP or the development log.</summary>
+public interface IEmailTransport
 {
-    public async Task SendLoginCodeAsync(string email, string code, CancellationToken ct)
+    string Name { get; }
+    Task<EmailReceipt> SendAsync(EmailMessage message, CancellationToken ct);
+}
+
+/// <summary>The app's email sender: builds each message, hands it to the configured transport and records the attempt in email_log.</summary>
+public sealed class RecordedEmailSender(IEmailTransport transport, IEmailLog emailLog, ILogger<RecordedEmailSender> log) : IEmailSender
+{
+    public Task SendLoginCodeAsync(string email, string code, CancellationToken ct) =>
+        SendAsync(EmailContent.LoginCode(email, code), ct);
+
+    public async Task SendAsync(EmailMessage m, CancellationToken ct)
+    {
+        EmailReceipt receipt;
+        try
+        {
+            receipt = await transport.SendAsync(m, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, null, null, EmailLogEntry.Failed, ex.Message), ct);
+            throw;
+        }
+        await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, receipt.TemplateId, receipt.MessageId, EmailLogEntry.Sent, null), ct);
+    }
+
+    // The email already went out (or already failed); a logging problem must not change the result the user sees.
+    private async Task RecordAsync(EmailLogEntry entry, CancellationToken ct)
+    {
+        try { await emailLog.RecordAsync(entry, ct); }
+        catch (Exception ex) { log.LogWarning(ex, "Could not record the {Kind} email in email_log", entry.Kind); }
+    }
+}
+
+public sealed class SmtpEmailSender(IOptions<AuthOptions> options) : IEmailTransport
+{
+    public string Name => "smtp";
+
+    public async Task<EmailReceipt> SendAsync(EmailMessage m, CancellationToken ct)
     {
         var o = options.Value.Smtp;
-        var m = EmailContent.LoginCode(email, code);
         using var client = new SmtpClient(o.Host, o.Port)
         {
             EnableSsl = o.EnableSsl,
@@ -42,22 +102,25 @@ public sealed class SmtpEmailSender(IOptions<AuthOptions> options) : IEmailSende
         };
         using var message = new MailMessage(o.From, m.To) { Subject = m.Subject, Body = m.Html, IsBodyHtml = true };
         await client.SendMailAsync(message, ct);
+        return new EmailReceipt();
     }
 }
 
 /// <summary>Sends through the Resend API so dashboard templates can be used; falls back to the built-in HTML per email kind.</summary>
-public sealed class ResendEmailSender(HttpClient http, IOptions<AuthOptions> options, ILogger<ResendEmailSender> log) : IEmailSender
+public sealed class ResendEmailSender(HttpClient http, IOptions<AuthOptions> options, ILogger<ResendEmailSender> log) : IEmailTransport
 {
-    public Task SendLoginCodeAsync(string email, string code, CancellationToken ct) =>
-        SendAsync(EmailContent.LoginCode(email, code), ct);
+    public string Name => "resend";
 
-    public async Task SendAsync(EmailMessage m, CancellationToken ct)
+    public async Task<EmailReceipt> SendAsync(EmailMessage m, CancellationToken ct)
     {
         var o = options.Value;
         var apiKey = o.Resend.ResolveApiKey(o.Smtp);
-        object body = o.Resend.Templates.TryGetValue(m.Kind, out var templateId) && !string.IsNullOrWhiteSpace(templateId)
+        var template = o.Resend.Templates.TryGetValue(m.Kind, out var configured) && !string.IsNullOrWhiteSpace(configured)
+            ? configured.Trim()
+            : null;
+        object body = template is not null
             // The template's own subject is overridden on purpose: it carries the code, and Resend needs one when the template has none.
-            ? new { from = o.Resend.ResolveFrom(o.Smtp), to = new[] { m.To }, subject = m.Subject, template = new { id = templateId.Trim(), variables = m.Variables } }
+            ? new { from = o.Resend.ResolveFrom(o.Smtp), to = new[] { m.To }, subject = m.Subject, template = new { id = template, variables = m.Variables } }
             : new { from = o.Resend.ResolveFrom(o.Smtp), to = new[] { m.To }, subject = m.Subject, html = m.Html };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "emails") { Content = JsonContent.Create(body) };
@@ -67,18 +130,26 @@ public sealed class ResendEmailSender(HttpClient http, IOptions<AuthOptions> opt
         {
             var error = await response.Content.ReadAsStringAsync(ct);
             log.LogWarning("Resend send failed for {Kind} (template={Template}) with HTTP {Status}: {Error}",
-                m.Kind, templateId ?? "none", (int)response.StatusCode, error.Length > 400 ? error[..400] : error);
+                m.Kind, template ?? "none", (int)response.StatusCode, error.Length > 400 ? error[..400] : error);
             throw new InvalidOperationException($"Resend rejected the {m.Kind} email (HTTP {(int)response.StatusCode}).");
         }
+
+        var sent = await response.Content.ReadFromJsonAsync<ResendSendResponse>(ct);
+        return new EmailReceipt(sent?.Id, template);
     }
+
+    private sealed record ResendSendResponse(string? Id);
 }
 
 /// <summary>Development only: writes the code to the server log instead of sending an email.</summary>
-public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> log) : IEmailSender
+public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> log) : IEmailTransport
 {
-    public Task SendLoginCodeAsync(string email, string code, CancellationToken ct)
+    public string Name => "log";
+
+    public Task<EmailReceipt> SendAsync(EmailMessage m, CancellationToken ct)
     {
-        log.LogWarning("DEV login code for {Email}: {Code}", email, code);
-        return Task.CompletedTask;
+        log.LogWarning("DEV {Kind} email for {Email}: {Variables}", m.Kind, m.To,
+            string.Join(", ", m.Variables.Where(v => v.Key != "EMAIL").Select(v => $"{v.Key}={v.Value}")));
+        return Task.FromResult(new EmailReceipt());
     }
 }

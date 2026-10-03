@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RoshShaket.Infrastructure.Auth;
+using RoshShaket.Infrastructure.Postgres;
 using Xunit;
 
 namespace RoshShaket.Api.Tests;
@@ -41,7 +42,7 @@ public class ResendEmailSenderTests
         o.Resend.Templates["LoginCode"] = "901faaad-1564-4a2d-a969-90cb8f2a7316";
         var (sender, http) = Build(o);
 
-        await sender.SendLoginCodeAsync("user@example.com", "482913", default);
+        await sender.SendAsync(EmailContent.LoginCode("user@example.com", "482913"), default);
 
         http.Request!.RequestUri!.ToString().Should().Be("https://api.resend.com/emails");
         http.Request.Headers.Authorization!.ToString().Should().Be("Bearer re_test_key", "the SMTP key is reused for the API");
@@ -57,11 +58,22 @@ public class ResendEmailSenderTests
     {
         var (sender, http) = Build(ResendSmtp());
 
-        await sender.SendLoginCodeAsync("user@example.com", "482913", default);
+        await sender.SendAsync(EmailContent.LoginCode("user@example.com", "482913"), default);
 
         http.Body.TryGetProperty("template", out _).Should().BeFalse();
         http.Body.GetProperty("html").GetString().Should().Contain("482913");
         http.Body.GetProperty("from").GetString().Should().Be("onboarding@resend.dev");
+    }
+
+    [Fact]
+    public void The_built_in_login_email_is_right_to_left_and_fully_filled()
+    {
+        var m = EmailContent.LoginCode("a&b@example.com", "482913");
+
+        m.Html.Should().Contain("dir=\"rtl\"").And.Contain("lang=\"he\"").And.Contain("482913");
+        m.Html.Should().Contain("a&amp;b@example.com", "variables are HTML-encoded");
+        m.Html.Should().NotContain("{{{", "every placeholder in the template gets a value");
+        m.Variables.Keys.Should().BeEquivalentTo("CODE", "EXPIRES_MINUTES", "EMAIL");
     }
 
     [Fact]
@@ -71,8 +83,44 @@ public class ResendEmailSenderTests
         o.Resend.Templates["LoginCode"] = "missing-template";
         var (sender, _) = Build(o, HttpStatusCode.UnprocessableEntity);
 
+        await FluentActions.Awaiting(() => sender.SendAsync(EmailContent.LoginCode("user@example.com", "1"), default))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    private sealed class MemoryEmailLog : IEmailLog
+    {
+        public readonly List<EmailLogEntry> Entries = [];
+        public Task RecordAsync(EmailLogEntry entry, CancellationToken ct) { Entries.Add(entry); return Task.CompletedTask; }
+    }
+
+    [Fact]
+    public async Task Every_sent_email_is_recorded_with_the_resend_id_and_template()
+    {
+        var o = ResendSmtp();
+        o.Resend.Templates["LoginCode"] = "tpl-1";
+        var (transport, _) = Build(o);
+        var emailLog = new MemoryEmailLog();
+
+        await new RecordedEmailSender(transport, emailLog, NullLogger<RecordedEmailSender>.Instance)
+            .SendLoginCodeAsync("user@example.com", "482913", default);
+
+        emailLog.Entries.Should().ContainSingle().Which.Should().Be(
+            new EmailLogEntry("LoginCode", "user@example.com", "resend", "tpl-1", "e1", EmailLogEntry.Sent, null));
+    }
+
+    [Fact]
+    public async Task A_failed_email_is_recorded_and_still_reported_to_the_caller()
+    {
+        var (transport, _) = Build(ResendSmtp(), HttpStatusCode.UnprocessableEntity);
+        var emailLog = new MemoryEmailLog();
+        var sender = new RecordedEmailSender(transport, emailLog, NullLogger<RecordedEmailSender>.Instance);
+
         await FluentActions.Awaiting(() => sender.SendLoginCodeAsync("user@example.com", "1", default))
             .Should().ThrowAsync<InvalidOperationException>();
+
+        var entry = emailLog.Entries.Should().ContainSingle().Subject;
+        entry.Status.Should().Be(EmailLogEntry.Failed);
+        entry.Error.Should().Contain("422");
     }
 
     [Fact]

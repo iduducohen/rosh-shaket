@@ -7,8 +7,12 @@ namespace RoshShaket.Infrastructure.Storage;
 public sealed class FileStorageOptions
 {
     public const string Section = "FileStorage";
+    /// <summary>local (a folder / Docker volume) or s3.</summary>
     public string Provider { get; set; } = "local";
     public string LocalRoot { get; set; } = "/data/documents";
+    public S3StorageOptions S3 { get; set; } = new();
+
+    public bool UsesS3 => string.Equals(Provider, "s3", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class LocalFileStorage(IOptions<FileStorageOptions> options, ILogger<LocalFileStorage> log) : IFileStorage

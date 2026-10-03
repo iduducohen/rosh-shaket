@@ -84,6 +84,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Local inspection (Redis Insight / redis-cli): localhost:6380 — 6379 is often taken by other projects.
+    ports:
+      - "127.0.0.1:6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

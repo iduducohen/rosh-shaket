@@ -55,12 +55,50 @@ All under `.RequireAuthorization()`. Ownership is always `ClaimTypes.NameIdentif
 
 ## 4. Storage Architecture
 
-- Abstraction: `IFileStorage`
-- Implementation: `LocalFileStorage` (`FileStorage:LocalRoot`, default `/data/documents`)
-- Keys: `{userId}/{workspaceId}/{documentId}-{safeName}` (no `..`, rooted under LocalRoot)
+- Abstraction: `IFileStorage`, chosen by `FileStorage:Provider`
+  - `local` (default): `LocalFileStorage` (`FileStorage:LocalRoot`, default `/data/documents`, Docker volume `docstore`)
+  - `s3`: `S3FileStorage` — a private AWS S3 bucket (`FileStorage:S3:Bucket`, `:Region`, optional `:KeyPrefix`).
+    Credentials come from the standard AWS chain (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, or an IAM role on AWS).
+    Objects are written with SSE-S3 encryption; startup fails if the provider is `s3` and no bucket is set.
+- Keys: `{userId}/{workspaceId}/{documentId}-{safeName}` (no `..`, no leading `/`; under `KeyPrefix` in S3)
+- `workspace_documents.StorageProvider` records where each file went (`local` / `s3`). Switching providers does not
+  move existing files: documents saved under the old provider stop opening until they are copied over.
 - Upload reliability: **write file → insert DB**; on DB failure **delete file**
-- Soft-delete keeps blob for recovery; purge job can be added later
-- Docker volume: `docstore:/data/documents`
+- Soft-delete keeps blob for recovery; purge job can be added later (in S3, a lifecycle rule can expire objects)
+
+### S3 bucket setup (one bucket per environment)
+
+| Setting | Value |
+|---------|-------|
+| Region | `il-central-1` (opt-in region: enable it under Account → AWS Regions first) |
+| Object Ownership | ACLs disabled |
+| Block all public access | On |
+| Default encryption | SSE-S3 |
+| Versioning | Off in dev, on in production |
+| Lifecycle | Expire objects (dev 30 days; production per privacy policy), abort incomplete multipart uploads after 7 days |
+| Bucket policy | Deny `aws:SecureTransport = false` |
+
+IAM user for the API (no console access), policy limited to the bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::<bucket>/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::<bucket>"
+    }
+  ]
+}
+```
+
+`s3:ListBucket` is what lets S3 answer a missing object with 404 (read as "file missing") instead of 403.
 
 ## 5. State Restoration Flow
 
@@ -102,7 +140,7 @@ All under `.RequireAuthorization()`. Ownership is always `ClaimTypes.NameIdentif
 ## Known compromises / next improvements
 
 1. Replace `EnsureCreated` + raw SQL with formal EF Core migrations for production.
-2. Add Azure Blob / S3 `IFileStorage` adapters (interface already in place).
+2. ~~S3 `IFileStorage` adapter~~ — done (`S3FileStorage`). A migration tool from `docstore` to S3 is still open.
 3. Background purge for soft-deleted blobs.
 4. Guest→account merge of in-memory wizard on first sign-in.
 5. Broader integration tests for IDOR and upload failure matrix.

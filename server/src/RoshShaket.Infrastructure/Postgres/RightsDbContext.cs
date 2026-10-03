@@ -20,6 +20,7 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
     public DbSet<BillingLedgerRow> BillingLedger => Set<BillingLedgerRow>();
     public DbSet<BillingPurchaseRow> BillingPurchases => Set<BillingPurchaseRow>();
     public DbSet<ApiUsageRow> ApiUsage => Set<ApiUsageRow>();
+    public DbSet<EmailLogRow> EmailLog => Set<EmailLogRow>();
     /// <summary>ASP.NET Data Protection key ring — survives Railway container replacements.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -160,6 +161,13 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasKey(x => x.Id);
             e.Property(x => x.CostUsd).HasPrecision(12, 6);
             e.HasIndex(x => x.CreatedAt);
+        });
+        b.Entity<EmailLogRow>(e =>
+        {
+            e.ToTable("email_log");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => new { x.ToEmail, x.CreatedAt });
         });
     }
 }

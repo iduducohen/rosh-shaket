@@ -136,25 +136,44 @@ public static class DependencyInjection
         services.AddScoped<IWorkspaceRepository, PostgresWorkspaceRepository>();
         services.AddScoped<IDocumentRepository, PostgresDocumentRepository>();
         services.AddScoped<IWorkspaceAudit, PostgresWorkspaceAudit>();
-        services.AddSingleton<IFileStorage, LocalFileStorage>();
+        // Documents: a private S3 bucket when FileStorage__Provider=s3, otherwise a local folder (the docstore volume).
+        var storage = new FileStorageOptions();
+        config.GetSection(FileStorageOptions.Section).Bind(storage);
+        if (storage.UsesS3)
+        {
+            if (string.IsNullOrWhiteSpace(storage.S3.Bucket))
+                throw new InvalidOperationException("FileStorage:Provider is s3 but FileStorage:S3:Bucket is empty.");
+            services.AddSingleton<Amazon.S3.IAmazonS3>(_ => new Amazon.S3.AmazonS3Client(new Amazon.S3.AmazonS3Config
+            {
+                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(storage.S3.Region)
+            }));
+            services.AddSingleton<IFileStorage, S3FileStorage>();
+        }
+        else
+        {
+            services.AddSingleton<IFileStorage, LocalFileStorage>();
+        }
         services.AddSingleton<IContributionRuleProvider, StaticContributionRuleProvider>();
         services.AddScoped<IEmploymentReviewStore, PostgresEmploymentReviewStore>();
         services.Configure<BillingOptions>(config.GetSection(BillingOptions.Section));
         services.AddScoped<IBillingStore, PostgresBillingStore>();
         // Email: Resend API (templates) when a key is available, then plain SMTP, then the dev log.
+        // Every attempt is recorded in email_log, whichever transport delivers it.
         var mail = new AuthOptions();
         config.GetSection(AuthOptions.LegacySection).Bind(mail);
         config.GetSection(AuthOptions.Section).Bind(mail);
         if (!string.IsNullOrWhiteSpace(mail.Resend.ResolveApiKey(mail.Smtp)))
-            services.AddHttpClient<IEmailSender, ResendEmailSender>((sp, http) =>
+            services.AddHttpClient<IEmailTransport, ResendEmailSender>((sp, http) =>
             {
                 http.BaseAddress = new Uri(sp.GetRequiredService<IOptions<AuthOptions>>().Value.Resend.BaseUrl);
                 http.Timeout = TimeSpan.FromSeconds(15);
             });
         else if (!string.IsNullOrWhiteSpace(mail.Smtp.Host))
-            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            services.AddSingleton<IEmailTransport, SmtpEmailSender>();
         else
-            services.AddSingleton<IEmailSender, LoggingEmailSender>();
+            services.AddSingleton<IEmailTransport, LoggingEmailSender>();
+        services.AddScoped<IEmailLog, PostgresEmailLog>();
+        services.AddScoped<IEmailSender, RecordedEmailSender>();
 
         return services;
     }
@@ -220,6 +239,7 @@ public static class DependencyInjection
                 await WorkspaceSchema.EnsureAsync(db, logger);
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
                 await BillingSchema.EnsureAsync(db, logger);
+                await EmailLogSchema.EnsureAsync(db, logger);
 
                 // The key ring signs every sign-in token: keep it across restarts, or every deploy signs everyone out.
                 // Rebuild only a table left with the wrong shape by an older EnsureCreated.
