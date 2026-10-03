@@ -1,19 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- Same artwork as LogoComponent: paperwork settling into one clear answer. Keep the two in sync. -->
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#14967F"/>
-      <stop offset="1" stop-color="#0B5F53"/>
+      <stop offset="0" stop-color="#14967F"/><stop offset="1" stop-color="#0B5F53"/>
     </linearGradient>
-    <clipPath id="door">
-      <path d="M13 31V19.5a7 7 0 0 1 14 0V31z"/>
-    </clipPath>
   </defs>
   <rect width="40" height="40" rx="11" fill="url(#g)"/>
-  <path d="M13 31V19.5a7 7 0 0 1 14 0V31z" fill="#fff"/>
-  <g clip-path="url(#door)">
-    <circle cx="20" cy="25.2" r="4.2" fill="#F2A93B"/>
-    <rect x="12" y="25.2" width="16" height="6" fill="#fff"/>
-    <rect x="12" y="24.7" width="16" height="1" fill="#0E7C6B" opacity=".35"/>
-  </g>
-  <rect x="10" y="31" width="20" height="2.2" rx="1.1" fill="#fff" opacity=".55"/>
+  <rect x="9" y="10" width="18" height="22" rx="2.5" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity=".45" transform="rotate(-8 18 21)"/>
+  <rect x="12" y="9" width="18" height="22" rx="2.5" fill="none" stroke="#FFFFFF" stroke-width="1.65"/>
+  <path d="M16 15.5h10M16 19h8M16 22.5h6" fill="none" stroke="#FFFFFF" stroke-width="1.45" stroke-linecap="round" opacity=".85"/>
+  <circle cx="27.5" cy="27.5" r="6.2" fill="#0B5F53" stroke="#FFFFFF" stroke-width="1.5"/>
+  <path d="M24.6 27.6l1.9 1.9 4.1-4.2" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
