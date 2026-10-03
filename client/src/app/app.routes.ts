@@ -48,6 +48,8 @@ export const routes: Routes = [
       { path: '', redirectTo: 'summary', pathMatch: 'full' }
     ]
   },
+  { path: 'pricing', loadComponent: () => import('./pages/pricing.page').then(m => m.PricingPage) },
+  { path: 'account', canActivate: [sessionGuard], loadComponent: () => import('./pages/account.page').then(m => m.AccountPage) },
   { path: 'terms', loadComponent: () => import('./pages/legal.page').then(m => m.LegalPage), data: { seo: SEO.terms, doc: 'terms' } },
   { path: 'privacy', loadComponent: () => import('./pages/legal.page').then(m => m.LegalPage), data: { seo: SEO.privacy, doc: 'privacy' } },
   { path: '**', redirectTo: 'login' }

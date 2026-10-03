@@ -1,4 +1,7 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { AuthService } from '../../core/auth/auth.service';
+import { BillingService } from '../../core/billing.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
@@ -49,7 +52,7 @@ interface YearGap {
 @Component({
   selector: 'app-review-documents',
   standalone: true,
-  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent],
+  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent, NgTemplateOutlet],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 12px; line-height: 1.45; }
@@ -345,6 +348,16 @@ interface YearGap {
     .guide-list .co { font-weight: 700; color: var(--ion-color-primary); }
     .guide-list a { font-weight: 700; color: var(--ion-color-primary); }
     .foot { margin: 10px 0 0; font-size: 12.5px; color: var(--ion-color-medium); line-height: 1.4; }
+    .paywall {
+      display: grid; gap: 6px; justify-items: start; margin: 0 0 14px; padding: 14px 16px; border-radius: 14px;
+      background: var(--rs-warn-bg); color: var(--rs-warn); border: 1px solid color-mix(in srgb, var(--rs-accent) 45%, transparent);
+    }
+    .paywall b { font-size: 15.5px; }
+    .paywall span { font-size: 14px; line-height: 1.45; color: var(--ion-text-color); }
+    .paywall ion-button { margin: 4px 0 0; }
+    .balance { font-size: 14px; color: var(--ion-color-medium); margin: 0 0 12px; }
+    .balance.low { color: var(--rs-warn); font-weight: 700; }
+    .balance a { color: var(--ion-color-primary); font-weight: 700; }
     .validate-note {
       font-size: 12.5px; color: var(--ion-color-medium); margin: 0 0 10px; line-height: 1.4;
     }
@@ -384,6 +397,27 @@ interface YearGap {
   template: `
     <h2>מרכז מסמכים</h2>
     <p class="lead">לחצו על שנה כדי להוסיף או להשלים מסמכים.</p>
+    <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
+
+    <ng-template #paywallBox>
+      @if (validation.paywall(); as reason) {
+        <div class="paywall" role="status">
+          @if (reason === 'payment') {
+            <b>נגמרו המסמכים בחבילה</b>
+            <span>המסמכים שהעליתם נשמרו. אחרי הוספת מסמכים לחצו «בדיקה מחדש» והבדיקה תמשיך.</span>
+            <ion-button size="small" routerLink="/pricing">הוספת מסמכים</ion-button>
+          } @else {
+            <b>הבדיקה המלאה למשתמשים מחוברים</b>
+            <span>התחברו כדי לקבל {{ freeDocs }} מסמכים ראשונים בחינם ולשמור את הבדיקה בחשבון.</span>
+            <ion-button size="small" routerLink="/login">התחברות</ion-button>
+          }
+        </div>
+      } @else {
+        @if (billing.enabled() && billing.account(); as a) {
+          <p class="balance" [class.low]="a.balance <= 3">נותרו {{ a.balance }} מסמכים לבדיקה · <a routerLink="/account">החשבון שלי</a></p>
+        }
+      }
+    </ng-template>
     @if (!periodYears().length) {
       <p class="hint">מלאו תאריכי העסקה בשלב הקודם — ואז יופיעו כאן השנים.</p>
       <ion-button fill="outline" routerLink="/review/employment">לחזרה למילוי תקופת העסקה</ion-button>
@@ -615,6 +649,7 @@ interface YearGap {
                 <p class="validate-note">
                   אחרי ההעלאה בודקים אוטומטית (OCR/AI) סוג, שנה וחודש. בתלוש החודש מתמלא לבד — בלי בחירה ידנית. אי-התאמה תוצג מיד.
                 </p>
+                <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
                 @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
                 @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
                 @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
@@ -804,6 +839,9 @@ export class ReviewDocumentsPage implements OnInit {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
   readonly validation = inject(DocumentValidationService);
+  readonly billing = inject(BillingService);
+  private readonly auth = inject(AuthService);
+  readonly freeDocs = 3;
   private readonly files = inject(ReviewDocumentFilesService);
   private readonly sanitizer = inject(DomSanitizer);
   readonly coreTypes = CORE_TYPES;
@@ -849,6 +887,10 @@ export class ReviewDocumentsPage implements OnInit {
   ngOnInit(): void {
     const ids = (this.store.review()?.documents ?? []).map(d => d.id);
     void this.files.hydrate(ids);
+    this.billing.plans().catch(() => undefined);
+    if (this.auth.isSignedIn()) this.billing.refresh().catch(() => undefined);
+    // A purchase or sign-in since the last refusal means checks can run again.
+    if (this.auth.isSignedIn() && this.validation.paywall() === 'signin') this.validation.paywall.set(null);
   }
 
   readonly periodYears = computed(() => {

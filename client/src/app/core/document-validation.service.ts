@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { ApiService, DocumentVerificationResult } from './api.service';
 import { prepareDocumentImages } from './document-images';
@@ -22,6 +23,9 @@ export class DocumentValidationService {
 
   /** Shown when an upload is rejected and removed (wrong type / year / month). */
   readonly blockMessage = signal('');
+
+  /** Set when the server refused a paid check — the documents page shows how to continue. */
+  readonly paywall = signal<'payment' | 'signin' | null>(null);
 
   /** Docs with a check running in this tab — a persisted 'checking' without one is stale (page reloaded). */
   private readonly running = signal<ReadonlySet<string>>(new Set());
@@ -117,7 +121,21 @@ export class DocumentValidationService {
         expectedMonth: doc.documentType === 'payslip' ? doc.month : null
       });
       return this.applyResult(docId, result, local);
-    } catch {
+    } catch (err) {
+      // Paid check refused (guest / no credits): keep the file and wait — it is not a broken document.
+      if (err instanceof HttpErrorResponse && (err.status === 401 || err.status === 402)) {
+        const reason = err.status === 402 ? 'payment' : 'signin';
+        this.paywall.set(reason);
+        this.store.updateDocument(docId, {
+          validationStatus: 'unavailable',
+          validationMessage: reason === 'payment'
+            ? 'נגמרו המסמכים בחבילה — המסמך יישמר ויבדק אחרי הוספת מסמכים.'
+            : 'הבדיקה המלאה זמינה למשתמשים מחוברים — התחברו והמסמך ייבדק.',
+          parsedOk: false,
+          needsManualReview: true
+        });
+        return true;
+      }
       // OCR down: only keep when PDF text already looks like a matching employment doc for this year.
       if (
         local

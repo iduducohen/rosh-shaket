@@ -1,5 +1,5 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { AlertController, IonButton, IonContent, IonIcon, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -16,7 +16,7 @@ import { WorkspaceService } from '../core/workspace.service';
 @Component({
   selector: 'app-welcome',
   standalone: true,
-  imports: [IonContent, IonButton, IonIcon, DeskHeaderComponent, LogoComponent, ReadingProgressComponent],
+  imports: [IonContent, IonButton, IonIcon, RouterLink, DeskHeaderComponent, LogoComponent, ReadingProgressComponent],
   styles: [`
     .promise { list-style: none; padding: 0; margin: 18px 0 22px; }
     .promise li { padding: 12px 0; border-bottom: 1px solid var(--rs-line); }
@@ -109,6 +109,7 @@ import { WorkspaceService } from '../core/workspace.service';
         <div class="upload full">
           <b>רוצים לוודא שהכול הופקד לאורך השנים?</b>
           <span class="muted small sub">בבדיקה המלאה מעלים את כל התלושים, טפסי 106 ודוחות הקופות — ובודקים חודש אחרי חודש מה הופרש, לאיזו קופה, והאם זה לפי החוק.</span>
+          <span class="muted small sub">3 מסמכים ראשונים בחינם · חבילות מ־₪29 · <a routerLink="/pricing">מחירים</a></span>
           <div class="row">
             <ion-button fill="outline" (click)="goReview()">לבדיקה המלאה</ion-button>
           </div>

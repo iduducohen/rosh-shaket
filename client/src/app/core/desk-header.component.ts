@@ -129,7 +129,9 @@ import { installReturnTracker } from './wizard-nav';
             מקורות
           </a>
           @if (auth.isSignedIn()) {
-            <span class="who"><span class="avatar" aria-hidden="true">{{ initial() }}</span>{{ auth.displayName() }}</span>
+            <a class="action who" routerLink="/account" routerLinkActive="active" aria-label="החשבון שלי">
+              <span class="avatar" aria-hidden="true">{{ initial() }}</span>{{ auth.displayName() }}
+            </a>
             <button type="button" class="action" (click)="signOut()">
               <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon>
               התנתקות
@@ -178,7 +180,7 @@ export class DeskHeaderComponent {
 
   isSidePage(): boolean {
     const u = this.path();
-    return u.startsWith('/checklist') || u.startsWith('/sources');
+    return u.startsWith('/checklist') || u.startsWith('/sources') || u.startsWith('/account') || u.startsWith('/pricing');
   }
 
   /** Full employment review has its own step nav — hide the single-payslip wizard. */
