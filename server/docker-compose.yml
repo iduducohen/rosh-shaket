@@ -51,6 +51,9 @@ services:
 
   postgres:
     image: postgres:16
+    # Local inspection (DBeaver): localhost:5433 — 5432 is often taken by other projects.
+    ports:
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_DB: rosh_shaket
       POSTGRES_USER: rosh
@@ -66,6 +69,9 @@ services:
 
   mongo:
     image: mongo:7
+    # Local inspection (MongoDB Compass): mongodb://localhost:27018
+    ports:
+      - "127.0.0.1:27018:27017"
     volumes:
       - rosh_mongo:/data/db
       - ./db/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
