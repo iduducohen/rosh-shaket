@@ -183,7 +183,7 @@
           <p>אפשר לחשב בלי להירשם. החשבון רק שומר את התוצאות.</p>
         </div>
 
-        <p class="legal">בהמשך אתם מאשרים את <button type="button" (click)="openLegal('terms')">תנאי השימוש</button> ואת <button type="button" (click)="openLegal('privacy')">מדיניות הפרטיות</button>. הערכה בלבד, לא ייעוץ משפטי.</p>
+        <p class="legal">בהמשך אתם מאשרים את <a href="/terms" (click)="$event.preventDefault(); openLegal('terms')">תנאי השימוש</a> ואת <a href="/privacy" (click)="$event.preventDefault(); openLegal('privacy')">מדיניות הפרטיות</a>. הערכה בלבד, לא ייעוץ משפטי.</p>
       </div>
     </section>
   </div>
@@ -198,6 +198,7 @@
           <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
         </button>
       </div>
+      <div class="legal-body">
       <p class="legal-updated">עודכן לאחרונה: {{ doc.updated }}</p>
       @for (section of doc.sections; track section.heading) {
         <section class="term">
@@ -208,6 +209,7 @@
       <p class="legal-more">
         <button type="button" class="link" (click)="openLegal(doc.otherPath === '/privacy' ? 'privacy' : 'terms')">{{ doc.otherLabel }}</button>
       </p>
+      </div>
     </div>
   </div>
 }

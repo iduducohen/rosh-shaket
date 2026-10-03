@@ -270,8 +270,9 @@ input.code { text-align: center; font-size: 30px; letter-spacing: 14px; font-fam
 .guest { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rs-line); text-align: center; }
 .guest p { margin: 4px 0 0; font-size: 13.5px; color: var(--ion-color-medium); }
 .legal { margin-top: 22px; font-size: 12px; color: var(--ion-color-medium); text-align: center; }
-.legal button {
-  background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
+/* Real links (Google's app verification looks for them on the home page); a click opens the in-page sheet. */
+.legal a {
+  font: inherit; color: inherit; cursor: pointer;
   text-decoration: underline; text-underline-offset: 3px;
 }
 /* Same look as the other info sheets (reason / employment «מידע נוסף»): bottom sheet on phones, centered card on desktop. */
@@ -279,17 +280,21 @@ input.code { text-align: center; font-size: 30px; letter-spacing: 14px; font-fam
   position: fixed; inset: 0; z-index: 40; background: rgba(11, 31, 38, .48);
   display: flex; align-items: flex-end; justify-content: center; padding: 12px;
 }
+/* The title and close button stay in view; only .legal-body scrolls. */
 .legal-dialog {
-  width: min(680px, 100%); max-height: min(85vh, 760px); overflow: auto; text-align: start;
+  width: min(680px, 100%); max-height: min(85vh, 760px); text-align: start;
+  display: flex; flex-direction: column; overflow: hidden;
   background: var(--ion-background-color); color: var(--ion-text-color);
-  border-radius: 18px; padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
-  scrollbar-width: thin; scrollbar-color: var(--rs-line) transparent;
+  border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
 }
 .legal-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  position: sticky; top: -16px; margin: -16px -20px 0; padding: 16px 20px 10px;
-  background: var(--ion-background-color); z-index: 1;
+  flex: none; padding: 14px 20px 10px; border-bottom: 1px solid var(--rs-line);
+}
+.legal-body {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  scrollbar-width: thin; scrollbar-color: var(--rs-line) transparent;
 }
 .legal-head h2 { margin: 0; font-size: 22px; }
 .legal-close {
