@@ -31,7 +31,12 @@ public enum WorkWeek
 public enum PayType
 {
     Monthly,
-    Hourly
+    Hourly,
+    /// <summary>
+    /// A monthly salary with a fixed "global overtime" component. The rights follow the monthly rules,
+    /// and the component stays out of the base salary they are computed on.
+    /// </summary>
+    Global
 }
 
 public enum Certainty

@@ -271,6 +271,17 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
         </div>
       </section>
 
+      <section class="sec experts" aria-label="החזר מס">
+        <h3>אולי מגיע לכם גם החזר מס?</h3>
+        <p class="lead">מי שמסיים לעבוד באמצע השנה שילם לרוב יותר מס הכנסה ממה שמגיע. אפשר לבקש את ההפרש מרשות המסים עד 6 שנים אחורה.</p>
+        <div class="expert-cards">
+          <a class="expert" routerLink="/tax-refund">
+            <b>לבדיקת החזר מס</b>
+            <span>הערכה לפי הנתונים שלכם, הנחיות להגשה וקישורים רשמיים.</span>
+          </a>
+        </div>
+      </section>
+
       <section class="sec estimate" aria-label="אומדן סיום">
         <h3>מה מגיע בסיום העבודה</h3>
         <p class="lead">מה שהופקד לקופה אינו בהכרח מה שמגיע כפיצויי פיטורים.</p>

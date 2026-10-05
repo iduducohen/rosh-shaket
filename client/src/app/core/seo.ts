@@ -28,6 +28,7 @@ export const SEO = {
   reports: { title: 'דוחות · יוצאים בראש שקט', index: false },
   checklist: { title: 'צ\'קליסט · יוצאים בראש שקט', index: false },
   sources: { title: 'מקורות · יוצאים בראש שקט', index: false },
+  taxRefund: { title: 'החזר מס · יוצאים בראש שקט', index: false },
   professionals: { title: 'אנשי מקצוע · יוצאים בראש שקט', index: false },
   lawyers: { title: 'עורכי דין · יוצאים בראש שקט', index: false },
   terms: {

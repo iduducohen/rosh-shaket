@@ -74,7 +74,7 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
     .s14-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .seg-label { font-weight: 600; margin: 12px 0 6px; display: block; }
     .pay-type { margin: 0 0 14px; }
-    .pay-type ion-segment { max-width: 420px; }
+    .pay-type ion-segment { max-width: 520px; }
     .s14-note { display: block; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
     .more {
       background: none; border: 0; padding: 0; cursor: pointer;
@@ -157,14 +157,18 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
           <p class="slip-note muted small">תלוש אחרון מספיק להערכה של שכר, חופשה והבראה. הפקדות לאורך השנים בודקים בדוח מהמסלקה הפנסיונית.</p>
         }
 
-        <div class="pay-type" [class.filled]="isFilled('hourlyRate')">
-          <span class="seg-label" id="pay-type-label">איך משולם השכר? @if (isFilled('hourlyRate')) { <span class="from-slip">· מהתלוש</span> }</span>
+        <div class="pay-type" [class.filled]="isFilled('hourlyRate') || isFilled('globalOvertime')">
+          <span class="seg-label" id="pay-type-label">איך משולם השכר? @if (isFilled('hourlyRate') || isFilled('globalOvertime')) { <span class="from-slip">· מהתלוש</span> }</span>
           <ion-segment [(ngModel)]="payType" name="payType" aria-labelledby="pay-type-label" (ionChange)="refreshMarks()">
             <ion-segment-button value="Monthly"><ion-label>שכר חודשי קבוע</ion-label></ion-segment-button>
+            <ion-segment-button value="Global"><ion-label>גלובלי</ion-label></ion-segment-button>
             <ion-segment-button value="Hourly"><ion-label>לפי שעות</ion-label></ion-segment-button>
           </ion-segment>
           @if (payType === 'Hourly') {
             <p class="field-hint">אצל עובד שעתי החוק קובע חישוב אחר להודעה המוקדמת, לשכר הקובע לפיצויים ולהיקף המשרה.</p>
+          }
+          @if (payType === 'Global') {
+            <p class="field-hint">שכר גלובלי הוא שכר חודשי קבוע שכולל תשלום על שעות נוספות, בלי קשר למספר השעות בפועל. הפיצויים, החופשה וההפרשות מחושבים לפי שכר היסוד בלבד, ולכן מפרידים בין השניים.</p>
           }
         </div>
 
@@ -207,6 +211,18 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
               </ion-item>
               <p class="field-hint">שכר יסוד בלבד — בלי שעות נוספות והחזרים</p>
             </div>
+            @if (payType === 'Global') {
+              <div>
+                <ion-item [class.filled]="isFilled('globalOvertime')">
+                  <ion-input [label]="slipLabel('שעות נוספות גלובליות בחודש (₪)', 'globalOvertime')" labelPlacement="stacked" type="number" inputmode="decimal" min="0"
+                             [(ngModel)]="form.globalOvertime" name="globalOvertime"></ion-input>
+                </ion-item>
+                <p class="field-hint">
+                  הסכום בשורה «שעות נוספות גלובליות» או «תוספת גלובלית» בתלוש. אם בתלוש יש רק שורת שכר אחת, בלי הפרדה, השאירו 0 והזינו את כל השכר בשדה שכר היסוד.
+                  @if (globalTotal(); as total) { <b>סך הכל בחודש: ₪{{ total | number:'1.0-0' }}</b> }
+                </p>
+              </div>
+            }
             <ion-item [class.filled]="isFilled('jobPercent')">
               <ion-input [label]="slipLabel('היקף משרה (%)', 'jobPercent')" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
             </ion-item>
@@ -448,6 +464,13 @@ export class DetailsPage {
     this.form.recuperationDaysPaidLastYear = cleaned.value;
   }
 
+  /** Base salary plus the global-overtime component, once both are filled. */
+  globalTotal(): number | null {
+    const base = Number(this.form.monthlySalary);
+    const overtime = Number(this.form.globalOvertime);
+    return base > 0 && overtime > 0 ? base + overtime : null;
+  }
+
   /** What the rate and hours come to per month — shown under the hours field so the user can sanity-check it. */
   hourlySummary(): { monthlySalary: number; jobPercent: number } | null {
     const rate = Number(this.form.hourlyRate);
@@ -480,6 +503,7 @@ export class DetailsPage {
       payType: this.payType,
       hourlyRate: this.payType === 'Hourly' ? Number(f.hourlyRate) || null : null,
       averageMonthlyHours: this.payType === 'Hourly' ? Number(f.averageMonthlyHours) || null : null,
+      globalOvertime: this.payType === 'Global' ? Math.max(0, Number(f.globalOvertime) || 0) : null,
       // Hourly: the monthly figures are derived, so the screens that show a salary keep working.
       monthlySalary: hourly?.monthlySalary ?? (Number(f.monthlySalary) || 0),
       jobPercent: hourly?.jobPercent ?? (Number(f.jobPercent) || 100),
@@ -532,15 +556,7 @@ export class DetailsPage {
       this.error.set('');
       return;
     }
-    const f = this.form;
-    this.store.profile.set({
-      ...f,
-      monthlySalary: Number(f.monthlySalary),
-      jobPercent: Number(f.jobPercent) || 100,
-      vacationBalanceDays: Number(f.vacationBalanceDays) || 0,
-      recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0,
-      lastRecuperationPaid: f.lastRecuperationPaid || null
-    });
+    this.saveForm();
     this.busy.set(true);
     this.error.set('');
     this.fieldErrors.set({});

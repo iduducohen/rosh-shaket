@@ -33,6 +33,7 @@ export const routes: Routes = [
   { path: 'details', canActivate: [sessionGuard, detailsStepGuard], loadComponent: () => import('./pages/details.page').then(m => m.DetailsPage), data: { seo: SEO.details } },
   { path: 'checklist', canActivate: [sessionGuard], loadComponent: () => import('./pages/checklist.page').then(m => m.ChecklistPage), data: { seo: SEO.checklist } },
   { path: 'sources', canActivate: [sessionGuard], loadComponent: () => import('./pages/sources.page').then(m => m.SourcesPage), data: { seo: SEO.sources } },
+  { path: 'tax-refund', canActivate: [sessionGuard], loadComponent: () => import('./pages/tax-refund.page').then(m => m.TaxRefundPage), data: { seo: SEO.taxRefund } },
   { path: 'help/professionals', canActivate: [sessionGuard], loadComponent: () => import('./pages/partners.page').then(m => m.PartnersPage), data: { seo: SEO.professionals, kind: 'professionals' } },
   { path: 'help/lawyers', canActivate: [sessionGuard], loadComponent: () => import('./pages/partners.page').then(m => m.PartnersPage), data: { seo: SEO.lawyers, kind: 'lawyers' } },
   { path: 'help/:kind/:id', canActivate: [sessionGuard], loadComponent: () => import('./pages/partner-contact.page').then(m => m.PartnerContactPage), data: { seo: SEO.professionals } },

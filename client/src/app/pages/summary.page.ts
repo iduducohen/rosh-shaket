@@ -77,6 +77,7 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
           <a routerLink="/results/reports">דוחות</a>
           <a routerLink="/checklist">צ'קליסט</a>
           <a routerLink="/sources">מקורות</a>
+          <a routerLink="/tax-refund">החזר מס</a>
         </nav>
         @if (store.results().length > 1) {
           <ion-segment [value]="store.activeIndex()" (ionChange)="store.activeIndex.set(+($any($event).detail.value))">
@@ -119,6 +120,9 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
             @if (store.profile().payType === 'Hourly') {
               עובד/ת לפי שעות: ₪{{ store.profile().hourlyRate | number:'1.0-2' }} לשעה × {{ store.profile().averageMonthlyHours | number:'1.0-1' }} שעות בחודש בממוצע
               (שכר חודשי ₪{{ store.profile().monthlySalary | number:'1.0-0' }}, משרה {{ store.profile().jobPercent | number:'1.0-0' }}%),
+            } @else if (store.profile().payType === 'Global') {
+              שכר גלובלי: שכר יסוד ₪{{ store.profile().monthlySalary | number:'1.0-0' }}
+              @if (store.profile().globalOvertime) { + שעות נוספות גלובליות ₪{{ store.profile().globalOvertime | number:'1.0-0' }} (לא נכללות בחישוב) }, משרה {{ store.profile().jobPercent }}%,
             } @else {
               שכר ₪{{ store.profile().monthlySalary | number:'1.0-0' }}, משרה {{ store.profile().jobPercent }}%,
             }
@@ -151,6 +155,11 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
             <b>רוצים לוודא שהכול הופקד לאורך כל התקופה?</b>
             <p>בבדיקה המלאה מעלים את כל התלושים, טופסי 106 ודוחות הקופות — ובודקים חודש אחרי חודש מה הופרש, לאיזו קופה והאם חסר משהו.</p>
             <ion-button fill="outline" (click)="fullReview()">לבדיקה המלאה</ion-button>
+          </section>
+          <section class="full-cta">
+            <b>אולי מגיע לכם גם החזר מס?</b>
+            <p>מי שמסיים לעבוד באמצע השנה שילם לרוב יותר מס הכנסה ממה שמגיע. בדקנו לפי הנתונים שלכם אם כדאי להגיש בקשה, עם הנחיות וקישורים לתהליך.</p>
+            <ion-button fill="outline" routerLink="/tax-refund">לבדיקת החזר מס</ion-button>
           </section>
           <app-paid-help></app-paid-help>
           <app-experience-review></app-experience-review>

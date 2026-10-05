@@ -33,7 +33,9 @@ public sealed record PayslipExtraction(
     decimal? HourlyRate = null,
     decimal? HoursWorked = null,
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
-    Documents.AiUsage? Usage = null);
+    Documents.AiUsage? Usage = null,
+    /// <summary>The monthly "global overtime" component, when the payslip shows one next to the base salary.</summary>
+    decimal? GlobalOvertime = null);
 
 /// <summary>What the client pre-fills for the user to confirm.</summary>
 public sealed record ProfileDraft(
@@ -55,7 +57,9 @@ public sealed record ProfileDraft(
     /// <summary>Hourly when the payslip shows an hourly rate; the hours are this payslip's, a starting point for the average.</summary>
     PayType PayType = PayType.Monthly,
     decimal? HourlyRate = null,
-    decimal? MonthlyHours = null);
+    decimal? MonthlyHours = null,
+    /// <summary>Set with <see cref="PayType.Global"/>: the global overtime component printed on the payslip.</summary>
+    decimal? GlobalOvertime = null);
 
 public sealed class PayslipUploadPolicy
 {
@@ -104,6 +108,10 @@ public static class PayslipMapper
         var hourly = x.HourlyRate is > 0;
         if (hourly) { filled.Add("hourlyRate"); if (x.HoursWorked is > 0) filled.Add("averageMonthlyHours"); }
 
+        // Global salary: a monthly payslip with a separate global-overtime line.
+        var global = !hourly && x.GlobalOvertime is > 0;
+        if (global) filled.Add("globalOvertime");
+
         var missing = new List<string>();
         if (x.StartDate is null) missing.Add("startDate");
         if (!hourly && x.BaseSalary is null) missing.Add("monthlySalary");
@@ -111,7 +119,8 @@ public static class PayslipMapper
 
         return new ProfileDraft(x.IsPayslip, x.PayslipMonth, x.StartDate, x.BaseSalary, x.JobPercent, week,
             x.VacationBalance, x.RecuperationDaysPaid, s14, study, filled, missing, x.Readable, funds, x.EmployerName,
-            hourly ? PayType.Hourly : PayType.Monthly, hourly ? x.HourlyRate : null, hourly && x.HoursWorked is > 0 ? x.HoursWorked : null);
+            hourly ? PayType.Hourly : global ? PayType.Global : PayType.Monthly, hourly ? x.HourlyRate : null,
+            hourly && x.HoursWorked is > 0 ? x.HoursWorked : null, global ? x.GlobalOvertime : null);
     }
 }
 

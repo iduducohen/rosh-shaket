@@ -23,6 +23,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
          "employer_name": "שם המעסיק או מחרוזת ריקה",
          "hourly_rate": מספר (תעריף לשעה אם העובד משתכר לפי שעות, אחרת 0),
          "hours_worked": מספר (שעות העבודה הרגילות ששולמו בחודש הזה, אחרת 0),
+         "global_overtime": מספר (סכום רכיב השעות הנוספות הגלובליות בחודש, אחרת 0),
          "payslip_month": "YYYY-MM" או null,
          "start_date": "YYYY-MM-DD" או null (תאריך תחילת עבודה / ותק),
          "base_salary": מספר או null (שכר יסוד חודשי ברוטו, בלי שעות נוספות והחזרים),
@@ -43,6 +44,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
         אם נתון לא מופיע בבירור, החזר null. אל תנחש ואל תשלים.
         hourly_rate גדול מ-0 רק אם התלוש משלם לפי שעות: יש שורת שכר עם כמות שעות ותעריף לשעה ("שעות רגילות", "שכר שעתי", "תעריף"). בתלוש של שכר חודשי קבוע החזר 0, גם אם מופיעות בו שעות נוספות.
         hours_worked הוא מספר השעות הרגילות ששולמו בחודש (בלי שעות נוספות). אם אין — 0.
+        global_overtime גדול מ-0 רק אם בתלוש יש שורת תשלום קבועה על שעות נוספות גלובליות ("שעות נוספות גלובליות", "ש.נ. גלובלי", "תוספת גלובלית", "גלובלי"). החזר את הסכום בשקלים של השורה הזאת, ואל תכלול אותו ב-base_salary. שעות נוספות רגילות שמשולמות לפי כמות שעות (125%, 150%) אינן גלובליות: החזר 0.
         employer_name הוא שם המעסיק (חברה / עסק) כפי שמודפס בכותרת התלוש. לעולם לא שם העובד. אם לא מופיע, מחרוזת ריקה.
         is_payslip הוא true רק אם זה בבירור תלוש שכר ישראלי. אחרת false. לא חוזה, לא חשבונית, לא תעודה ולא תמונה אחרת.
         readable הוא true רק אם הטקסט חד וקריא מספיק כדי לקרוא שכר ותאריכים. false אם התמונה מטושטשת, חשוכה, חתוכה, או חסר בה חלק מהדף.
@@ -166,7 +168,8 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
                 NonNegative(ReadDecimal(raw, "recuperation_days_paid")), Positive(ReadDecimal(raw, "severance_rate")),
                 ReadBool(raw, "has_keren_hishtalmut"), ReadBool(raw, "readable") ?? isPayslip, ReadFunds(raw),
                 EmployerName(ReadString(raw, "employer_name")),
-                Positive(ReadDecimal(raw, "hourly_rate")), Positive(ReadDecimal(raw, "hours_worked")));
+                Positive(ReadDecimal(raw, "hourly_rate")), Positive(ReadDecimal(raw, "hours_worked")),
+                GlobalOvertime: Positive(ReadDecimal(raw, "global_overtime")));
         }
     }
 
@@ -302,6 +305,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
             "employer_name": { "type": "string" },
             "hourly_rate": { "type": "number" },
             "hours_worked": { "type": "number" },
+            "global_overtime": { "type": "number" },
             "payslip_month": { "type": ["string", "null"] },
             "start_date": { "type": ["string", "null"] },
             "base_salary": { "type": ["number", "null"] },
@@ -328,7 +332,7 @@ public sealed class ClaudePayslipExtractor(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["is_payslip", "readable", "employer_name", "hourly_rate", "hours_worked", "payslip_month", "start_date", "base_salary", "job_percent", "work_days_per_week", "vacation_balance", "recuperation_days_paid", "severance_rate", "has_keren_hishtalmut", "funds"]
+          "required": ["is_payslip", "readable", "employer_name", "hourly_rate", "hours_worked", "global_overtime", "payslip_month", "start_date", "base_salary", "job_percent", "work_days_per_week", "vacation_balance", "recuperation_days_paid", "severance_rate", "has_keren_hishtalmut", "funds"]
         }
         """;
 }

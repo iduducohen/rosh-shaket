@@ -54,6 +54,18 @@ describe('WizardStore', () => {
     expect(store.profile().jobPercent).toBe(100);
   });
 
+  it('turns a payslip with a global-overtime line into a global salary, keeping the base apart', () => {
+    store.applyDraft({
+      isPayslip: true, payslipMonth: '2026-08', startDate: '2022-01-01', monthlySalary: 12000, jobPercent: 100, workWeek: 'FiveDays',
+      vacationBalanceDays: 4, recuperationDaysPaidLastYear: null, section14Suggestion: null, hasStudyFund: null,
+      filled: ['monthlySalary', 'globalOvertime'], missing: [], payType: 'Global', globalOvertime: 3000
+    });
+    const p = store.profile();
+    expect(p.payType).toBe('Global');
+    expect(p.monthlySalary).toBe(12000);
+    expect(p.globalOvertime).toBe(3000);
+  });
+
   it('reset clears everything', () => {
     store.choice.set('Fired');
     store.reset();

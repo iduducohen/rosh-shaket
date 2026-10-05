@@ -25,9 +25,12 @@ export interface ProfileDto {
   averageMonthlyHours?: number | null;
   /** yyyy-MM-01: the month recuperation pay was last paid. When set, the relative part since then is owed. */
   lastRecuperationPaid?: string | null;
+  /** Global salary only: the monthly global-overtime component, paid on top of monthlySalary (the base). 0 = not separated. */
+  globalOvertime?: number | null;
 }
 
-export type PayType = 'Monthly' | 'Hourly';
+/** Global = a monthly salary with a fixed global-overtime component; the rights follow the monthly rules. */
+export type PayType = 'Monthly' | 'Hourly' | 'Global';
 
 /** A full-time month in the private sector; hours above it are overtime. */
 export const FULL_TIME_MONTHLY_HOURS = 182;
@@ -95,6 +98,8 @@ export interface ProfileDraft {
   payType?: PayType;
   hourlyRate?: number | null;
   monthlyHours?: number | null;
+  /** Set with payType Global: the global-overtime line on the payslip. */
+  globalOvertime?: number | null;
 }
 
 export interface ChecklistItem {

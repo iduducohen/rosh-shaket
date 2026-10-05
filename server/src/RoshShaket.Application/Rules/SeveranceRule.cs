@@ -16,7 +16,9 @@ public sealed class SeveranceRule : IRightsRule
         // Hourly: the determining salary is the last rate × average monthly hours over the whole employment.
         var basis = p is { PayType: PayType.Hourly, HourlyRate: { } rate, AverageMonthlyHours: { } hours }
             ? $"שכר קובע: תעריף {Ils(rate)} לשעה × {Num(Math.Min(hours, HourlyPolicy.FullTimeMonthlyHours))} שעות בחודש בממוצע = {Ils(p.MonthlySalary)}. × {Num(s.Years)} שנות ותק = {Ils(full)}."
-            : $"שכר {Ils(p.MonthlySalary)} × {Num(s.Years)} שנות ותק = {Ils(full)}.";
+            : p is { PayType: PayType.Global, GlobalOvertime: > 0 }
+                ? $"שכר יסוד {Ils(p.MonthlySalary)}, בלי השעות הנוספות הגלובליות, × {Num(s.Years)} שנות ותק = {Ils(full)}."
+                : $"שכר {Ils(p.MonthlySalary)} × {Num(s.Years)} שנות ותק = {Ils(full)}.";
 
         if (s.Years < 1m)
         {

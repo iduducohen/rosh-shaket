@@ -99,4 +99,41 @@ public class HourlyEmployeeTests
         Assert.Equal(PayType.Monthly, monthly.PayType);
         Assert.Null(monthly.HourlyRate);
     }
+
+    [Fact]
+    public void A_global_salary_keeps_the_overtime_component_out_of_the_determining_salary()
+    {
+        var p = EmploymentProfile.Create(Start, new DateOnly(2025, 1, 1), 12000m, 100m, WorkWeek.FiveDays, 10m, 0m,
+            Section14Arrangement.None, hasStudyFund: false, PayType.Global, globalOvertime: 3000m);
+
+        var r = Calculator().Calculate(new RuleContext(p, ExitReason.Fired, Values));
+        var severance = r.Components.Single(c => c.Code == "severance");
+        Assert.InRange(severance.Amount!.Value, 36000m, 36020m);   // 12,000 × 3 years, without the 3,000
+        Assert.Contains("שכר יסוד", severance.Explanation);
+        Assert.Contains(r.Advisories, a => a.Contains("15,000"));   // what the salary would be if the component is part of it
+        Assert.True(NoticePeriodPolicy.For(PayType.Global, p.Seniority).IsFullMonth);   // the monthly rules
+    }
+
+    [Fact]
+    public void A_global_salary_with_no_separate_component_is_flagged_as_an_all_inclusive_wage()
+    {
+        var p = EmploymentProfile.Create(Start, new DateOnly(2025, 1, 1), 15000m, 100m, WorkWeek.FiveDays, 10m, 0m,
+            Section14Arrangement.None, hasStudyFund: false, PayType.Global);
+
+        Assert.Equal(0m, p.GlobalOvertime);
+        var r = Calculator().Calculate(new RuleContext(p, ExitReason.Fired, Values));
+        Assert.Contains(r.Advisories, a => a.Contains("שכר כולל"));
+    }
+
+    [Fact]
+    public void A_payslip_with_a_global_overtime_line_prefills_a_global_salary()
+    {
+        var draft = PayslipMapper.ToDraft(new PayslipExtraction(true, "2025-01", null, 12000m, 100m, 5, null, null, null, null,
+            GlobalOvertime: 3000m));
+
+        Assert.Equal(PayType.Global, draft.PayType);
+        Assert.Equal(3000m, draft.GlobalOvertime);
+        Assert.Equal(12000m, draft.MonthlySalary);
+        Assert.Contains("globalOvertime", draft.Filled);
+    }
 }

@@ -24,15 +24,21 @@ public sealed record EmploymentProfile
     /// for the months since. Null = unknown, and <see cref="RecuperationDaysPaidLastYear"/> is used instead.
     /// </summary>
     public DateOnly? LastRecuperationPaid { get; }
+    /// <summary>
+    /// Global salary only: the monthly "global overtime" component, paid on top of <see cref="MonthlySalary"/>.
+    /// Zero when the payslip does not separate it from the base salary.
+    /// </summary>
+    public decimal? GlobalOvertime { get; }
 
     public Seniority Seniority => Seniority.Between(StartDate, EndDate);
     public decimal JobFraction => JobPercent / 100m;
 
     private EmploymentProfile(DateOnly start, DateOnly end, decimal salary, decimal jobPercent, WorkWeek workWeek,
         decimal vacationBalance, decimal recuperationPaid, Section14Arrangement section14, bool hasStudyFund, PayType payType,
-        decimal? hourlyRate, decimal? averageMonthlyHours, DateOnly? lastRecuperationPaid)
+        decimal? hourlyRate, decimal? averageMonthlyHours, DateOnly? lastRecuperationPaid, decimal? globalOvertime)
     {
         LastRecuperationPaid = lastRecuperationPaid;
+        GlobalOvertime = globalOvertime;
         StartDate = start;
         EndDate = end;
         MonthlySalary = salary;
@@ -50,7 +56,8 @@ public sealed record EmploymentProfile
     public static EmploymentProfile Create(DateOnly start, DateOnly end, decimal monthlySalary, decimal jobPercent,
         WorkWeek workWeek, decimal vacationBalanceDays, decimal recuperationDaysPaidLastYear,
         Section14Arrangement section14, bool hasStudyFund, PayType payType = PayType.Monthly,
-        decimal? hourlyRate = null, decimal? averageMonthlyHours = null, DateOnly? lastRecuperationPaid = null)
+        decimal? hourlyRate = null, decimal? averageMonthlyHours = null, DateOnly? lastRecuperationPaid = null,
+        decimal? globalOvertime = null)
     {
         var errors = new Dictionary<string, string>();
         if (payType == PayType.Hourly)
@@ -80,10 +87,12 @@ public sealed record EmploymentProfile
         if (!Enum.IsDefined(workWeek)) errors["workWeek"] = "ימי עבודה בשבוע: 1 עד 6";
         if (vacationBalanceDays < 0) errors["vacationBalanceDays"] = "יתרת חופשה לא יכולה להיות שלילית";
         if (recuperationDaysPaidLastYear < 0) errors["recuperationDaysPaidLastYear"] = "ימי הבראה לא יכולים להיות שליליים";
+        globalOvertime = payType == PayType.Global ? globalOvertime ?? 0m : null;
+        if (globalOvertime < 0) errors["globalOvertime"] = "רכיב השעות הנוספות לא יכול להיות שלילי";
         if (lastRecuperationPaid > end) errors["lastRecuperationPaid"] = "מועד תשלום ההבראה לא יכול להיות אחרי תאריך הסיום";
         if (errors.Count > 0) throw new DomainValidationException(errors);
 
         return new EmploymentProfile(start, end, monthlySalary, jobPercent, workWeek, vacationBalanceDays,
-            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours, lastRecuperationPaid);
+            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours, lastRecuperationPaid, globalOvertime);
     }
 }

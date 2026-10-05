@@ -35,10 +35,12 @@ export class WizardStore {
     const p = this.profile();
     const hourly = d.payType === 'Hourly' && (d.hourlyRate ?? 0) > 0;
     // An hourly payslip gives a rate and this month's hours; the monthly figures are derived from them.
+    const global = !hourly && d.payType === 'Global' && (d.globalOvertime ?? 0) > 0;
     const derived = hourly && d.monthlyHours ? hourlyMonthly(d.hourlyRate!, d.monthlyHours) : null;
     this.profile.set({
       ...p,
-      payType: hourly ? 'Hourly' : 'Monthly',
+      payType: hourly ? 'Hourly' : global ? 'Global' : 'Monthly',
+      globalOvertime: global ? d.globalOvertime : null,
       hourlyRate: hourly ? d.hourlyRate : null,
       averageMonthlyHours: hourly ? d.monthlyHours ?? null : null,
       startDate: d.startDate ?? p.startDate,
