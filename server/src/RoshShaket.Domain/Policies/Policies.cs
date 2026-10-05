@@ -65,6 +65,20 @@ public static class RecuperationPolicy
     };
 
     public static bool IsEntitled(Seniority seniority) => seniority.Years >= 1m;
+
+    /// <summary>After the employment ends, recuperation pay can be claimed for the last two years only.</summary>
+    public const int MaxMonthsOwed = 24;
+
+    /// <summary>
+    /// Whole months of work not yet covered by a recuperation payment: from the last payment
+    /// (or the start of work, when the payment date is earlier) to the end, up to two years.
+    /// </summary>
+    public static int MonthsOwed(DateOnly start, DateOnly lastPaid, DateOnly end)
+    {
+        var from = lastPaid < start ? start : lastPaid;
+        var months = (end.Year - from.Year) * 12 + end.Month - from.Month - (end.Day < from.Day ? 1 : 0);
+        return Math.Clamp(months, 0, MaxMonthsOwed);
+    }
 }
 
 public static class SeverancePolicy

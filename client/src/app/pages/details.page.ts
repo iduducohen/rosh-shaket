@@ -229,6 +229,13 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
                        [ngModel]="recText" name="rec" helperText="מה ששולם בפועל, לא המכסה"
                        (ngModelChange)="onRec($event)"></ion-input>
           </ion-item>
+          <ion-item [class.field-invalid]="!!fieldErrors()['lastRecuperationPaid']">
+            <ion-input label="מתי שולמה ההבראה בפעם האחרונה? (לא חובה)" labelPlacement="stacked" type="month" name="recPaid"
+                       [max]="form.endDate.slice(0, 7)" [ngModel]="recPaidMonth()" (ngModelChange)="onRecPaid($event)"
+                       [class.ion-invalid]="!!fieldErrors()['lastRecuperationPaid']" [class.ion-touched]="!!fieldErrors()['lastRecuperationPaid']"
+                       [errorText]="fieldErrors()['lastRecuperationPaid'] ?? ''"
+                       helperText="החודש שבו הופיעה בתלוש. נחשב את החלק היחסי שמגיע מאז, במקום לפי ימים"></ion-input>
+          </ion-item>
         </ion-list>
 
         <div class="s14" [class.filled]="isFilled('section14')">
@@ -326,6 +333,11 @@ export class DetailsPage {
   readonly latestEnd = latestEndDate();
   readonly latestStart = latestStartDate();
   earliestEnd(): string | null { return earliestEndDate(this.form.startDate); }
+  recPaidMonth(): string { return this.form.lastRecuperationPaid?.slice(0, 7) ?? ''; }
+  onRecPaid(month: string | null): void {
+    this.form.lastRecuperationPaid = month ? month + '-01' : null;
+    if (this.checked()) this.fieldErrors.set(this.collectErrors());
+  }
   readonly busy = signal(false);
   readonly error = signal('');
   readonly fieldErrors = signal<Partial<Record<string, string>>>({});
@@ -473,6 +485,7 @@ export class DetailsPage {
       jobPercent: hourly?.jobPercent ?? (Number(f.jobPercent) || 100),
       vacationBalanceDays: Number(f.vacationBalanceDays) || 0,
       recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0,
+      lastRecuperationPaid: f.lastRecuperationPaid || null,
       hasStudyFund: !!f.hasStudyFund
     });
   }
@@ -506,6 +519,8 @@ export class DetailsPage {
       const message = this.problem(field);
       if (message) errors[field] = message;
     }
+    const recPaid = this.form.lastRecuperationPaid;
+    if (recPaid && this.form.endDate && recPaid > this.form.endDate) errors['lastRecuperationPaid'] = 'החודש צריך להיות לפני תאריך הסיום.';
     return errors;
   }
 
@@ -523,7 +538,8 @@ export class DetailsPage {
       monthlySalary: Number(f.monthlySalary),
       jobPercent: Number(f.jobPercent) || 100,
       vacationBalanceDays: Number(f.vacationBalanceDays) || 0,
-      recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0
+      recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0,
+      lastRecuperationPaid: f.lastRecuperationPaid || null
     });
     this.busy.set(true);
     this.error.set('');

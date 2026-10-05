@@ -23,6 +23,8 @@ export interface ProfileDto {
   /** Hourly only: the last hourly rate, and average hours a month over the whole employment. */
   hourlyRate?: number | null;
   averageMonthlyHours?: number | null;
+  /** yyyy-MM-01: the month recuperation pay was last paid. When set, the relative part since then is owed. */
+  lastRecuperationPaid?: string | null;
 }
 
 export type PayType = 'Monthly' | 'Hourly';

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RoshShaket.Domain;
 
 namespace RoshShaket.Infrastructure.Postgres;
@@ -45,6 +46,15 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
                 SeveranceTaxExemptCapPerYear = 13750m,
                 FullSeveranceRatePercent = 8.33m,
                 Note = "ערכי פיתוח – לאמת לפני השקה"
+            },
+            new AnnualValuesRow
+            {
+                Id = 2,
+                ValidFrom = AnnualValuesSeed.Year2026,
+                RecuperationDayValue = AnnualValuesSeed.RecuperationDayValue2026,
+                SeveranceTaxExemptCapPerYear = 13750m,
+                FullSeveranceRatePercent = 8.33m,
+                Note = AnnualValuesSeed.Note2026
             });
         });
 
@@ -183,6 +193,28 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.PartnerId, x.UserId }).IsUnique();
         });
+    }
+}
+
+/// <summary>
+/// Yearly values added after the first release. EnsureCreated seeds only a new database,
+/// so <see cref="EnsureAsync"/> adds the missing rows to a database that already exists.
+/// </summary>
+public static class AnnualValuesSeed
+{
+    public static readonly DateOnly Year2026 = new(2026, 1, 1);
+    /// <summary>Private sector, recuperation year 2026: extension order published 18.8.2026 (general collective agreement of 22.6.2026).</summary>
+    public const decimal RecuperationDayValue2026 = 451.50m;
+    public const string Note2026 = "הבראה 2026: צו הרחבה מיום 18.8.2026. תקרת הפטור לפיצויים – לאמת לפני השקה";
+
+    public static async Task EnsureAsync(RightsDbContext db, ILogger logger, CancellationToken ct = default)
+    {
+        var added = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO annual_values ("ValidFrom", "RecuperationDayValue", "SeveranceTaxExemptCapPerYear", "FullSeveranceRatePercent", "Note")
+            VALUES ({Year2026}, {RecuperationDayValue2026}, 13750, 8.33, {Note2026})
+            ON CONFLICT ("ValidFrom") DO NOTHING
+            """, ct);
+        if (added > 0) logger.LogInformation("Added the 2026 annual values.");
     }
 }
 

@@ -19,14 +19,20 @@ public sealed record EmploymentProfile
     public decimal? HourlyRate { get; }
     /// <summary>Hourly employees only: average hours a month over the whole employment.</summary>
     public decimal? AverageMonthlyHours { get; }
+    /// <summary>
+    /// When recuperation pay was last paid, if the employee knows. The employer then owes the relative part
+    /// for the months since. Null = unknown, and <see cref="RecuperationDaysPaidLastYear"/> is used instead.
+    /// </summary>
+    public DateOnly? LastRecuperationPaid { get; }
 
     public Seniority Seniority => Seniority.Between(StartDate, EndDate);
     public decimal JobFraction => JobPercent / 100m;
 
     private EmploymentProfile(DateOnly start, DateOnly end, decimal salary, decimal jobPercent, WorkWeek workWeek,
         decimal vacationBalance, decimal recuperationPaid, Section14Arrangement section14, bool hasStudyFund, PayType payType,
-        decimal? hourlyRate, decimal? averageMonthlyHours)
+        decimal? hourlyRate, decimal? averageMonthlyHours, DateOnly? lastRecuperationPaid)
     {
+        LastRecuperationPaid = lastRecuperationPaid;
         StartDate = start;
         EndDate = end;
         MonthlySalary = salary;
@@ -44,7 +50,7 @@ public sealed record EmploymentProfile
     public static EmploymentProfile Create(DateOnly start, DateOnly end, decimal monthlySalary, decimal jobPercent,
         WorkWeek workWeek, decimal vacationBalanceDays, decimal recuperationDaysPaidLastYear,
         Section14Arrangement section14, bool hasStudyFund, PayType payType = PayType.Monthly,
-        decimal? hourlyRate = null, decimal? averageMonthlyHours = null)
+        decimal? hourlyRate = null, decimal? averageMonthlyHours = null, DateOnly? lastRecuperationPaid = null)
     {
         var errors = new Dictionary<string, string>();
         if (payType == PayType.Hourly)
@@ -74,9 +80,10 @@ public sealed record EmploymentProfile
         if (!Enum.IsDefined(workWeek)) errors["workWeek"] = "ימי עבודה בשבוע: 1 עד 6";
         if (vacationBalanceDays < 0) errors["vacationBalanceDays"] = "יתרת חופשה לא יכולה להיות שלילית";
         if (recuperationDaysPaidLastYear < 0) errors["recuperationDaysPaidLastYear"] = "ימי הבראה לא יכולים להיות שליליים";
+        if (lastRecuperationPaid > end) errors["lastRecuperationPaid"] = "מועד תשלום ההבראה לא יכול להיות אחרי תאריך הסיום";
         if (errors.Count > 0) throw new DomainValidationException(errors);
 
         return new EmploymentProfile(start, end, monthlySalary, jobPercent, workWeek, vacationBalanceDays,
-            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours);
+            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours, lastRecuperationPaid);
     }
 }

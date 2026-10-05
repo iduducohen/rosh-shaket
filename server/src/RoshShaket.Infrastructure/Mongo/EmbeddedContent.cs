@@ -3,8 +3,8 @@ using RoshShaket.Domain.Content;
 namespace RoshShaket.Infrastructure.Mongo;
 
 /// <summary>
-/// Built-in editorial copy matching server/db/mongo-init.js.
-/// Used when Mongo is down or empty so checklist/sources never 500 in production.
+/// Built-in editorial copy matching server/db/mongo-init.js — the source of truth for the checklist and sources.
+/// Used when Mongo is down or empty, and synced into Mongo on startup (see MongoContentSeed).
 /// </summary>
 internal static class EmbeddedContent
 {
@@ -22,7 +22,8 @@ internal static class EmbeddedContent
         new("hearing", "שימוע לפני פיטורים", Kz("שימוע_לפני_פיטורים"), "הזכות להשמיע טענות לפני ההחלטה"),
         new("form161", "טופס 161", Kz("טופס_161"), "הודעת המעסיק על פרישה, ומיסוי הפיצויים"),
         new("pension-clearing", "המסלקה הפנסיונית", Kz("מידע_על_החשבונות_הפנסיוניים_וקרנות_השתלמות_באמצעות_המסלקה_הפנסיונית"), "כל החסכונות הפנסיוניים במקום אחד"),
-        new("har-hakesef", "הר הכסף", Kz("הר_הכסף"), "איתור חסכונות שנשכחו")
+        new("har-hakesef", "הר הכסף", Kz("הר_הכסף"), "איתור חסכונות שנשכחו"),
+        new("waiver", "כתב ויתור וסילוק", Kz("עובד_זכאי_לפיצויי_פיטורים_גם_אם_חתם_על_הצהרת_ויתור_זכויות"), "חתימה על ויתור לא שוללת זכויות שמגיעות לפי חוק")
     ];
 
     public static IReadOnlyList<ChecklistItem> Checklist { get; } =
@@ -34,15 +35,17 @@ internal static class EmbeddedContent
         Item("document-reason", "לפני העזיבה", 5, "לתעד את הסיבה ולתת למעסיק הזדמנות לתקן", ["justified"], "resigned-justified"),
         Item("section14", "לפני העזיבה", 6, "לברר אם יש סעיף 14 ובאיזה שיעור", ["all"], "section14"),
         Item("negotiate", "לפני העזיבה", 7, "לנסות לבקש יותר מהמינימום: הודעה מוקדמת בתשלום בלי עבודה, בונוס יחסי, מכתב המלצה", ["fired", "contract"]),
-        Item("termination-letter", "ביום האחרון", 8, "לקבל מכתב סיום העסקה עם תאריכים וסיבת העזיבה", ["all"]),
+        Item("termination-letter", "ביום האחרון", 8, "לקבל אישור על תקופת העסקה: מכתב עם תאריך ההתחלה, תאריך הסיום והתפקיד. המעסיק חייב לתת אותו בתוך 14 יום, והוא נדרש בביטוח לאומי ואצל מעסיקים בעתיד", ["all"]),
         Item("form161", "ביום האחרון", 9, "לוודא שהמעסיק ממלא טופס 161", ["all"], "form161"),
-        Item("final-payslip", "ביום האחרון", 10, "לבקש את התלוש הסופי עם פירוט גמר החשבון", ["all"]),
-        Item("unemployment", "אחרי העזיבה", 11, "להירשם בשירות התעסוקה ולהגיש תביעה לדמי אבטלה", ["all"], "unemployment"),
-        Item("severance-15-days", "אחרי העזיבה", 12, "לוודא שהפיצויים שולמו בתוך 15 יום", ["fired", "justified", "contract"], "severance"),
-        Item("withdraw-or-continue", "אחרי העזיבה", 13, "להחליט: משיכת כספי הפיצויים או רציפות, ולבדוק את המס", ["all"], "form161"),
-        Item("clearing-report", "אחרי העזיבה", 14, "להזמין דוח מהמסלקה ולוודא שכל ההפקדות הגיעו", ["all"], "pension-clearing"),
-        Item("har-hakesef", "אחרי העזיבה", 15, "לבדוק בהר הכסף אם יש חסכונות שנשכחו", ["all"], "har-hakesef"),
-        Item("insurance", "אחרי העזיבה", 16, "לבדוק רציפות של ביטוח חיים ואובדן כושר עבודה שהיו דרך המעסיק", ["all"])
+        Item("release-letter", "ביום האחרון", 10, "לקבל מכתב שחרור לקופות: אישור מהמעסיק להעביר על שמכם את קרן הפנסיה, ביטוח המנהלים וקרן ההשתלמות. בלי המכתב הקופה לא תשחרר את כספי הפיצויים", ["all"], "section14"),
+        Item("final-payslip", "ביום האחרון", 11, "לבדוק את התלוש האחרון (גמר חשבון): שכר על כל ימי העבודה עד יום העזיבה, שעות נוספות, בונוסים שהובטחו, פדיון חופשה ודמי הבראה", ["all"], "vacation"),
+        Item("waiver", "ביום האחרון", 12, "לא לחתום על כתב ויתור וסילוק לפני שבדקתם שקיבלתם הכל. אסור למעסיק להתנות את התשלום בחתימה. אם חותמים, אפשר להוסיף ליד החתימה: «חתימה זו מאשרת קבלת הסכום המצוין בלבד ואינה ויתור על זכויותיי על פי דין»", ["all"], "waiver"),
+        Item("unemployment", "אחרי העזיבה", 13, "להירשם בשירות התעסוקה ולהגיש תביעה לדמי אבטלה", ["all"], "unemployment"),
+        Item("severance-15-days", "אחרי העזיבה", 14, "לוודא שהפיצויים שולמו בתוך 15 יום", ["fired", "justified", "contract"], "severance"),
+        Item("withdraw-or-continue", "אחרי העזיבה", 15, "להחליט: משיכת כספי הפיצויים או רציפות, ולבדוק את המס", ["all"], "form161"),
+        Item("clearing-report", "אחרי העזיבה", 16, "להזמין דוח מהמסלקה ולוודא שכל ההפקדות הגיעו. ההפקדה של החודש האחרון יכולה להתעכב חודש עד חודשיים, אז כדאי לבדוק שוב עד שהיא נקלטת", ["all"], "pension-clearing"),
+        Item("har-hakesef", "אחרי העזיבה", 17, "לבדוק בהר הכסף אם יש חסכונות שנשכחו", ["all"], "har-hakesef"),
+        Item("insurance", "אחרי העזיבה", 18, "לבדוק רציפות של ביטוח חיים ואובדן כושר עבודה שהיו דרך המעסיק", ["all"])
     ];
 
     private static ChecklistItem Item(string key, string group, int order, string text, string[] tags, string? sourceKey = null) =>

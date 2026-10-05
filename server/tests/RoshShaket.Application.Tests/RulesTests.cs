@@ -80,6 +80,47 @@ public class RulesTests
     public void Recuperation_days_by_year_of_work(int year, int days) =>
         Assert.Equal(days, RecuperationPolicy.DaysForYearOfWork(year));
 
+    private static EmploymentProfile DemoPaidRecuperationOn(DateOnly lastPaid) =>
+        EmploymentProfile.Create(new DateOnly(2021, 3, 1), new DateOnly(2026, 9, 28), 16500m, 100m,
+            WorkWeek.FiveDays, 9m, 0m, Section14Arrangement.Partial6, hasStudyFund: true, lastRecuperationPaid: lastPaid);
+
+    [Fact]
+    public void Recuperation_since_the_last_payment_is_the_relative_part_of_the_year()
+    {
+        var r = Calculator().Calculate(new RuleContext(DemoPaidRecuperationOn(new DateOnly(2026, 7, 1)), ExitReason.Fired, Values));
+        var rec = r.Components.Single(c => c.Code == "recuperation");
+
+        // Sixth year of work = 7 days; 2 months of 12 since July.
+        Assert.Equal(Math.Round(7m * 2m / 12m * 418m, 2), Math.Round(rec.Amount!.Value, 2));
+        Assert.Contains("2 חודשים מתוך 12", rec.Explanation);
+        Assert.Null(rec.Flag);
+    }
+
+    [Fact]
+    public void Recuperation_never_paid_is_owed_for_two_years_at_most()
+    {
+        var r = Calculator().Calculate(new RuleContext(DemoPaidRecuperationOn(new DateOnly(2019, 1, 1)), ExitReason.Fired, Values));
+        var rec = r.Components.Single(c => c.Code == "recuperation");
+
+        Assert.Equal(7m * 2m * 418m, rec.Amount);
+        Assert.NotNull(rec.Flag);
+    }
+
+    [Theory]
+    [InlineData("2025-09-28", 12)]
+    [InlineData("2026-08-29", 0)]   // less than a whole month
+    [InlineData("2026-09-28", 0)]
+    [InlineData("2020-01-01", 24)]  // before the start of work: counted from the start, capped at two years
+    public void Recuperation_months_owed(string lastPaid, int months) =>
+        Assert.Equal(months, RecuperationPolicy.MonthsOwed(new DateOnly(2021, 3, 1), DateOnly.Parse(lastPaid), new DateOnly(2026, 9, 28)));
+
+    [Fact]
+    public void Recuperation_paid_after_the_end_date_is_rejected()
+    {
+        var ex = Assert.Throws<DomainValidationException>(() => DemoPaidRecuperationOn(new DateOnly(2026, 10, 1)));
+        Assert.Contains("lastRecuperationPaid", ex.Errors.Keys);
+    }
+
     [Fact]
     public void Invalid_profile_throws_with_field_errors()
     {

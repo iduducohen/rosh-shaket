@@ -244,6 +244,7 @@ public static class DependencyInjection
                 await EmailLogSchema.EnsureAsync(db, logger);
                 await PdfPasswordSchema.EnsureAsync(db, logger);
                 await PartnerReviewSchema.EnsureAsync(db, logger);
+                await AnnualValuesSeed.EnsureAsync(db, logger);
 
                 // The key ring signs every sign-in token: keep it across restarts, or every deploy signs everyone out.
                 // Rebuild only a table left with the wrong shape by an older EnsureCreated.
