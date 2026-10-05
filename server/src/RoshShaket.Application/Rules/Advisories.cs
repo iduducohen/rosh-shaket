@@ -25,7 +25,11 @@ public sealed class PayTypeAdvisoryRule : IAdvisoryRule
 {
     public IEnumerable<string> Advise(RuleContext ctx)
     {
-        if (ctx.Profile.PayType == PayType.Hourly)
-            yield return "החישוב מותאם לעובד בשכר חודשי. אצל עובד שעתי ההודעה המוקדמת, השכר היומי והפיצויים מחושבים אחרת.";
+        var p = ctx.Profile;
+        if (p.PayType != PayType.Hourly) yield break;
+
+        yield return "עובד בשכר שעתי: הפיצויים מחושבים לפי התעריף האחרון כפול ממוצע השעות החודשי בכל תקופת העבודה. אם השעות השתנו מאוד לאורך השנים, חשבו את הממוצע על כל התקופה ולא רק על השנה האחרונה.";
+        if (p.AverageMonthlyHours > Domain.Policies.HourlyPolicy.FullTimeMonthlyHours)
+            yield return $"שעות מעבר ל-{Domain.Policies.HourlyPolicy.FullTimeMonthlyHours:0} בחודש הן שעות נוספות. הן לא נכללות בשכר הקובע לפיצויים, אבל מגיע עליהן גמול של 125% ו-150%.";
     }
 }

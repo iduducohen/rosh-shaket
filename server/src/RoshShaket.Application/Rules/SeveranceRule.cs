@@ -13,7 +13,10 @@ public sealed class SeveranceRule : IRightsRule
         var p = ctx.Profile;
         var s = p.Seniority;
         var full = SeverancePolicy.FullEntitlement(p.MonthlySalary, s);
-        var basis = $"שכר {Ils(p.MonthlySalary)} × {Num(s.Years)} שנות ותק = {Ils(full)}.";
+        // Hourly: the determining salary is the last rate × average monthly hours over the whole employment.
+        var basis = p is { PayType: PayType.Hourly, HourlyRate: { } rate, AverageMonthlyHours: { } hours }
+            ? $"שכר קובע: תעריף {Ils(rate)} לשעה × {Num(Math.Min(hours, HourlyPolicy.FullTimeMonthlyHours))} שעות בחודש בממוצע = {Ils(p.MonthlySalary)}. × {Num(s.Years)} שנות ותק = {Ils(full)}."
+            : $"שכר {Ils(p.MonthlySalary)} × {Num(s.Years)} שנות ותק = {Ils(full)}.";
 
         if (s.Years < 1m)
         {

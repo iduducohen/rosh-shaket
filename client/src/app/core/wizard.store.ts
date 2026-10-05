@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { CalculationResponse, ExitChoice, ExitReason, FundLine, ProfileDraft, ProfileDto } from './models';
+import { CalculationResponse, ExitChoice, ExitReason, FundLine, ProfileDraft, ProfileDto, hourlyMonthly } from './models';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -33,11 +33,17 @@ export class WizardStore {
 
   applyDraft(d: ProfileDraft): void {
     const p = this.profile();
+    const hourly = d.payType === 'Hourly' && (d.hourlyRate ?? 0) > 0;
+    // An hourly payslip gives a rate and this month's hours; the monthly figures are derived from them.
+    const derived = hourly && d.monthlyHours ? hourlyMonthly(d.hourlyRate!, d.monthlyHours) : null;
     this.profile.set({
       ...p,
+      payType: hourly ? 'Hourly' : 'Monthly',
+      hourlyRate: hourly ? d.hourlyRate : null,
+      averageMonthlyHours: hourly ? d.monthlyHours ?? null : null,
       startDate: d.startDate ?? p.startDate,
-      monthlySalary: d.monthlySalary ?? p.monthlySalary,
-      jobPercent: d.jobPercent ?? p.jobPercent,
+      monthlySalary: derived?.monthlySalary ?? d.monthlySalary ?? p.monthlySalary,
+      jobPercent: derived?.jobPercent ?? d.jobPercent ?? p.jobPercent,
       workDaysPerWeek: mapWorkDays(d.workWeek) ?? p.workDaysPerWeek,
       vacationBalanceDays: d.vacationBalanceDays ?? p.vacationBalanceDays,
       recuperationDaysPaidLastYear: d.recuperationDaysPaidLastYear ?? p.recuperationDaysPaidLastYear,

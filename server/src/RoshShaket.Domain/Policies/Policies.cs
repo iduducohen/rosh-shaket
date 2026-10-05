@@ -15,6 +15,40 @@ public static class NoticePeriodPolicy
         if (m < 12) return new NoticePeriod((int)Math.Round(6m + 2.5m * (m - 6), MidpointRounding.AwayFromZero), false);
         return new NoticePeriod(30, true);
     }
+
+    /// <summary>Notice for an hourly / daily employee (Prior Notice Law, s. 4): 1 day per month in the first year;
+    /// 14 days + 1 per two months in the second; 21 days + 1 per two months in the third; one month after three years.</summary>
+    public static NoticePeriod ForHourlyEmployee(Seniority seniority)
+    {
+        var m = seniority.CompletedMonths;
+        if (m < 12) return new NoticePeriod(m, false);
+        if (m < 24) return new NoticePeriod(14 + (m - 12) / 2, false);
+        if (m < 36) return new NoticePeriod(21 + (m - 24) / 2, false);
+        return new NoticePeriod(30, true);
+    }
+
+    public static NoticePeriod For(PayType payType, Seniority seniority) =>
+        payType == PayType.Hourly ? ForHourlyEmployee(seniority) : ForMonthlyEmployee(seniority);
+}
+
+/// <summary>How an hourly ("בשכר") employee's monthly figures are derived from the hourly rate and hours.</summary>
+public static class HourlyPolicy
+{
+    /// <summary>A full-time month in the private sector (42 weekly hours).</summary>
+    public const decimal FullTimeMonthlyHours = 182m;
+    public const int MaxMonthlyHours = 300;
+
+    /// <summary>
+    /// Salary for severance: last hourly rate × average monthly hours over the whole employment
+    /// (Severance Pay Regulations, reg. 7, as applied by the National Labour Court to changing hours).
+    /// Hours above a full-time month are overtime, which is not part of the determining salary.
+    /// </summary>
+    public static decimal DeterminingSalary(decimal hourlyRate, decimal averageMonthlyHours) =>
+        hourlyRate * Math.Min(averageMonthlyHours, FullTimeMonthlyHours);
+
+    /// <summary>Job scope for recuperation pay: average monthly hours ÷ a full-time month, up to 100%.</summary>
+    public static decimal JobPercent(decimal averageMonthlyHours) =>
+        Math.Min(100m, Math.Round(averageMonthlyHours / FullTimeMonthlyHours * 100m, 2));
 }
 
 public static class RecuperationPolicy

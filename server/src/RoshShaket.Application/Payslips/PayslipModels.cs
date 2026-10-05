@@ -29,6 +29,9 @@ public sealed record PayslipExtraction(
     IReadOnlyList<FundLine>? Funds = null,
     /// <summary>The employer printed on the payslip (a company, never the employee).</summary>
     string? EmployerName = null,
+    /// <summary>Set when the payslip pays by the hour: the rate, and the hours paid this month.</summary>
+    decimal? HourlyRate = null,
+    decimal? HoursWorked = null,
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
     Documents.AiUsage? Usage = null);
 
@@ -48,7 +51,11 @@ public sealed record ProfileDraft(
     IReadOnlyList<string> Missing,
     bool Readable,
     IReadOnlyList<FundLine> Funds,
-    string? EmployerName = null);
+    string? EmployerName = null,
+    /// <summary>Hourly when the payslip shows an hourly rate; the hours are this payslip's, a starting point for the average.</summary>
+    PayType PayType = PayType.Monthly,
+    decimal? HourlyRate = null,
+    decimal? MonthlyHours = null);
 
 public sealed class PayslipUploadPolicy
 {
@@ -94,12 +101,17 @@ public static class PayslipMapper
         foreach (var kind in new[] { "pension", "severance", "disability", "study" })
             if (funds.Any(f => f.Kind == kind)) filled.Add(kind);
 
+        var hourly = x.HourlyRate is > 0;
+        if (hourly) { filled.Add("hourlyRate"); if (x.HoursWorked is > 0) filled.Add("averageMonthlyHours"); }
+
         var missing = new List<string>();
         if (x.StartDate is null) missing.Add("startDate");
-        if (x.BaseSalary is null) missing.Add("monthlySalary");
+        if (!hourly && x.BaseSalary is null) missing.Add("monthlySalary");
+        if (hourly && x.HoursWorked is not > 0) missing.Add("averageMonthlyHours");
 
         return new ProfileDraft(x.IsPayslip, x.PayslipMonth, x.StartDate, x.BaseSalary, x.JobPercent, week,
-            x.VacationBalance, x.RecuperationDaysPaid, s14, study, filled, missing, x.Readable, funds, x.EmployerName);
+            x.VacationBalance, x.RecuperationDaysPaid, s14, study, filled, missing, x.Readable, funds, x.EmployerName,
+            hourly ? PayType.Hourly : PayType.Monthly, hourly ? x.HourlyRate : null, hourly && x.HoursWorked is > 0 ? x.HoursWorked : null);
     }
 }
 

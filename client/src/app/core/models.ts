@@ -18,6 +18,24 @@ export interface ProfileDto {
   hasStudyFund: boolean;
   /** Read from the payslip, shown on the results and in reports only (not used in the calculation). */
   employerName?: string | null;
+  /** Hourly ("עובד בשכר"): notice, severance salary and job scope follow different rules. Default Monthly. */
+  payType?: PayType;
+  /** Hourly only: the last hourly rate, and average hours a month over the whole employment. */
+  hourlyRate?: number | null;
+  averageMonthlyHours?: number | null;
+}
+
+export type PayType = 'Monthly' | 'Hourly';
+
+/** A full-time month in the private sector; hours above it are overtime. */
+export const FULL_TIME_MONTHLY_HOURS = 182;
+
+/** Monthly figures an hourly employee's rate and hours stand for (the server derives the same). */
+export function hourlyMonthly(rate: number, hours: number): { monthlySalary: number; jobPercent: number } {
+  return {
+    monthlySalary: Math.round(rate * Math.min(hours, FULL_TIME_MONTHLY_HOURS) * 100) / 100,
+    jobPercent: Math.min(100, Math.round(hours / FULL_TIME_MONTHLY_HOURS * 10000) / 100)
+  };
 }
 
 export interface ComponentDto {
@@ -71,6 +89,10 @@ export interface ProfileDraft {
   funds?: FundLine[] | null;
   /** The employer printed on the payslip, or null. */
   employerName?: string | null;
+  /** Hourly when the payslip pays by the hour; monthlyHours are this payslip's hours. */
+  payType?: PayType;
+  hourlyRate?: number | null;
+  monthlyHours?: number | null;
 }
 
 export interface ChecklistItem {

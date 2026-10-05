@@ -116,7 +116,12 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
 
           <div class="basis">
             <b>{{ store.fromPayslip() ? 'חישוב ראשוני לפי התלוש' + (store.payslipMonth() ? ' (' + store.payslipMonth() + ')' : '') : 'החישוב לפי הנתונים שהזנתם' }}</b><br>
-            שכר ₪{{ store.profile().monthlySalary | number:'1.0-0' }}, משרה {{ store.profile().jobPercent }}%,
+            @if (store.profile().payType === 'Hourly') {
+              עובד/ת לפי שעות: ₪{{ store.profile().hourlyRate | number:'1.0-2' }} לשעה × {{ store.profile().averageMonthlyHours | number:'1.0-1' }} שעות בחודש בממוצע
+              (שכר חודשי ₪{{ store.profile().monthlySalary | number:'1.0-0' }}, משרה {{ store.profile().jobPercent | number:'1.0-0' }}%),
+            } @else {
+              שכר ₪{{ store.profile().monthlySalary | number:'1.0-0' }}, משרה {{ store.profile().jobPercent }}%,
+            }
             התחלה {{ store.profile().startDate }}, סיום {{ store.profile().endDate }}, חופשה {{ store.profile().vacationBalanceDays }} ימים
             <ion-button fill="clear" size="small" (click)="edit()">משהו לא נכון? לתקן נתונים</ion-button>
           </div>

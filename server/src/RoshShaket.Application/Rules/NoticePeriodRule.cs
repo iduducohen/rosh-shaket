@@ -11,14 +11,15 @@ public sealed class NoticePeriodRule : IRightsRule
     public IEnumerable<RightsComponent> Evaluate(RuleContext ctx)
     {
         var p = ctx.Profile;
-        var notice = NoticePeriodPolicy.ForMonthlyEmployee(p.Seniority);
+        var notice = NoticePeriodPolicy.For(p.PayType, p.Seniority);
         var display = notice.IsFullMonth ? "חודש" : $"{notice.Days} ימים";
 
         if (ctx.Reason is ExitReason.Fired or ExitReason.ContractEnded)
         {
             var inLieu = notice.IsFullMonth ? p.MonthlySalary : p.MonthlySalary / 30m * notice.Days;
             yield return new RightsComponent("notice", "הודעה מוקדמת", inLieu, display,
-                $"אם המעסיק לא רוצה שתעבוד בתקופה הזו, הוא משלם תמורתה: כ-{Ils(inLieu)}.",
+                $"אם המעסיק לא רוצה שתעבוד בתקופה הזו, הוא משלם תמורתה: כ-{Ils(inLieu)}."
+                    + (p.PayType == PayType.Hourly ? " חושב לפי הכללים לעובד בשכר שעתי, ולפי השכר החודשי הממוצע." : ""),
                 Certainty.NeedsVerification, IncludedInTotal: false, SourceKeys.Notice);
         }
         else

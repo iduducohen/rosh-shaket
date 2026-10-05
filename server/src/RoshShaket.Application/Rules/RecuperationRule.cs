@@ -24,7 +24,7 @@ public sealed class RecuperationRule : IRightsRule
         var amount = owedDays * ctx.Values.RecuperationDayValue;
 
         yield return new RightsComponent("recuperation", "דמי הבראה", amount, null,
-            $"{daysByLaw} ימים בשנת עבודה {year} × היקף משרה {Num(p.JobPercent, 0)}% פחות {Num(p.RecuperationDaysPaidLastYear)} ששולמו, × {Ils(ctx.Values.RecuperationDayValue)}.",
+            $"{daysByLaw} ימים בשנת עבודה {year} × היקף משרה {Num(p.JobPercent, 0)}%{(p is { PayType: PayType.Hourly, AverageMonthlyHours: { } h } ? $" ({Num(h)} שעות בחודש מתוך {Num(HourlyPolicy.FullTimeMonthlyHours)})" : "")} פחות {Num(p.RecuperationDaysPaidLastYear)} ששולמו, × {Ils(ctx.Values.RecuperationDayValue)}.",
             Certainty.Estimate, true, SourceKeys.Recuperation, "אפשר לבדוק גם שנתיים אחורה");
     }
 }

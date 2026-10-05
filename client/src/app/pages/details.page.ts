@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,14 +12,16 @@ import { DateFieldComponent, END_TOO_FAR, END_TOO_SOON, earliestEndDate, latestE
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { describeError } from '../core/api.service';
 import { CalculationFacade } from '../core/calculation.facade';
-import { FundKind, FundLine, ProfileDto } from '../core/models';
+import { FundKind, FundLine, PayType, ProfileDto, hourlyMonthly } from '../core/models';
 import { WizardStore } from '../core/wizard.store';
+
+type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | 'averageMonthlyHours';
 
 @Component({
   selector: 'app-details',
   standalone: true,
   imports: [DateFieldComponent, DeskHeaderComponent, FormsModule, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonItem, IonInput,
-    IonSegment, IonSegmentButton, IonButton, IonIcon, IonSpinner, IonToggle, IonLabel],
+    IonSegment, IonSegmentButton, IonButton, IonIcon, IonSpinner, IonToggle, IonLabel, DecimalPipe],
   styles: [`
     ion-item {
       --background: var(--rs-field);
@@ -70,6 +73,8 @@ import { WizardStore } from '../core/wizard.store';
     }
     .s14-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .seg-label { font-weight: 600; margin: 12px 0 6px; display: block; }
+    .pay-type { margin: 0 0 14px; }
+    .pay-type ion-segment { max-width: 420px; }
     .s14-note { display: block; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
     .more {
       background: none; border: 0; padding: 0; cursor: pointer;
@@ -152,6 +157,17 @@ import { WizardStore } from '../core/wizard.store';
           <p class="slip-note muted small">תלוש אחרון מספיק להערכה של שכר, חופשה והבראה. הפקדות לאורך השנים בודקים בדוח מהמסלקה הפנסיונית.</p>
         }
 
+        <div class="pay-type" [class.filled]="isFilled('hourlyRate')">
+          <span class="seg-label" id="pay-type-label">איך משולם השכר? @if (isFilled('hourlyRate')) { <span class="from-slip">· מהתלוש</span> }</span>
+          <ion-segment [(ngModel)]="payType" name="payType" aria-labelledby="pay-type-label" (ionChange)="refreshMarks()">
+            <ion-segment-button value="Monthly"><ion-label>שכר חודשי קבוע</ion-label></ion-segment-button>
+            <ion-segment-button value="Hourly"><ion-label>לפי שעות</ion-label></ion-segment-button>
+          </ion-segment>
+          @if (payType === 'Hourly') {
+            <p class="field-hint">אצל עובד שעתי החוק קובע חישוב אחר להודעה המוקדמת, לשכר הקובע לפיצויים ולהיקף המשרה.</p>
+          }
+        </div>
+
         <ion-list lines="none" class="desk-grid-2">
           <app-date-field label="תאריך התחלה" [value]="form.startDate" [max]="latestStart" [filled]="isFilled('startDate')"
                           [state]="fieldState('startDate')" [error]="fieldErrors()['startDate'] ?? ''"
@@ -159,17 +175,42 @@ import { WizardStore } from '../core/wizard.store';
           <app-date-field label="תאריך סיום" [value]="form.endDate" [min]="earliestEnd()" [max]="latestEnd" [filled]="isFilled('endDate')"
                           [state]="fieldState('endDate')" [error]="fieldErrors()['endDate'] ?? ''"
                           (valueChange)="setDate('endDate', $event)"></app-date-field>
-          <div>
-            <ion-item [class.filled]="isFilled('monthlySalary')" [class.field-invalid]="fieldState('monthlySalary') === 'invalid'" [class.field-valid]="fieldState('monthlySalary') === 'valid'">
-              <ion-input [label]="slipLabel('שכר חודשי ברוטו (₪)', 'monthlySalary')" labelPlacement="stacked" type="text" inputmode="numeric" [ngModel]="salaryText" name="salary"
-                         [class.ion-invalid]="!!fieldErrors()['monthlySalary']" [class.ion-touched]="!!fieldErrors()['monthlySalary']"
-                         [errorText]="fieldErrors()['monthlySalary'] ?? ''" (ngModelChange)="onSalary($event)"></ion-input>
+          @if (payType === 'Hourly') {
+            <div>
+              <ion-item [class.filled]="isFilled('hourlyRate')" [class.field-invalid]="fieldState('hourlyRate') === 'invalid'" [class.field-valid]="fieldState('hourlyRate') === 'valid'">
+                <ion-input [label]="slipLabel('תעריף לשעה (₪)', 'hourlyRate')" labelPlacement="stacked" type="number" inputmode="decimal" min="0" step="0.01"
+                           [(ngModel)]="form.hourlyRate" name="rate"
+                           [class.ion-invalid]="!!fieldErrors()['hourlyRate']" [class.ion-touched]="!!fieldErrors()['hourlyRate']"
+                           [errorText]="fieldErrors()['hourlyRate'] ?? ''" (ngModelChange)="refreshMarks()"></ion-input>
+              </ion-item>
+              <p class="field-hint">התעריף האחרון, כפי שמופיע בתלוש האחרון</p>
+            </div>
+            <div>
+              <ion-item [class.filled]="isFilled('averageMonthlyHours')" [class.field-invalid]="fieldState('averageMonthlyHours') === 'invalid'" [class.field-valid]="fieldState('averageMonthlyHours') === 'valid'">
+                <ion-input [label]="slipLabel('ממוצע שעות בחודש', 'averageMonthlyHours')" labelPlacement="stacked" type="number" inputmode="decimal" min="0" max="300"
+                           [(ngModel)]="form.averageMonthlyHours" name="hours"
+                           [class.ion-invalid]="!!fieldErrors()['averageMonthlyHours']" [class.ion-touched]="!!fieldErrors()['averageMonthlyHours']"
+                           [errorText]="fieldErrors()['averageMonthlyHours'] ?? ''" (ngModelChange)="refreshMarks()"></ion-input>
+              </ion-item>
+              <p class="field-hint">
+                ממוצע על כל תקופת העבודה, בלי שעות נוספות. משרה מלאה היא 182 שעות.
+                @if (isFilled('averageMonthlyHours')) { בתלוש מופיעות השעות של חודש אחד — עדכנו אם הממוצע שונה. }
+                @if (hourlySummary(); as h) { <b>שכר חודשי ממוצע: ₪{{ h.monthlySalary | number:'1.0-0' }} · היקף משרה {{ h.jobPercent | number:'1.0-0' }}%</b> }
+              </p>
+            </div>
+          } @else {
+            <div>
+              <ion-item [class.filled]="isFilled('monthlySalary')" [class.field-invalid]="fieldState('monthlySalary') === 'invalid'" [class.field-valid]="fieldState('monthlySalary') === 'valid'">
+                <ion-input [label]="slipLabel('שכר חודשי ברוטו (₪)', 'monthlySalary')" labelPlacement="stacked" type="text" inputmode="numeric" [ngModel]="salaryText" name="salary"
+                           [class.ion-invalid]="!!fieldErrors()['monthlySalary']" [class.ion-touched]="!!fieldErrors()['monthlySalary']"
+                           [errorText]="fieldErrors()['monthlySalary'] ?? ''" (ngModelChange)="onSalary($event)"></ion-input>
+              </ion-item>
+              <p class="field-hint">שכר יסוד בלבד — בלי שעות נוספות והחזרים</p>
+            </div>
+            <ion-item [class.filled]="isFilled('jobPercent')">
+              <ion-input [label]="slipLabel('היקף משרה (%)', 'jobPercent')" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
             </ion-item>
-            <p class="field-hint">שכר יסוד בלבד — בלי שעות נוספות והחזרים</p>
-          </div>
-          <ion-item [class.filled]="isFilled('jobPercent')">
-            <ion-input [label]="slipLabel('היקף משרה (%)', 'jobPercent')" labelPlacement="stacked" type="number" inputmode="numeric" [(ngModel)]="form.jobPercent" name="pct"></ion-input>
-          </ion-item>
+          }
           <div class="days-card" [class.filled]="isFilled('workWeek')">
             <span class="lbl" id="work-days-label">ימי עבודה בשבוע @if (isFilled('workWeek')) { <span class="from-slip">· מהתלוש</span> }</span>
             <div class="days-row" role="group" aria-labelledby="work-days-label">
@@ -275,6 +316,8 @@ export class DetailsPage {
   private readonly router = inject(Router);
 
   form: ProfileDto = { ...this.store.profile() };
+  /** Monthly salary, or hourly ("עובד בשכר") — the law computes notice, severance salary and job scope differently. */
+  payType: PayType = this.form.payType ?? 'Monthly';
   readonly workDays = [1, 2, 3, 4, 5, 6] as const;
   salaryText = displayGrouped(this.form.monthlySalary, false);
   vacationText = displayGrouped(this.form.vacationBalanceDays, true);
@@ -326,6 +369,7 @@ export class DetailsPage {
 
   private syncFromStore(): void {
     this.form = { ...this.store.profile() };
+    this.payType = this.form.payType ?? 'Monthly';
     this.salaryText = displayGrouped(this.form.monthlySalary, false);
     this.vacationText = displayGrouped(this.form.vacationBalanceDays, true);
     this.recText = recDisplay(
@@ -392,7 +436,14 @@ export class DetailsPage {
     this.form.recuperationDaysPaidLastYear = cleaned.value;
   }
 
-  fieldState(field: 'startDate' | 'endDate' | 'monthlySalary'): 'valid' | 'invalid' | '' {
+  /** What the rate and hours come to per month — shown under the hours field so the user can sanity-check it. */
+  hourlySummary(): { monthlySalary: number; jobPercent: number } | null {
+    const rate = Number(this.form.hourlyRate);
+    const hours = Number(this.form.averageMonthlyHours);
+    return rate > 0 && hours > 0 ? hourlyMonthly(rate, hours) : null;
+  }
+
+  fieldState(field: CheckedField): 'valid' | 'invalid' | '' {
     if (!this.checked()) return '';
     return this.problem(field) ? 'invalid' : 'valid';
   }
@@ -411,17 +462,22 @@ export class DetailsPage {
 
   private saveForm(): void {
     const f = this.form;
+    const hourly = this.payType === 'Hourly' ? this.hourlySummary() : null;
     this.store.profile.set({
       ...f,
-      monthlySalary: Number(f.monthlySalary) || 0,
-      jobPercent: Number(f.jobPercent) || 100,
+      payType: this.payType,
+      hourlyRate: this.payType === 'Hourly' ? Number(f.hourlyRate) || null : null,
+      averageMonthlyHours: this.payType === 'Hourly' ? Number(f.averageMonthlyHours) || null : null,
+      // Hourly: the monthly figures are derived, so the screens that show a salary keep working.
+      monthlySalary: hourly?.monthlySalary ?? (Number(f.monthlySalary) || 0),
+      jobPercent: hourly?.jobPercent ?? (Number(f.jobPercent) || 100),
       vacationBalanceDays: Number(f.vacationBalanceDays) || 0,
       recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0,
       hasStudyFund: !!f.hasStudyFund
     });
   }
 
-  private problem(field: 'startDate' | 'endDate' | 'monthlySalary'): string | null {
+  private problem(field: CheckedField): string | null {
     const f = this.form;
     if (field === 'startDate') {
       if (!f.startDate) return 'חסר תאריך התחלה.';
@@ -433,13 +489,20 @@ export class DetailsPage {
       const earliest = earliestEndDate(f.startDate);
       if (earliest && f.endDate < earliest) return END_TOO_SOON;
     }
-    if (field === 'monthlySalary' && !(Number(f.monthlySalary) > 0)) return 'חסר שכר.';
+    const hourly = this.payType === 'Hourly';
+    if (field === 'monthlySalary' && !hourly && !(Number(f.monthlySalary) > 0)) return 'חסר שכר.';
+    if (field === 'hourlyRate' && hourly && !(Number(f.hourlyRate) > 0)) return 'חסר תעריף לשעה.';
+    if (field === 'averageMonthlyHours' && hourly) {
+      const hours = Number(f.averageMonthlyHours);
+      if (!(hours > 0)) return 'חסר ממוצע שעות בחודש.';
+      if (hours > 300) return 'עד 300 שעות בחודש.';
+    }
     return null;
   }
 
   private collectErrors(): Partial<Record<string, string>> {
     const errors: Partial<Record<string, string>> = {};
-    for (const field of ['startDate', 'endDate', 'monthlySalary'] as const) {
+    for (const field of ['startDate', 'endDate', 'monthlySalary', 'hourlyRate', 'averageMonthlyHours'] as const) {
       const message = this.problem(field);
       if (message) errors[field] = message;
     }

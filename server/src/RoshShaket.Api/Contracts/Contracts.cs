@@ -14,11 +14,13 @@ public sealed record ProfileDto(
     decimal RecuperationDaysPaidLastYear,
     Section14Arrangement Section14,
     bool HasStudyFund,
-    PayType PayType = PayType.Monthly)
+    PayType PayType = PayType.Monthly,
+    decimal? HourlyRate = null,
+    decimal? AverageMonthlyHours = null)
 {
     public EmploymentProfile ToDomain() => EmploymentProfile.Create(
         StartDate, EndDate, MonthlySalary, JobPercent, (WorkWeek)WorkDaysPerWeek,
-        VacationBalanceDays, RecuperationDaysPaidLastYear, Section14, HasStudyFund, PayType);
+        VacationBalanceDays, RecuperationDaysPaidLastYear, Section14, HasStudyFund, PayType, HourlyRate, AverageMonthlyHours);
 }
 
 public sealed record CalculateRequest(ProfileDto Profile, ExitReason Reason, bool FromPayslip = false, bool ConsentToAnonymousStats = false);
