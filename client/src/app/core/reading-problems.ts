@@ -1,4 +1,5 @@
 import { suspectedUnread, unifyFunds, fundKey } from './pension-deposits';
+import { finalMonthPensionBase } from './pay-components';
 import { ExtractedContribution, ReviewDocumentMeta } from './review.models';
 
 const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
@@ -36,7 +37,12 @@ function label(list: Array<{ company: string; kind: string; payer: string; amoun
  * gone from this one, an empty contribution table among months that have one, a report with no deposit table, or a report
  * that shows fewer months than the payslips do. Each one is a reason to check the file again, not a verdict on the employer.
  */
-export function findReadingProblems(docs: readonly ReviewDocumentMeta[], today = new Date()): ReadingProblem[] {
+export function findReadingProblems(
+  docs: readonly ReviewDocumentMeta[],
+  today = new Date(),
+  /** Years confirmed against Form 106: a payslip line that looks missing in one of them is not reported. */
+  verified: ReadonlySet<number> = new Set()
+): ReadingProblem[] {
   const problems: ReadingProblem[] = [];
   const payslips = docs.filter(d => d.documentType === 'payslip' && d.year != null && d.month != null);
   const resolve = unifyFunds(payslips.flatMap(d => (d.extractedContributions ?? []).map(c => c.provider)));
@@ -49,7 +55,8 @@ export function findReadingProblems(docs: readonly ReviewDocumentMeta[], today =
     list.filter(c => (c.forMonth == null || c.forMonth === d.month) && (c.forYear == null || c.forYear === d.year));
 
   for (const d of payslips) {
-    if (!checked(d)) continue;
+    // A final settlement has no regular contribution table: it is not compared with the months around it.
+    if (!checked(d) || verified.has(d.year!) || d.isSettlement) continue;
     const where = `תלוש ${MONTHS[d.month!]} ${d.year}`;
     const lines = linesOf(d);
     if (lines == null) {
@@ -66,6 +73,8 @@ export function findReadingProblems(docs: readonly ReviewDocumentMeta[], today =
     const beforeLines = linesOf(beforePrevious);
 
     if (lines.length === 0 && ((prevLines?.length ?? 0) > 0 || (beforeLines?.length ?? 0) > 0)) {
+      // The last payslip, with notice pay or a vacation redemption, normally has no contribution table: not a reading problem.
+      if (!byMonth.has(index + 1) && finalMonthPensionBase(d.extractedComponents) != null) continue;
       problems.push({
         docId: d.id, year: d.year!, month: d.month, kind: 'payslip', where, fileName: d.fileName ?? null,
         text: 'לא נקראו שורות הפרשה בתלוש הזה, אף שבחודשים הקודמים יש בו. אם גם בקובץ אין כאלה, ההפרשה לא הופיעה החודש (או שולמה בנפרד, למשל בחודש סיום).'

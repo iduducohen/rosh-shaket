@@ -61,6 +61,28 @@ interface Line extends Raw {
 }
 
 /**
+ * The companies the payslips of a year name, per product: where a report for that product is asked for.
+ * Companies are the names a payslip prints, merged (a cut-short "מגד" is "מגדל").
+ */
+export function companiesInYear(docs: readonly ReviewDocumentMeta[], year: number): Record<ProductKey, string[]> {
+  const lines: Array<{ provider: string | null; product: ProductKey }> = [];
+  for (const d of docs) {
+    if (d.documentType !== 'payslip' || !Array.isArray(d.extractedContributions)) continue;
+    for (const c of d.extractedContributions) {
+      if ((c.forYear ?? d.year) !== year || c.kind === 'disability' || c.amount === 0) continue;
+      lines.push({ provider: c.provider, product: productOf(c) });
+    }
+  }
+  const resolve = unifyFunds(lines.map(l => l.provider));
+  const found: Record<ProductKey, Set<string>> = { pension: new Set(), managers: new Set(), study: new Set() };
+  for (const l of lines) {
+    const company = resolve(l.provider);
+    if (company) found[l.product].add(company);
+  }
+  return { pension: [...found.pension], managers: [...found.managers], study: [...found.study] };
+}
+
+/**
  * Which products besides the pension fund the payslips of a year show: managers insurance and a study fund.
  * A report for each is expected for that year.
  */

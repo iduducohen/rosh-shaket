@@ -93,4 +93,14 @@ describe('files that were read only in part', () => {
 
     expect(problems.map(p => p.where)).toEqual(['תלוש מאי 2025']);
   });
+
+  it('does not ask about the empty table of the last payslip when it has notice pay or a vacation redemption', () => {
+    const last = payslip(2025, 7, []);
+    (last as { extractedComponents?: unknown }).extractedComponents = [
+      { kind: 'notice', amount: 30000 }, { kind: 'vacation_redemption', amount: 20000 }
+    ];
+    const docs = [payslip(2025, 5, regular()), payslip(2025, 6, regular()), last];
+
+    expect(findReadingProblems(docs, today)).toEqual([]);
+  });
 });

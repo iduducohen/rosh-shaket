@@ -76,6 +76,14 @@ export interface ExtractedFundSnapshot {
 export type ContributionKind = 'pension' | 'managers' | 'severance' | 'disability' | 'study';
 
 /** One deduction / contribution line read from a payslip. forYear/forMonth only on retro lines. */
+/** One row of the table of contributions to funds on Form 106: what went to one fund over the whole year. */
+export interface ExtractedFundTotal {
+  kind: 'pension' | 'managers' | 'severance' | 'disability' | 'study' | string;
+  provider: string | null;
+  employee: number;
+  employer: number;
+}
+
 /** One payment line of a payslip: salary, overtime, notice pay, vacation redemption, recuperation, ... */
 export interface ExtractedPayComponent {
   kind: 'salary' | 'overtime' | 'recuperation' | 'notice' | 'vacation_redemption' | 'severance_pay' | 'expenses' | 'bonus' | 'other' | string;
@@ -83,6 +91,8 @@ export interface ExtractedPayComponent {
 }
 
 export interface ExtractedContribution {
+  /** The name of the row as printed on the payslip ("ניכוי כלל פנס"). Who pays and what for were decided from it. */
+  label?: string | null;
   kind: ContributionKind;
   payer: 'employee' | 'employer';
   provider: string | null;
@@ -165,6 +175,10 @@ export interface ReviewDocumentMeta {
   extractedVacation?: VacationFigures | null;
   /** Payslip payment lines. [] = read, none found; null / absent = not read. */
   extractedComponents?: ExtractedPayComponent[] | null;
+  /** A final-settlement payslip ("גמר חשבון"): notice pay and vacation redemption instead of a regular month. */
+  isSettlement?: boolean | null;
+  /** Form 106: the per-fund yearly totals. [] = no table found; null / absent = not read. */
+  extractedFundTotals?: ExtractedFundTotal[] | null;
 }
 
 /** User marked a required document slot as unobtainable — allows progress without pretending it exists. */

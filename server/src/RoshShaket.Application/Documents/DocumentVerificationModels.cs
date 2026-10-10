@@ -62,6 +62,12 @@ public sealed record ExtractedVacation(
 /// </summary>
 public sealed record ExtractedPayComponent(string Kind, decimal Amount);
 
+/// <summary>
+/// One row of Form 106's table of deductions and contributions to funds: what went to one fund for the whole year.
+/// Kind: pension | managers | severance | disability | study.
+/// </summary>
+public sealed record ExtractedFundTotal(string Kind, string? Provider, decimal Employee, decimal Employer);
+
 public sealed record ExtractedContributionLine(
     string Kind,
     string Payer,
@@ -69,7 +75,9 @@ public sealed record ExtractedContributionLine(
     decimal? RatePercent,
     decimal Amount,
     int? ForYear,
-    int? ForMonth);
+    int? ForMonth,
+    /// <summary>The name of the row as printed ("ניכוי כלל פנס"). Who pays and what for are decided from it when it says.</summary>
+    string? Label = null);
 
 /// <summary>Fields read from the document image(s). Never includes identifiers.</summary>
 public sealed record DocumentExtraction(
@@ -93,7 +101,9 @@ public sealed record DocumentExtraction(
     /// <summary>Payslip only: vacation days balance, use and accrual, when printed.</summary>
     ExtractedVacation? Vacation = null,
     /// <summary>Payslip only: the payment lines (salary, notice pay, vacation redemption, ...).</summary>
-    IReadOnlyList<ExtractedPayComponent>? PayComponents = null);
+    IReadOnlyList<ExtractedPayComponent>? PayComponents = null,
+    /// <summary>Form 106 only: the per-fund yearly totals of its table of contributions to funds.</summary>
+    IReadOnlyList<ExtractedFundTotal>? FundTotals = null);
 
 public sealed record AiUsage(string Model, int InputTokens, int OutputTokens);
 
@@ -118,7 +128,8 @@ public sealed record DocumentVerificationResult(
     IReadOnlyList<ExtractedContributionLine>? Contributions = null,
     string? EmployerName = null,
     ExtractedVacation? Vacation = null,
-    IReadOnlyList<ExtractedPayComponent>? PayComponents = null);
+    IReadOnlyList<ExtractedPayComponent>? PayComponents = null,
+    IReadOnlyList<ExtractedFundTotal>? FundTotals = null);
 
 public static class DocumentVerificationMapper
 {
@@ -164,7 +175,8 @@ public static class DocumentVerificationMapper
             x.Contributions,
             x.EmployerName,
             detectedType == "payslip" && x.Vacation is { HasAny: true } ? x.Vacation : null,
-            detectedType == "payslip" ? x.PayComponents : null);
+            detectedType == "payslip" ? x.PayComponents : null,
+            detectedType == "form106" ? x.FundTotals : null);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;

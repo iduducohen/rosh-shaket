@@ -23,4 +23,20 @@ describe('parseDocFromText', () => {
   it('still calls unrelated text "other"', () => {
     expect(parseDocFromText('חשבונית מס מספר 123 עבור שירותי ניקיון').detectedType).toBe('other');
   });
+
+  it('knows a final-settlement payslip from the text of the file, as the April 2026 payslip reads', () => {
+    const text = 'אפריל 2026 תלוש: 7 פירוט תשלומים וניכויים משכורת שעות נוספות גלובליות הבראה חלף הודעה מוקדמת ' +
+      'פדיון חופשה סיום העס גלום תשלום נטו נסיעות 03/26 60,133.00 23,904.95 שכר נטו ברוטו שוטף ניכויי חובה';
+
+    const hint = parseDocFromText(text);
+
+    expect(hint.detectedType).toBe('payslip');
+    expect(hint.settlement).toBeTrue();
+  });
+
+  it('does not call an ordinary payslip a settlement', () => {
+    const hint = parseDocFromText('תלוש שכר מרץ 2026 שכר בסיס שעות נוספות הבראה נסיעות ברוטו שוטף ניכויי חובה');
+
+    expect(hint.settlement).toBeFalse();
+  });
 });

@@ -12,14 +12,16 @@ import {
   downloadOutline, clipboardOutline, printOutline, eyeOutline
 } from 'ionicons/icons';
 import { DOC_CHECKLIST, PENSION_COVERAGE_KEYS, PensionKind, ReviewDocumentMeta, coverageKeyOf } from '../../core/review.models';
-import { productsInYear } from '../../core/product-summary';
+import { companiesInYear, productsInYear } from '../../core/product-summary';
+import { fundKey } from '../../core/pension-deposits';
 import { ReviewStore } from '../../core/review.store';
 import { DocumentValidationService, SECOND_FORM106_MSG } from '../../core/document-validation.service';
 import { ReviewDocumentFilesService } from '../../core/review-document-files.service';
 import { ReviewStepNavComponent } from './review-step-nav.component';
-import { PENSION_GUIDE } from './pension-guide';
+import { FUND_SITES, GUIDE_TITLES, PENSION_GUIDE } from './pension-guide';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
 import { findReadingProblems } from '../../core/reading-problems';
+import { verifiedYears } from '../../core/annual-reconcile';
 
 /** Basic yearly coverage — not every document type in the catalog. */
 const CORE_TYPES = [
@@ -510,6 +512,19 @@ interface YearGap {
     }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .count { font-size: 13px; color: var(--ion-color-medium); }
+    .fund-link-note { font-size: 12.5px; color: var(--ion-color-medium); }
+    .settle-tag { margin-inline-start: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--rs-soft); color: var(--ion-color-primary); border: 1px solid var(--ion-color-primary); }
+    .year-status { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
+    .year-status.bad { color: var(--ion-color-danger); }
+    .year-status.good { color: var(--ion-color-success-shade, #1a7a3c); }
+    .sel-card {
+      margin: 0 0 12px; padding: 10px 12px; border: 1.5px solid var(--ion-color-primary); border-radius: 12px;
+      background: var(--rs-soft); display: grid; gap: 4px; font-size: 13.5px; line-height: 1.5;
+    }
+    .sel-card b { font-size: 14.5px; }
+    .sel-card span { color: var(--ion-color-medium-shade, #5E6F73); }
+    .sel-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 2px; }
+    .fund-link { display: inline-block; margin: 2px 12px 0 0; font-size: 13px; font-weight: 700; color: var(--ion-color-primary); }
     .guide-toggle {
       background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
       font-size: 13.5px; font-weight: 700; color: var(--ion-color-primary);
@@ -541,7 +556,7 @@ interface YearGap {
     }
     /* The title and close button stay in view; only .sheet-body scrolls. */
     .sheet {
-      width: min(980px, 100%); max-height: min(90vh, 820px);
+      width: min(1180px, 100%); max-height: min(94vh, 900px);
       display: flex; flex-direction: column; overflow: hidden;
       background: var(--ion-background-color); color: var(--ion-text-color);
       border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
@@ -570,7 +585,7 @@ interface YearGap {
     .sheet-close ion-icon { font-size: 24px; }
     .sheet-cols { display: grid; gap: 18px; }
     @media (min-width: 860px) {
-      .sheet-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; }
+      .sheet-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: start; gap: 24px; }
     }
   `],
   template: `
@@ -678,40 +693,8 @@ interface YearGap {
             <div class="sheet-cols">
               <div>
                 @if (gapFor(y); as g) {
-                  <div class="status-box" [class.bad]="!g.ok" [class.full]="g.ok && !g.hasWaivers">
-                    <b>{{ statusBoxTitle(g) }}</b>
-                    <ul class="check-list">
-                      @for (row of coverageRows(y); track row.key) {
-                        <li
-                          [class.ok-item]="row.state === 'have'"
-                          [class.waived-item]="row.state === 'waived'"
-                          [class.miss]="row.state === 'miss'">
-                          <span class="check-mark" aria-hidden="true">
-                            {{ row.state === 'have' ? '✓' : row.state === 'waived' ? '–' : row.state === 'later' ? '…' : '!' }}
-                          </span>
-                          <span class="copy">
-                            <span>{{ row.label }}</span>
-                            @if (row.state === 'later') {
-                              <span class="where">עדיין לא הופק. {{ laterReason(y, row.key) }} אין צורך בו עכשיו.</span>
-                            } @else if (row.state !== 'have' && row.where) {
-                              <span class="where">{{ row.where }}</span>
-                            }
-                            @if (row.state === 'waived') {
-                              <span class="where">דולג — אין אפשרות להשיג</span>
-                            }
-                            @if ((row.state === 'miss' || row.state === 'waived') && row.key.startsWith('pension_')) {
-                              <button type="button" class="guide-toggle" (click)="openPensionGuide()">
-                                איך להשיג דוח פנסיה
-                              </button>
-                            }
-                          </span>
-                        </li>
-                      }
-                    </ul>
-                  </div>
+                  <p class="year-status" [class.bad]="!g.ok" [class.good]="g.ok">{{ statusBoxTitle(g) }}</p>
                 }
-
-                <label class="field" style="margin-bottom:6px">מה צריך לשנה הזו</label>
                 <div class="type-grid">
                   @for (t of typesFor(y); track t.key) {
                     <div class="type-chip"
@@ -766,6 +749,7 @@ interface YearGap {
                       <li>
                         <div class="doc-meta">
                           <b>{{ d.documentType === 'payslip' && d.month ? monthLabel(d.month) : labelFor(docKey(d)) }}</b>
+                          @if (d.isSettlement) { <span class="settle-tag" title="תלוש גמר חשבון: הודעה מוקדמת ופדיון חופשה, לא חודש עבודה רגיל">גמר חשבון</span> }
                           @if (d.month && d.documentType !== 'payslip') { <span class="count"> · {{ monthLabel(d.month) }}</span> }
                           <div class="count">{{ d.fileName || d.extractedSummary || '—' }}</div>
                           @if (d.validationMessage) {
@@ -937,20 +921,18 @@ interface YearGap {
                     @for (tip of photoTips; track tip) { <li>{{ tip }}</li> }
                   </ol>
                 </details>
-                @if (docType.startsWith('pension_')) {
-                  <div class="pension-kind selected">
-                    <b>{{ activePensionKind().title }}</b>
-                    <span>{{ activePensionKind().what }}</span>
-                  </div>
-                  <ol class="pension-steps">
-                    @for (s of activePensionKind().steps; track s) { <li>{{ s }}</li> }
-                  </ol>
-                  <p class="hint">{{ activePensionKind().note }}</p>
-                  <p class="hint">לכל שנה צריכים שני דוחות: הדוח השנתי המפורט ודוח ההפקדות. אפשר לדלג על כל אחד מהם בנפרד.</p>
-                  <button type="button" class="guide-toggle" (click)="openPensionGuide()">
-                    איך להשיג דוח פנסיה
-                  </button>
-                }
+                <div class="sel-card">
+                  <b>{{ selectedTitle(y) }}</b>
+                  <span>{{ selectedText() }}</span>
+                  @if (docType.startsWith('pension_')) {
+                    <div class="sel-links">
+                      <button type="button" class="guide-toggle" (click)="openPensionGuide(docType, y)">{{ guideTitle(docType) }}</button>
+                      @for (site of fundLinks(y, docType); track site.url) {
+                        <a class="fund-link" [href]="site.url" target="_blank" rel="noopener noreferrer">לאתר {{ site.name }}</a><span class="fund-link-note"> (לפי ניתוח תלוש השכר)</span>
+                      }
+                    </div>
+                  }
+                </div>
 
 
                 @if (pendingFiles.length && !uploading()) {
@@ -1106,12 +1088,26 @@ interface YearGap {
       <div class="sheet-backdrop" style="z-index:45" (click)="closePensionGuide()">
         <div class="sheet guide-sheet" role="dialog" aria-modal="true" aria-labelledby="pension-guide-title" (click)="$event.stopPropagation()">
           <div class="sheet-head">
-            <h2 id="pension-guide-title">איך להשיג דוח פנסיה</h2>
+            <h2 id="pension-guide-title">{{ guideTitle(pensionGuideKey()) }}</h2>
             <button type="button" class="sheet-close" (click)="closePensionGuide()" aria-label="סגירה">
               <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             </button>
           </div>
           <div class="sheet-body">
+          @if (pensionKindFor(pensionGuideKey()); as kind) {
+            <ol class="pension-steps">
+              @for (st of kind.steps; track st) { <li>{{ st }}</li> }
+            </ol>
+            <p class="hint">{{ kind.note }}</p>
+          }
+          @if (guideSites().length) {
+            <p class="hint">הקופות שמופיעות בתלושים שלכם לדוח הזה:</p>
+            <ul class="guide-list">
+              @for (site of guideSites(); track site.url) {
+                <li><span class="co">{{ site.name }}</span> — <a [href]="site.url" target="_blank" rel="noopener noreferrer">לאתר {{ site.name }}</a></li>
+              }
+            </ul>
+          }
           <p class="hint">{{ pensionGuide.intro }}</p>
           <ul class="guide-list">
             @for (g of pensionGuide.gov; track g.name) {
@@ -1213,6 +1209,22 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
   readonly uploadLabel = signal('');
   readonly photoTips = PHOTO_TIPS;
   readonly pensionKinds = PENSION_KINDS;
+  /** The guidance of one pension report, by its coverage key. */
+  pensionKindFor(key: string) {
+    return PENSION_KINDS.find(k => PENSION_COVERAGE_KEYS[k.key] === key) ?? null;
+  }
+
+  /** The title and the line of the report that is selected for upload. */
+  selectedTitle(year: number): string {
+    return this.typesFor(year).find(t => t.key === this.docType)?.label ?? this.labelFor(this.docType);
+  }
+
+  selectedText(): string {
+    const kind = this.pensionKindFor(this.docType);
+    if (kind) return kind.what;
+    return [...CORE_TYPES, ...EXTRA_TYPES].find(t => t.key === this.docType)?.where ?? '';
+  }
+
   /** The guidance for the pension chip that is selected. */
   activePensionKind() {
     return PENSION_KINDS.find(k => PENSION_COVERAGE_KEYS[k.key] === this.docType) ?? PENSION_KINDS[0];
@@ -1230,6 +1242,31 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
   readonly uploadOk = signal('');
   readonly copied = signal(false);
   readonly pensionGuideOpen = signal(false);
+  /** Which report the help window is about, and for which year, so it can name the funds of that year's payslips. */
+  readonly pensionGuideKey = signal('pension_deposits');
+  private readonly pensionGuideYear = signal<number | null>(null);
+
+  guideTitle(key: string): string {
+    return GUIDE_TITLES[key] ?? 'איך להשיג את הדוח';
+  }
+
+  /** The sites of the funds this year payslips show for the product of a report. */
+  fundLinks(year: number, key: string): Array<{ name: string; url: string }> {
+    const product = key === 'pension_managers' ? 'managers' : key === 'pension_study' ? 'study' : 'pension';
+    const companies = companiesInYear(this.store.review()?.documents ?? [], year)[product];
+    const sites: Array<{ name: string; url: string }> = [];
+    for (const company of companies) {
+      const word = fundKey(company);
+      const site = FUND_SITES.find(s => s.key === word || (word.length >= 3 && (s.key.startsWith(word) || word.startsWith(s.key))));
+      if (site && !sites.some(x => x.url === site.url)) sites.push({ name: site.name, url: site.url });
+    }
+    return sites;
+  }
+
+  guideSites(): Array<{ name: string; url: string }> {
+    const year = this.pensionGuideYear();
+    return year == null ? [] : this.fundLinks(year, this.pensionGuideKey());
+  }
   readonly pensionGuide = PENSION_GUIDE;
 
   docType = 'payslip';
@@ -1251,7 +1288,10 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
   }
 
   /** Files whose lines were read only in part: shown with what to do about each. */
-  readonly readingProblems = computed(() => findReadingProblems(this.store.review()?.documents ?? []));
+  readonly readingProblems = computed(() => {
+    const r = this.store.review();
+    return findReadingProblems(r?.documents ?? [], new Date(), verifiedYears(r?.documents ?? [], r?.period));
+  });
 
   /** The button on the notice: open the file's year and group, and check it again. */
   recheckById(id: string): void {
@@ -1315,7 +1355,9 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
     else if (this.yearModal() != null) this.closeYear();
   }
 
-  openPensionGuide(): void {
+  openPensionGuide(key = 'pension_deposits', year: number | null = null): void {
+    this.pensionGuideKey.set(key);
+    this.pensionGuideYear.set(year);
     this.pensionGuideOpen.set(true);
   }
 
@@ -1493,7 +1535,6 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
   fixDocument(d: ReviewDocumentMeta): void {
     if (d.year == null) return;
     this.openYear(d.year);
-    this.openGroups.update(s => new Set(s).add(`${d.year}|${coverageKeyOf(d)}`));
   }
 
   /** What the person does with a document that is waiting. */
@@ -1859,8 +1900,7 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
     this.fileError.set('');
     this.uploadOk.set('');
     this.validation.clearBlockMessage();
-    // The group of the document opens, so the row that is being checked is on screen.
-    if (d.year != null) this.openGroups.update(s => new Set(s).add(`${d.year}|${coverageKeyOf(d)}`));
+    // The groups stay collapsed: the result is shown in the bar at the top.
     this.recheck.set({
       state: 'running',
       title: `בודקים את ${name}`,
@@ -1879,10 +1919,20 @@ export class ReviewDocumentsPage implements OnInit, OnDestroy {
       return;
     }
     const good = doc.validationStatus === 'ok' || doc.validationStatus === 'manual';
+    // The check ran. Whether the file is now read in full is a separate question, answered from the new reading.
+    const stillOpen = good ? this.readingProblems().find(p => p.docId === id) : undefined;
+    if (stillOpen) {
+      this.recheck.set({
+        state: 'bad',
+        title: `הבדיקה של ${name} הסתיימה, אבל עדיין חסרות שורות`,
+        text: stillOpen.text
+      });
+      return;
+    }
     this.recheck.set({
       state: good ? 'ok' : 'bad',
       title: good ? `הבדיקה של ${name} הסתיימה` : `הבדיקה של ${name} לא הושלמה`,
-      text: doc.validationMessage || (good ? 'המסמך נבדק.' : 'צריך לטפל במסמך.')
+      text: good ? 'הקובץ נקרא במלואו, והבדיקה והחישוב התעדכנו.' : (doc.validationMessage || 'צריך לטפל במסמך.')
     });
   }
 

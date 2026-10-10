@@ -51,7 +51,11 @@ public sealed record ReviewDocumentMeta(
     /// <summary>For a pension report: "annual" (the yearly member report) or "deposits" (a deposit report).</summary>
     string? PensionKind = null,
     /// <summary>The payslip's payment lines, kept as the client sent them.</summary>
-    JsonElement? ExtractedComponents = null);
+    JsonElement? ExtractedComponents = null,
+    /// <summary>Form 106 only: the per-fund yearly totals, kept as the client sent them.</summary>
+    JsonElement? ExtractedFundTotals = null,
+    /// <summary>A final-settlement payslip (גמר חשבון), kept as the client set it.</summary>
+    bool? IsSettlement = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,

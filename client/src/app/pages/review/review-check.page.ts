@@ -3,8 +3,11 @@ import { Router, RouterLink } from '@angular/router';
 import { ContributionKind, EmploymentMonth, ExtractedContribution, FundKind } from '../../core/review.models';
 import { ReviewStore } from '../../core/review.store';
 import { finalMonthParts } from '../../core/pay-components';
+import { AnnualReconcile, reconcileWithForm106 } from '../../core/annual-reconcile';
+import { ReviewDocumentMeta } from '../../core/review.models';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
 import { findReadingProblems } from '../../core/reading-problems';
+import { verifiedYears } from '../../core/annual-reconcile';
 import { summarizeProducts, totalOf } from '../../core/product-summary';
 import { DEPOSIT_LINE_LABELS, DepositIndex, buildDepositIndex, depositCoverage, depositGaps, depositedTotals, isStudyFund, suspectedUnread, unifyFunds } from '../../core/pension-deposits';
 import { ReviewStepNavComponent } from './review-step-nav.component';
@@ -15,7 +18,7 @@ const SEVERANCE_MIN_PERCENT = 6;
 const WAITING_MONTHS = 6;
 const TOLERANCE = 0.97;
 
-type Verdict = 'ok' | 'low' | 'none' | 'waiting' | 'unread' | 'missing' | 'waived' | 'deposit' | 'final' | 'partial';
+type Verdict = 'ok' | 'low' | 'none' | 'waiting' | 'unread' | 'missing' | 'waived' | 'deposit' | 'final' | 'partial' | 'settlement';
 
 interface Issue { text: string; bad: boolean; }
 
@@ -66,6 +69,8 @@ interface CheckYear {
   finalMonthOpen: boolean;
   /** Months whose payslip is there but a line that every month has was not read from it. */
   partial: number;
+  /** The year payslips against the per-fund totals printed on Form 106. */
+  reconcile: AnnualReconcile | null;
 }
 
 const MONTH_NAMES = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
@@ -130,7 +135,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
     .tag { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
     .tag.ok { background: rgba(var(--ion-color-success-rgb, 45, 170, 90), .12); color: var(--ion-color-success-shade, #1a7a3c); }
     .tag.low, .tag.none, .tag.missing, .tag.deposit { background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), .1); color: var(--ion-color-danger); }
-    .tag.waiting, .tag.final, .tag.partial { background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), .16); color: var(--ion-color-warning-shade, #8a6d00); }
+    .tag.waiting, .tag.final, .tag.partial, .tag.settlement { background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), .16); color: var(--ion-color-warning-shade, #8a6d00); }
     .tag.unread, .tag.waived { background: var(--rs-soft); color: var(--ion-color-medium); }
     .tag a { color: inherit; }
 
@@ -293,6 +298,46 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
                   </p>
                 }
 
+                @if (y.reconcile; as rc) {
+                  <h4>השוואה לטופס 106 לפי קופה</h4>
+                  @if (rc.state !== 'ready') {
+                    <p class="hint">{{ rc.text }} <a routerLink="/review/documents">לשלב המסמכים</a></p>
+                  } @else {
+                    <p class="hint">
+                      בטופס 106 מופיע, לכל קופה, מה שהופרש לה במשך כל השנה. סכום התלושים של אותה קופה צריך להיות זהה.
+                      @if (!rc.complete) { <b>חסרים תלושים בשנה הזו, ולכן ההשוואה חלקית ואפשר לצפות לפער.</b> }
+                    </p>
+                    <div class="tbl-wrap">
+                      <table class="funds-table">
+                        <thead>
+                          <tr><th>קופה</th><th>סוג</th><th>עובד: תלושים</th><th>עובד: טופס 106</th><th>מעסיק: תלושים</th><th>מעסיק: טופס 106</th><th>בדיקה</th></tr>
+                        </thead>
+                        <tbody>
+                          @for (row of rc.rows; track row.company + row.label) {
+                            <tr>
+                              <td>{{ row.company }}</td>
+                              <td>{{ row.label }}</td>
+                              <td class="n">{{ amount(row.payslipEmployee) }}</td>
+                              <td class="n">{{ row.formEmployee == null ? '—' : amount(row.formEmployee) }}</td>
+                              <td class="n">{{ amount(row.payslipEmployer) }}</td>
+                              <td class="n">{{ row.formEmployer == null ? '—' : amount(row.formEmployer) }}</td>
+                              <td><span class="tag" [class]="row.match ? 'ok' : (row.formEmployee == null ? 'unread' : 'low')">{{ row.match ? 'תואם' : (row.formEmployee == null ? 'לא בטופס' : 'פער') }}</span></td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                    @if (rc.mismatches) {
+                      <p class="hint">
+                        <b>{{ rc.mismatches === 1 ? 'יש קופה אחת עם פער' : 'יש ' + rc.mismatches + ' קופות עם פער' }}.</b>
+                        ייתכן שתלוש נקרא לא נכון או שורה לא נקראה, ייתכן שחסר תלוש, וייתכן שהטופס נקרא לא נכון.
+                        בדקו את התלושים של השנה בשלב המסמכים, ובצעו בדיקה מחדש לתלוש שנראה חשוד.
+                        <a routerLink="/review/documents">לשלב המסמכים</a>
+                      </p>
+                    }
+                  }
+                }
+
                 @if (y.form106 != null && y.grossSum != null) {
                   <p class="compare">
                     ברוטו לפי טופס 106: <b>{{ store.fmt(y.form106) }}</b> · ברוטו לפי התלושים: <b>{{ store.fmt(y.grossSum) }}</b>
@@ -379,7 +424,10 @@ export class ReviewCheckPage implements OnInit {
   readonly totalOf = totalOf;
 
   /** Files whose lines were read only in part, so the verdicts below may be wrong for them. */
-  readonly readingProblems = computed(() => findReadingProblems(this.store.review()?.documents ?? []));
+  readonly readingProblems = computed(() => {
+    const r = this.store.review();
+    return findReadingProblems(r?.documents ?? [], new Date(), verifiedYears(r?.documents ?? [], r?.period));
+  });
 
   /** A total card, then one card per product that appears in the payslips or the reports. */
   readonly summaryCards = computed(() => {
@@ -439,9 +487,7 @@ export class ReviewCheckPage implements OnInit {
             resolveFund,
             linesByMonth.get(monthBefore(year, m.month, -1))
           ).map(l => `${l.company}: ${this.unreadLabel(l)} ${this.store.fmt(l.amount)}`),
-          !ongoing && year === endYear && m.month === endMonth
-            ? finalMonthParts(r.documents.find(d => d.documentType === 'payslip' && d.year === year && d.month === m.month)?.extractedComponents)
-            : null);
+          this.finalMonthInfo(r.documents, year, m.month, !ongoing && year === endYear && m.month === endMonth));
       });
       const yearLines = months.flatMap(m => m.lines);
       const grosses = months.map(m => m.gross).filter((v): v is number => v != null);
@@ -459,7 +505,8 @@ export class ReviewCheckPage implements OnInit {
         employerTotal: sum(yearLines.filter(l => l.payer === 'employer').map(l => l.amount)),
         form106,
         grossSum,
-        finalMonthOpen: months.some(m => m.verdict === 'final'),
+        finalMonthOpen: months.some(m => m.verdict === 'final' || m.verdict === 'settlement'),
+        reconcile: reconcileWithForm106(r.documents, year, { allPayslipsPresent: missingMonths === 0 }),
         partial: months.filter(m => m.verdict === 'partial').length,
         form106Gap: missingMonths === 0 && form106 != null && grossSum != null && Math.abs(form106 - grossSum) / form106 > 0.03,
         depositNote: this.depositNote(depositIndex, year),
@@ -520,6 +567,7 @@ export class ReviewCheckPage implements OnInit {
       case 'low': return 'נמוך מהחוק';
       case 'deposit': return 'לא הופקד';
       case 'final': return 'חודש סיום';
+      case 'settlement': return 'גמר חשבון';
       case 'partial': return 'שורה לא נקראה';
       case 'none': return 'אין הפרשה';
       case 'waiting': return 'תקופת המתנה?';
@@ -543,7 +591,7 @@ export class ReviewCheckPage implements OnInit {
 
   private checkMonth(m: EmploymentMonth, key: string, hasPayslip: boolean, monthIndex: number, lines: MonthLine[], deposits: Issue[], received: { employee: number; employer: number; severance: number } | null,
     suspected: string[],
-    finalMonth: { notice: number; vacation: number; base: number | null } | null): CheckMonth {
+    finalMonth: { notice: number; vacation: number; base: number | null; settlement: boolean } | null): CheckMonth {
     const base = m.pensionableSalary ?? m.grossSalary;
     const employee = m.employeePension.reported;
     const employer = m.employerPension.reported;
@@ -556,6 +604,24 @@ export class ReviewCheckPage implements OnInit {
     if (!hasPayslip && m.grossSalary == null) {
       const waived = this.store.isWaived('payslip', m.year, m.month);
       return { ...row, verdict: waived ? 'waived' : 'missing', issues: [] };
+    }
+    // A final settlement is not a month of work: it pays notice and a vacation redemption, with no regular contribution
+    // table. It is shown for what it is, and not compared with the months of salary.
+    if (finalMonth?.settlement) {
+      const arrived = received ? received.employee + received.employer + received.severance : 0;
+      if (arrived > 0) {
+        return { ...row, verdict: 'ok', issues: [{
+          text: `זה תלוש גמר חשבון. בדוח הקופה הופקדו ${this.store.fmt(arrived)} לחודש הזה.`, bad: false }] };
+      }
+      const parts: string[] = [];
+      if (finalMonth.notice > 0) parts.push(`חלף הודעה מוקדמת ${this.store.fmt(finalMonth.notice)}`);
+      if (finalMonth.vacation > 0) parts.push(`פדיון חופשה ${this.store.fmt(finalMonth.vacation)}`);
+      const what = parts.length ? `הוא כולל ${parts.join(' ו')}. ` : 'הוא כולל תשלומי סיום. ';
+      return { ...row, verdict: 'settlement', issues: [{
+        text: `זה תלוש גמר חשבון, לא תלוש שכר של חודש רגיל. ${what}` +
+          'בתלוש לא מופיעה הפרשה על רכיבים אלה. על הודעה מוקדמת ועל פדיון חופשה בדרך כלל חלה חובת הפרשה, אבל זה תלוי בחוזה ובהסכם. ' +
+          'כדאי לבדוק מול המעסיק ובדוח הקופה כשיגיע, כי הפקדה על חודש אחרון מגיעה לפעמים באיחור.',
+        bad: false }] };
     }
     if (employee == null && employer == null && severance == null) {
       return { ...row, verdict: 'unread', issues: [{ text: 'שורות ההפרשה בתלוש עדיין לא נקראו — לחצו «בדיקה מחדש» על התלוש בשלב המסמכים.', bad: false }] };
@@ -653,6 +719,16 @@ export class ReviewCheckPage implements OnInit {
    * Each fund's payslip line against that same fund's own report, so a second fund with no report is not
    * mistaken for a missing deposit. The latest months are only a note: a deposit can take two months to arrive.
    */
+  /** The last month of the job, or a payslip that is a final settlement wherever it falls, with what it pays. */
+  private finalMonthInfo(
+    docs: readonly ReviewDocumentMeta[], year: number, month: number, isLastMonth: boolean
+  ): { notice: number; vacation: number; base: number | null; settlement: boolean } | null {
+    const doc = docs.find(d => d.documentType === 'payslip' && d.year === year && d.month === month);
+    const settlement = doc?.isSettlement === true;
+    if (!settlement && !isLastMonth) return null;
+    return { ...finalMonthParts(doc?.extractedComponents), settlement };
+  }
+
   private unreadLabel(l: { kind: string; payer: string; provider?: string | null }): string {
     if (isStudyFund({ kind: l.kind, provider: l.provider ?? null })) return l.payer === 'employee' ? 'קרן השתלמות, עובד' : 'קרן השתלמות, מעסיק';
     switch (l.kind) {

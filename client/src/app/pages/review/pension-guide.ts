@@ -1,3 +1,30 @@
+/** The company site of a fund, by the name a payslip prints it with (first word). Sites change: this is a starting point. */
+export interface FundSite {
+  /** The company word as a payslip and a report print it. */
+  key: string;
+  name: string;
+  url: string;
+}
+
+export const FUND_SITES: readonly FundSite[] = [
+  { key: 'כלל', name: 'כלל', url: 'https://www.clalbit.co.il/' },
+  { key: 'מגדל', name: 'מגדל', url: 'https://www.migdal.co.il/' },
+  { key: 'הראל', name: 'הראל', url: 'https://www.harel-group.co.il/' },
+  { key: 'מנורה', name: 'מנורה מבטחים', url: 'https://www.menoramivt.co.il/' },
+  { key: 'הפניקס', name: 'הפניקס', url: 'https://www.fnx.co.il/' },
+  { key: 'מיטב', name: 'מיטב', url: 'https://www.meitav.co.il/' },
+  { key: 'אלטשולר', name: 'אלטשולר שחם', url: 'https://www.as-invest.co.il/' },
+  { key: 'מור', name: 'מור', url: 'https://www.mor.co.il/' }
+];
+
+/** The title of the help for each report a year can ask for. */
+export const GUIDE_TITLES: Record<string, string> = {
+  pension_deposits: 'איך להשיג דוח הפקדות',
+  pension_annual: 'איך להשיג דוח שנתי מפורט',
+  pension_managers: 'איך להשיג דוח ביטוח מנהלים',
+  pension_study: 'איך להשיג דוח קרן השתלמות'
+};
+
 /** Practical tips — prefer gov portals; company sites change often. */
 export const PENSION_GUIDE = {
   intro:

@@ -86,9 +86,10 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "pension_base": מספר או null,
              "annual_gross": מספר או null,
              "vacation": {"balance": מספר, "used": מספר, "accrued": מספר, "previous_balance": מספר},
+             "fund_totals": [{"kind":"pension"|"managers"|"severance"|"disability"|"study","provider":"שם הקופה","employee":מספר,"employer":מספר}],
              "pay_components": [{"kind":"salary"|"overtime"|"recuperation"|"notice"|"vacation_redemption"|"severance_pay"|"expenses"|"bonus"|"other","amount":מספר}],
              "contribution_kinds": ["pension"|"severance"|"disability"|"study"],
-             "contributions": [{"kind":"pension"|"managers"|"severance"|"disability"|"study","payer":"employee"|"employer","provider":"שם הקופה או מחרוזת ריקה","rate_percent":מספר או 0,"amount":מספר,"for_year":שנה או 0,"for_month":חודש או 0}],
+             "contributions": [{"label":"שם השורה כפי שהוא מודפס","kind":"pension"|"managers"|"severance"|"disability"|"study","payer":"employee"|"employer","provider":"שם הקופה או מחרוזת ריקה","rate_percent":מספר או 0,"amount":מספר,"for_year":שנה או 0,"for_month":חודש או 0}],
              "funds": [{"kind":"pension"|"severance"|"study"|"managers","provider":"שם הגוף או null","balance":מספר או null,"as_of":"YYYY-MM-DD או null","fee_annual_percent":מספר או null,"return_annual_percent":מספר או null,"track":"מסלול או null"}]}
             כללים:
             - employer_name: שם המעסיק (חברה / עסק) בלבד, כפי שמודפס בכותרת התלוש או בטופס 106. לעולם לא שם העובד. בדוח פנסיה או אם לא מופיע — מחרוזת ריקה.
@@ -103,6 +104,10 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             - לתלוש: pension_base = «בסיס לפנסיה» / «שכר מבוטח» / «משכורת להפקדות» אם מופיע, אחרת null.
             - לתלוש: contribution_kinds = סוגי שורות בטבלת ההפרשות. pension=תגמולי פנסיה, severance=פיצויים, disability=אובדן כושר עבודה, study=קרן השתלמות. מערך ריק אם אין טבלה.
             - לתלוש: contributions = שורה לכל סכום לקופה, גם ניכוי מהעובד וגם הפרשת מעסיק:
+              * label = השם המודפס של השורה, בדיוק כפי שהוא כתוב, למשל «ניכוי כלל פנס», «הפרשת פיצ כלל», «הפרשה אוב מגד», «ניכוי מור קה"ש». תעתיק אותו, אל תפרש אותו.
+                שורה ששמה מתחיל ב«ניכוי» היא של העובד, ושורה ששמה מתחיל ב«הפרשה» או «הפרשת» היא של המעסיק.
+              * כלול כל שורה בטבלאות «ניכויים» ו«הפרשות מעסיק», גם של קופה שנייה ושלישית. אל תדלג על שורת ניכוי של עובד.
+              * לדוח קופות: label הוא מחרוזת ריקה.
               * payer=employee לשורות «ניכוי …» / עמודת עובד. payer=employer לשורות «הפרשה …» / «הפרשת …» / עמודת מעסיק.
               * kind: pension=קרן פנסיה / תגמולים, managers=ביטוח מנהלים (גם «ביט» / «ב.מנהלים»), severance=פיצויים («פיצ»), disability=אובדן כושר עבודה («אוב», «א.כ.ע»), study=קרן השתלמות («קה"ש», «השתל»).
               * provider = שם החברה המנהלת בלבד (למשל «מגדל», «כלל», «מור», «הראל»), גם אם הטקסט בתלוש חתוך או מקוצר. אל תכלול בשם את סוג השורה: «פיצ» ו«אוב» ו«קה"ש» הם סוג, לא חברה. אם החברה לא מופיעה בשורה, "".
@@ -121,13 +126,21 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               * לכל נתון שלא מודפס בתלוש החזר ‎-999 בדיוק. אל תחשב ואל תשלים נתון חסר. אם החופשה מנוהלת בשעות ולא בימים, החזר ‎-999 בכל השדות.
               * אל תערבב עם ימי מחלה או הבראה.
             - למסמך שאינו תלוש: ‎-999 בכל שדות vacation.
-            - לתלוש: pay_components = שורה לכל רכיב תשלום בצד «תשלומים» של החודש הזה, בלי «הפרשים» מחודשים קודמים:
+            - לתלוש: pay_components = שורה לכל רכיב תשלום בצד «תשלומים» של החודש הזה. תיקון קטן של חודש קודם בתוך תלוש רגיל אינו רכיב.
+              חריג: בתלוש גמר חשבון (יש בו «חלף הודעה מוקדמת» או «פדיון חופשה סיום העסקה») כל התשלומים מופיעים תחת «פירוט הפרשי תוספות»
+              עם תאריך של החודש הקודם. אלה התשלום עצמו, וצריך לכלול אותם:
               * kind: salary=משכורת / שכר בסיס / שכר חודשי. overtime=שעות נוספות, גם גלובליות. recuperation=הבראה.
                 notice=חלף הודעה מוקדמת / פדיון הודעה מוקדמת / תמורת הודעה מוקדמת. vacation_redemption=פדיון חופשה, גם «פדיון חופשה סיום העסקה».
                 severance_pay=פיצויי פיטורים ששולמו בתלוש. expenses=נסיעות / החזר הוצאות / אש"ל. bonus=בונוס / מענק / עמלות / פרמיה.
                 other=כל רכיב אחר, כולל «גלום».
               * amount = הסכום בש״ח של הרכיב בחודש הזה. אל תכלול שורות סיכום (ברוטו, סך תשלומים).
               * אם אי אפשר לקרוא את רכיבי התשלום: מערך ריק. למסמך שאינו תלוש: מערך ריק.
+            - ל־106: fund_totals = שורה לכל קופה בטבלת «פירוט ניכויים והפרשות לקופות» (בדרך כלל בעמוד הראשון), עם הסכומים לכל השנה:
+              * kind לפי «סוג קופה»: «פ. מקיפה» / «קרן פנסיה» / «פנסיה» = pension. «ב.מנהלים» / «ביטוח מנהלים» = managers.
+                «פיצויים» = severance. «א.כ.ע» / «אובדן כושר עבודה» = disability. «ק.השתלמות» / «קרן השתלמות» = study.
+              * provider = שם הקופה או החברה (למשל «מגדל», «כלל פנסיה», «מור»). employee = סכום העובד לשנה. employer = סכום המעסיק לשנה. 0 אם אין.
+              * שורה אחת לכל זוג של קופה וסוג. אל תחבר שורות של קופות שונות, ואל תכלול שורת סה"כ.
+              * אם הטבלה לא מופיעה: מערך ריק. לשאר סוגי המסמכים: מערך ריק.
             - ל־106: annual_gross = השדה «משכורת חייבת במס», שהוא כל השכר החייב במס כולל שעות נוספות והחזר הוצאות.
               אל תיקח את «הכנסה חייבת רגילה» לבדה: היא רק חלק מהשכר ואינה כוללת שעות נוספות.
               אם אין שדה כזה, סכום את «הכנסה חייבת רגילה», «שכר שעות נוספות» ו«החזר הוצאות».
@@ -244,7 +257,8 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 ReadContributions(raw),
                 Clip(ReadString(raw, "employer_name")),
                 Vacation: ReadVacation(raw),
-                PayComponents: ReadPayComponents(raw));
+                PayComponents: ReadPayComponents(raw),
+                FundTotals: ReadFundTotals(raw));
         }
     }
 
@@ -255,6 +269,28 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
     {
         "salary", "overtime", "recuperation", "notice", "vacation_redemption", "severance_pay", "expenses", "bonus", "other"
     };
+
+    private static readonly HashSet<string> FundTotalKinds = new(StringComparer.Ordinal)
+    {
+        "pension", "managers", "severance", "disability", "study"
+    };
+
+    internal static IReadOnlyList<ExtractedFundTotal> ReadFundTotals(JsonElement raw)
+    {
+        if (!raw.TryGetProperty("fund_totals", out var rows) || rows.ValueKind != JsonValueKind.Array) return [];
+        var list = new List<ExtractedFundTotal>();
+        foreach (var row in rows.EnumerateArray())
+        {
+            if (row.ValueKind != JsonValueKind.Object) continue;
+            var kind = ReadString(row, "kind")?.Trim().ToLowerInvariant();
+            if (kind is null || !FundTotalKinds.Contains(kind)) continue;
+            var employee = ReadDecimal(row, "employee") ?? 0m;
+            var employer = ReadDecimal(row, "employer") ?? 0m;
+            if (employee < 0m || employer < 0m || (employee == 0m && employer == 0m)) continue;
+            list.Add(new ExtractedFundTotal(kind, Clip(ReadString(row, "provider")), employee, employer));
+        }
+        return list;
+    }
 
     internal static IReadOnlyList<ExtractedPayComponent> ReadPayComponents(JsonElement raw)
     {
@@ -293,8 +329,13 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
         {
             if (row.ValueKind != JsonValueKind.Object) continue;
             var kind = ReadString(row, "kind")?.Trim().ToLowerInvariant();
-            if (kind is not ("pension" or "managers" or "severance" or "disability" or "study")) continue;
             var payer = ReadString(row, "payer")?.Trim().ToLowerInvariant();
+            // The printed name of the row decides who pays and what for whenever it says: a model that reads the
+            // table's columns wrongly still copies the row names right.
+            var label = Clip(ReadString(row, "label"));
+            kind = PayslipLabelClassifier.KindOf(label) ?? kind;
+            payer = PayslipLabelClassifier.PayerOf(label) ?? payer;
+            if (kind is not ("pension" or "managers" or "severance" or "disability" or "study")) continue;
             if (payer is not ("employee" or "employer")) continue;
             if (ReadDecimal(row, "amount") is not decimal amount || amount == 0) continue;
             var rate = ReadDecimal(row, "rate_percent");
@@ -302,7 +343,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             var forYear = ReadInt(row, "for_year");
             var forMonth = ReadInt(row, "for_month");
             if (forYear is < 1990 or > 2100 || forMonth is < 1 or > 12) (forYear, forMonth) = (null, null);
-            list.Add(new ExtractedContributionLine(kind, payer, Clip(ReadString(row, "provider")), rate, amount, forYear, forMonth));
+            list.Add(new ExtractedContributionLine(kind, payer, Clip(ReadString(row, "provider")), rate, amount, forYear, forMonth, label));
         }
         return list;
     }
@@ -406,6 +447,20 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             "gross_salary": { "type": ["number", "null"] },
             "pension_base": { "type": ["number", "null"] },
             "annual_gross": { "type": ["number", "null"] },
+            "fund_totals": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": { "type": "string", "enum": ["pension", "managers", "severance", "disability", "study"] },
+                  "provider": { "type": "string" },
+                  "employee": { "type": "number" },
+                  "employer": { "type": "number" }
+                },
+                "required": ["kind", "provider", "employee", "employer"]
+              }
+            },
             "pay_components": {
               "type": "array",
               "items": {
@@ -439,6 +494,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
+                  "label": { "type": "string" },
                   "kind": { "type": "string", "enum": ["pension", "managers", "severance", "disability", "study"] },
                   "payer": { "type": "string", "enum": ["employee", "employer"] },
                   "provider": { "type": "string" },
@@ -447,7 +503,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                   "for_year": { "type": "integer" },
                   "for_month": { "type": "integer" }
                 },
-                "required": ["kind", "payer", "provider", "rate_percent", "amount", "for_year", "for_month"]
+                "required": ["label", "kind", "payer", "provider", "rate_percent", "amount", "for_year", "for_month"]
               }
             },
             "funds": {
@@ -468,7 +524,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "employer_name", "gross_salary", "pension_base", "annual_gross", "vacation", "pay_components", "contribution_kinds", "contributions", "funds"]
+          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "employer_name", "gross_salary", "pension_base", "annual_gross", "vacation", "fund_totals", "pay_components", "contribution_kinds", "contributions", "funds"]
         }
         """;
 }

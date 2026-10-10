@@ -187,6 +187,8 @@ export interface DocumentVerificationResult {
   vacation?: { balance: number | null; used: number | null; accrued: number | null; previousBalance: number | null } | null;
   /** Payslip only: the payment lines (salary, notice pay, vacation redemption, ...). */
   payComponents?: Array<{ kind: string; amount: number }> | null;
+  /** Form 106 only: the per-fund yearly totals of its table of contributions to funds. */
+  fundTotals?: Array<{ kind: string; provider: string | null; employee: number; employer: number }> | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */

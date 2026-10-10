@@ -3,6 +3,7 @@ import { PENSION_COVERAGE_KEYS, PensionKind, pensionKindOf } from '../../core/re
 import { productsInYear } from '../../core/product-summary';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
 import { findReadingProblems } from '../../core/reading-problems';
+import { verifiedYears } from '../../core/annual-reconcile';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
@@ -469,7 +470,10 @@ export class ReviewReportPage implements OnInit {
   readonly ongoing = computed(() => this.store.review()?.period?.exitReason === 'Ongoing');
 
   /** Files whose lines were read only in part: the summary below leans on them. */
-  readonly readingProblems = computed(() => findReadingProblems(this.store.review()?.documents ?? []));
+  readonly readingProblems = computed(() => {
+    const r = this.store.review();
+    return findReadingProblems(r?.documents ?? [], new Date(), verifiedYears(r?.documents ?? [], r?.period));
+  });
 
   readonly sims = computed(() => this.a()?.simulations ?? []);
   readonly exitTotal = computed(() => this.wizard.active()?.estimatedTotal ?? null);

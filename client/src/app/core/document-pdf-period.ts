@@ -10,6 +10,8 @@ export type PdfDocHint = {
   detectedType: 'payslip' | 'form106' | 'pension_report' | 'other' | null;
   /** Every employment-doc type whose markers appear in the text (a payslip also mentions pension funds). */
   matchedTypes?: Array<'payslip' | 'form106' | 'pension_report'>;
+  /** A payslip that settles the account at the end of the job: notice pay or a vacation redemption "at the end of employment". */
+  settlement?: boolean;
 };
 
 const YEAR_RE = /\b(20[0-3]\d)\b/g;
@@ -65,6 +67,9 @@ function textVariants(text: string): { spaced: string; compact: string; reversed
   return { spaced, compact, reversed: [...compact].reverse().join('') };
 }
 
+/** What only a final settlement prints. Checked on the text without spaces, so letter-by-letter text works too. */
+const SETTLEMENT_PHRASES = ['חלףהודעהמוקדמת', 'תמורתהודעהמוקדמת', 'פדיוןהודעהמוקדמת', 'פדיוןחופשהסיום', 'פדיוןחופשהבסיום', 'גמרחשבון'];
+
 const PAYSLIP_PHRASES = ['תלוששכר', 'תלושישכר', 'תלושמשכורת', 'שכרנטו', 'ברוטולחודש', 'תקופתשכר', 'ימיעבודה'];
 const FORM106_PHRASES = ['טופס106', 'אישורשנתילמס', 'סיכוםשנתישלשכר'];
 const PENSION_PHRASES = [
@@ -88,10 +93,11 @@ export function parseDocFromText(text: string): PdfDocHint {
   if (taxYear) {
     return { year: Number(taxYear[1]), month: null, detectedType, matchedTypes };
   }
+  const settlement = detectedType === 'payslip' && SETTLEMENT_PHRASES.some(p => variants.compact.includes(p) || variants.reversed.includes(p));
   let period = parsePeriodFromText(normalized);
   // Letter-by-letter text reverses the digits too ("3202.21.13"), so read the reversed text when nothing was found.
   if (period.year == null) period = parsePeriodFromText(variants.reversed);
-  return { year: period.year, month: period.month, detectedType, matchedTypes };
+  return { year: period.year, month: period.month, detectedType, matchedTypes, settlement };
 }
 
 function matchedTypesIn(v: Variants): Array<'payslip' | 'form106' | 'pension_report'> {

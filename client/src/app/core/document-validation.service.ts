@@ -460,6 +460,12 @@ export class DocumentValidationService {
       extractedVacation: detectedType === 'payslip' ? (result.vacation ?? null) : null,
       // [] = read, none found; null = not read (older OCR / unavailable).
       extractedComponents: detectedType === 'payslip' ? (result.payComponents ?? []) : null,
+      // Known from the file's own text, or from what the payslip pays: notice pay, vacation redemption, severance.
+      isSettlement: detectedType === 'payslip'
+        && (!!localHint?.settlement
+          || (result.payComponents ?? []).some(c => ['notice', 'vacation_redemption', 'severance_pay'].includes(c.kind))),
+      // Form 106: [] = no table of funds found; null = not read.
+      extractedFundTotals: detectedType === 'form106' ? (result.fundTotals ?? []) : null,
       // [] = read, none found; null = not read (older OCR / unavailable).
       // Payslip: the contribution table. Pension report: the deposits the fund received, by salary month.
       extractedContributions: detectedType === 'payslip' || detectedType === 'pension_report' ? (result.contributions ?? []) : null,
