@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { IonButton, IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { AuthService } from '../core/auth/auth.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
-import { ReviewStore } from '../core/review.store';
 import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
 import { SiteFooterComponent } from '../core/site-footer.component';
 
@@ -41,7 +40,6 @@ import { SiteFooterComponent } from '../core/site-footer.component';
               }
             </div>
             <div class="actions">
-              <ion-button fill="outline" (click)="startFresh()">התחלה מחדש</ion-button>
               <ion-button (click)="continueWork()">המשך</ion-button>
             </div>
           </div>
@@ -58,7 +56,6 @@ import { SiteFooterComponent } from '../core/site-footer.component';
 })
 export class ResumePage {
   private readonly workspaces = inject(WorkspaceService);
-  private readonly review = inject(ReviewStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
@@ -97,13 +94,6 @@ export class ResumePage {
 
   continueWork(): void {
     void this.router.navigateByUrl(this.workspaces.resumeRoute(this.ws()));
-  }
-
-  async startFresh(): Promise<void> {
-    if (!(await this.workspaces.confirmRestart())) return;
-    this.review.clear();
-    await this.workspaces.restartFlow();
-    await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 
   /** The screen "המשך" opens, in words: the track and the step inside it. */

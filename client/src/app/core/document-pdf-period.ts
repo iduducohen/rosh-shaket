@@ -55,32 +55,58 @@ async function extractPdfText(file: File, unlock?: PdfUnlocker | null): Promise<
   }
 }
 
+/**
+ * Some PDFs (pension funds in particular) store Hebrew as single letters, sometimes in reverse order, so the
+ * extracted text reads "ד ו ח ש נ ת י". The same text without spaces, and its reverse, are searched as well.
+ */
+function textVariants(text: string): { spaced: string; compact: string; reversed: string } {
+  const spaced = text.replace(/\s+/g, ' ');
+  const compact = text.replace(/\s+/g, '');
+  return { spaced, compact, reversed: [...compact].reverse().join('') };
+}
+
+const PAYSLIP_PHRASES = ['תלוששכר', 'תלושישכר', 'תלושמשכורת', 'שכרנטו', 'ברוטולחודש', 'תקופתשכר', 'ימיעבודה'];
+const FORM106_PHRASES = ['טופס106', 'אישורשנתילמס', 'סיכוםשנתישלשכר'];
+const PENSION_PHRASES = [
+  'דוחפנסיה', 'קרןפנסיה', 'קופתגמל', 'קרןהשתלמות', 'ביטוחמנהלים', 'יתרהצבורה', 'הרהכסף', 'דוחהפקדות',
+  'דוחשנתימפורטלעמיתים', 'פנסיהמקיפה', 'פנסיהכללית'
+];
+
+type Variants = ReturnType<typeof textVariants>;
+
+function hasMarker(v: Variants, re: RegExp, phrases: string[]): boolean {
+  return re.test(v.spaced) || phrases.some(p => v.compact.includes(p) || v.reversed.includes(p));
+}
+
 export function parseDocFromText(text: string): PdfDocHint {
-  const normalized = text.replace(/\s+/g, ' ');
-  const detectedType = detectTypeFromText(normalized);
-  const matchedTypes = matchedTypesIn(normalized);
+  const variants = textVariants(text);
+  const normalized = variants.spaced;
+  const detectedType = detectTypeFromText(variants);
+  const matchedTypes = matchedTypesIn(variants);
   // Form 106 carries an issue date from the following year ("תאריך הפקה: 02/04/2024") — use the tax year.
   const taxYear = detectedType === 'form106' ? normalized.match(TAX_YEAR_RE) : null;
   if (taxYear) {
     return { year: Number(taxYear[1]), month: null, detectedType, matchedTypes };
   }
-  const period = parsePeriodFromText(normalized);
+  let period = parsePeriodFromText(normalized);
+  // Letter-by-letter text reverses the digits too ("3202.21.13"), so read the reversed text when nothing was found.
+  if (period.year == null) period = parsePeriodFromText(variants.reversed);
   return { year: period.year, month: period.month, detectedType, matchedTypes };
 }
 
-function matchedTypesIn(text: string): Array<'payslip' | 'form106' | 'pension_report'> {
+function matchedTypesIn(v: Variants): Array<'payslip' | 'form106' | 'pension_report'> {
   const types: Array<'payslip' | 'form106' | 'pension_report'> = [];
-  if (PAYSLIP_RE.test(text)) types.push('payslip');
-  if (FORM106_RE.test(text)) types.push('form106');
-  if (PENSION_RE.test(text)) types.push('pension_report');
+  if (hasMarker(v, PAYSLIP_RE, PAYSLIP_PHRASES)) types.push('payslip');
+  if (hasMarker(v, FORM106_RE, FORM106_PHRASES)) types.push('form106');
+  if (hasMarker(v, PENSION_RE, PENSION_PHRASES)) types.push('pension_report');
   return types;
 }
 
-function detectTypeFromText(text: string): PdfDocHint['detectedType'] {
+function detectTypeFromText(v: Variants): PdfDocHint['detectedType'] {
   const scores = {
-    payslip: PAYSLIP_RE.test(text) ? 1 : 0,
-    form106: FORM106_RE.test(text) ? 1 : 0,
-    pension_report: PENSION_RE.test(text) ? 1 : 0
+    payslip: hasMarker(v, PAYSLIP_RE, PAYSLIP_PHRASES) ? 1 : 0,
+    form106: hasMarker(v, FORM106_RE, FORM106_PHRASES) ? 1 : 0,
+    pension_report: hasMarker(v, PENSION_RE, PENSION_PHRASES) ? 1 : 0
   };
   const hits = (Object.entries(scores) as [keyof typeof scores, number][])
     .filter(([, n]) => n > 0)

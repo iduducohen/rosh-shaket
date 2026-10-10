@@ -13,11 +13,48 @@ namespace RoshShaket.Infrastructure.Auth;
 /// built-in version used over SMTP or when no template is configured. Variables use Resend's
 /// {{{KEY}}} names, so a template only needs to reference them.
 /// </summary>
-public sealed record EmailMessage(string Kind, string To, string Subject, string Html, IReadOnlyDictionary<string, string> Variables);
+public sealed record EmailMessage(string Kind, string To, string Subject, string Html, IReadOnlyDictionary<string, string> Variables, string? RefKey = null);
 
 public static class EmailContent
 {
     public const string LoginCodeKind = "LoginCode";
+
+    public const string ReviewReminderKind = "ReviewReminder";
+    public const string YearEndReminderKind = "YearEndReminder";
+
+    /// <summary>
+    /// "Time to check again" for someone who still works. Template variables: LINK (the app), UNSUBSCRIBE_URL, EMAIL.
+    /// <paramref name="refKey"/> makes it once-only per person in the email log.
+    /// </summary>
+    public static EmailMessage ReviewReminder(string to, string link, string unsubscribeUrl, string refKey)
+    {
+        var variables = new Dictionary<string, string> { ["LINK"] = link, ["UNSUBSCRIBE_URL"] = unsubscribeUrl, ["EMAIL"] = to };
+        return new(ReviewReminderKind, to, "הגיע הזמן לבדוק שוב את ההפקדות שלכם", Render("review-reminder.html", variables), variables, refKey);
+    }
+
+    /// <summary>
+    /// Form 106 and the annual pension report of a year that has ended. <paramref name="second"/> is the April note, after
+    /// the documents should already have arrived. Template variables: YEAR, DOCS, HEADLINE, INTRO, LINK, UNSUBSCRIBE_URL, EMAIL.
+    /// </summary>
+    public static EmailMessage YearEndDocsReminder(string to, int year, IReadOnlyList<string> missing, bool second, string link, string unsubscribeUrl, string refKey)
+    {
+        var names = missing.Select(k => k == "form106" ? "טופס 106" : "הדוח השנתי המפורט לעמיתים").ToList();
+        var docs = string.Join(" ו", names);
+        var plural = names.Count > 1;
+        var headline = second
+            ? $"{docs} של {year} עדיין לא הועלו"
+            : $"{docs} של {year} {(plural ? "אמורים" : "אמור")} להגיע";
+        var intro = second
+            ? "זה כבר אחרי סוף מרץ, והמסמכים אמורים להיות אצלכם. אם לא קיבלתם אותם, כדאי לבקש אותם מהמעסיק או מהקופה, ולהעלות כשהם מגיעים."
+            : "מסמכי סוף השנה מופקים רק אחרי שהשנה מסתיימת, ובדרך כלל מגיעים עד סוף מרץ. כשהם אצלכם, מעלים אותם ומשלימים את הבדיקה.";
+        var variables = new Dictionary<string, string>
+        {
+            ["YEAR"] = year.ToString(), ["DOCS"] = docs, ["HEADLINE"] = headline, ["INTRO"] = intro,
+            ["LINK"] = link, ["UNSUBSCRIBE_URL"] = unsubscribeUrl, ["EMAIL"] = to
+        };
+        var subject = second ? $"עדיין חסרים לכם מסמכי סוף שנה {year}" : $"מסמכי סוף שנה {year} אמורים להגיע";
+        return new(YearEndReminderKind, to, subject, Render("year-end-docs-reminder.html", variables), variables, refKey);
+    }
 
     /// <summary>Template variables: CODE (6 digits), EXPIRES_MINUTES, EMAIL.</summary>
     public static EmailMessage LoginCode(string to, string code)
@@ -74,10 +111,10 @@ public sealed class RecordedEmailSender(IEmailTransport transport, IEmailLog ema
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, null, null, EmailLogEntry.Failed, ex.Message), ct);
+            await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, null, null, EmailLogEntry.Failed, ex.Message, m.RefKey), ct);
             throw;
         }
-        await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, receipt.TemplateId, receipt.MessageId, EmailLogEntry.Sent, null), ct);
+        await RecordAsync(new EmailLogEntry(m.Kind, m.To, transport.Name, receipt.TemplateId, receipt.MessageId, EmailLogEntry.Sent, null, m.RefKey), ct);
     }
 
     // The email already went out (or already failed); a logging problem must not change the result the user sees.

@@ -1,14 +1,12 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonSpinner, ViewWillEnter } from '@ionic/angular/standalone';
 import { ApiService, describeError } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { ChartSlice, ExitReason, RightsReport } from '../core/models';
-import { ReviewStore } from '../core/review.store';
 import { WizardStore } from '../core/wizard.store';
-import { WorkspaceService } from '../core/workspace.service';
 import { SiteFooterComponent } from '../core/site-footer.component';
 
 const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A'];
@@ -171,7 +169,7 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
           <p class="err">{{ error() }}</p>
           <ion-button fill="outline" (click)="load()">נסו שוב</ion-button>
         } @else {
-          <p>עוד אין חישוב. <ion-button fill="clear" (click)="restart()">להתחיל</ion-button></p>
+          <p>עוד אין חישוב. <ion-button fill="clear" routerLink="/start">להתחיל</ion-button></p>
         }
       </div>
       <app-site-footer></app-site-footer>
@@ -181,10 +179,7 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
 export class ReportsPage implements ViewWillEnter {
   readonly store = inject(WizardStore);
   private readonly api = inject(ApiService);
-  private readonly router = inject(Router);
   private readonly sanitizer = inject(DomSanitizer);
-  private readonly workspaces = inject(WorkspaceService);
-  private readonly review = inject(ReviewStore);
 
   readonly report = signal<RightsReport | null>(null);
   readonly busy = signal(false);
@@ -253,14 +248,6 @@ export class ReportsPage implements ViewWillEnter {
 
   print(): void {
     window.print();
-  }
-
-  async restart(): Promise<void> {
-    if (!(await this.workspaces.confirmRestart())) return;
-    this.review.clear();
-    await this.workspaces.restartFlow();
-    this.report.set(null);
-    await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 
   color(i: number): string {

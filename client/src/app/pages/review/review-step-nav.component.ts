@@ -18,22 +18,25 @@ const REVIEW_STEPS = [
   styles: [`
     :host {
       display: block;
-      margin-top: 28px;
-      padding-top: 16px;
+      margin-top: 18px;
+      padding-top: 12px;
       border-top: 1px solid var(--rs-line, #e5e5e5);
     }
     .nav {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      justify-content: space-between;
+      gap: 10px;
+      /* Back and continue sit together, not at the two edges of the page. */
+      justify-content: flex-start;
       align-items: center;
     }
     /* Back and next share size, font and shape; back is the outline version of the same button. */
-    .nav ion-button { margin: 0; flex: 0 0 auto; min-width: 200px; font-weight: 700; --box-shadow: none; }
+    .nav ion-button { margin: 0; flex: 0 0 auto; min-width: 160px; font-weight: 700; --box-shadow: none; }
+    /* Back stays at the start (right in Hebrew), continue goes to the opposite end (left). */
+    .nav .next { margin-inline-start: auto; }
     @media (max-width: 720px) {
       :host { border-top: 0; padding-top: 0; }
-      .nav { flex-wrap: nowrap; }
+      .nav { flex-wrap: nowrap; justify-content: space-between; }
       .nav ion-button { flex: 1; min-width: 0; }
     }
   `],

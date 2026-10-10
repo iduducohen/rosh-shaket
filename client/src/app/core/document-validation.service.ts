@@ -1,7 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { TimeoutError } from 'rxjs';
 import { Injectable, inject, signal } from '@angular/core';
 import { ApiService, DocumentVerificationResult } from './api.service';
-import { prepareDocumentImages } from './document-images';
+import { imageQualityProblem, prepareDocumentImages } from './document-images';
+import { qualityMessage } from './payslip-quality';
+import { finalMonthPensionBase } from './pay-components';
 import { readPdfDocHint, type PdfDocHint } from './document-pdf-period';
 import { PdfLockedError } from './pdf-open';
 import { PdfPasswordService } from './pdf-passwords.service';
@@ -21,6 +24,7 @@ const TRANSIENT_STATUSES = new Set([0, 429, 502, 503, 504]);
 
 /** Network failures and 5xx: the server could not check, which says nothing about the document. */
 export function isTransientVerifyError(err: unknown): boolean {
+  if (err instanceof TimeoutError) return true;
   return err instanceof HttpErrorResponse && (TRANSIENT_STATUSES.has(err.status) || err.status >= 500);
 }
 
@@ -73,12 +77,35 @@ export class DocumentValidationService {
     return this.running().has(docId);
   }
 
+  /** True when the last problem was the quality of a photo: the page then opens its photo tips. */
+  readonly photoTips = signal(false);
+
   clearBlockMessage(): void {
     this.blockMessage.set('');
+    this.photoTips.set(false);
   }
 
   setBlockMessage(message: string): void {
     this.blockMessage.set(message);
+  }
+
+  /**
+   * A document whose check never finished (the tab was closed or the check was cut short). Nothing is running for it,
+   * so it can only be re-checked or replaced; it must not block uploading the same file again.
+   */
+  isStale(d: ReviewDocumentMeta): boolean {
+    return (d.validationStatus === 'checking' || d.validationStatus === 'pending') && !this.running().has(d.id);
+  }
+
+  /** Stale copies of this file for the year, to be replaced by a fresh upload. */
+  staleDuplicates(year: number, file: File): ReviewDocumentMeta[] {
+    const name = file.name.trim().toLowerCase();
+    return (this.store.review()?.documents ?? []).filter(d =>
+      d.year === year
+      && this.isStale(d)
+      && (d.fileName ?? '').trim().toLowerCase() === name
+      && (d.fileSize == null || d.fileSize === file.size)
+    );
   }
 
   /** True when the same file (name + size) is already registered for this year. */
@@ -88,6 +115,7 @@ export class DocumentValidationService {
     return (this.store.review()?.documents ?? []).some(d =>
       d.year === year
       && d.id !== excludeDocId
+      && !this.isStale(d)
       && (d.fileName ?? '').trim().toLowerCase() === name
       && (d.fileSize == null || d.fileSize === size)
     );
@@ -122,6 +150,7 @@ export class DocumentValidationService {
     }
 
     this.blockMessage.set('');
+    this.photoTips.set(false);
     this.store.updateDocument(docId, {
       validationStatus: 'checking',
       validationMessage: 'בודקים שהמסמך תואם לשנה ולסוג שנבחרו…',
@@ -141,7 +170,8 @@ export class DocumentValidationService {
         return this.rejectUpload(docId, UNSUITABLE_FILE_MSG);
       }
 
-      if (local?.year != null && local.year !== doc.year) {
+      // A pension report can cover several years, so the PDF text year says little; the server checks its deposit lines.
+      if (local?.year != null && local.year !== doc.year && doc.documentType !== 'pension_report') {
         const msg = doc.documentType === 'payslip' || local.detectedType === 'payslip'
           ? `העלית תלוש של שנה ${local.year} אבל צריך להעלות עבור שנה ${doc.year}.`
           : doc.documentType === 'form106'
@@ -155,6 +185,14 @@ export class DocumentValidationService {
       if (local?.year === doc.year && doc.documentType === 'payslip' && doc.month == null && local.month != null) {
         const monthIssue = this.payslipMonthIssue(doc.year, local.month, docId);
         if (monthIssue) return this.rejectUpload(docId, monthIssue);
+      }
+
+      // A dark, blurry or tiny photo is stopped here, before it costs a paid check.
+      const problem = await imageQualityProblem(file);
+      if (problem) {
+        this.photoTips.set(true);
+        const text = qualityMessage(problem);
+        return this.rejectUpload(docId, doc.documentType === 'payslip' ? text : text.replace(/התלוש/g, 'המסמך').replace(/תלוש/g, 'מסמך'));
       }
 
       const images = await prepareDocumentImages(file, this.passwords);
@@ -210,7 +248,8 @@ export class DocumentValidationService {
     try {
       return await this.api.verifyDocument(body);
     } catch (err) {
-      if (!isTransientVerifyError(err)) throw err;
+      // A server that did not answer in time is not retried at once: that would be another long wait.
+      if (!isTransientVerifyError(err) || err instanceof TimeoutError) throw err;
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       return this.api.verifyDocument(body);
     }
@@ -319,6 +358,7 @@ export class DocumentValidationService {
     }
 
     if (!result.readable) {
+      this.photoTips.set(true);
       this.store.updateDocument(docId, {
         validationStatus: 'unreadable',
         validationMessage: result.messageHe,
@@ -342,6 +382,9 @@ export class DocumentValidationService {
       detectedYear = localHint.year;
       if (detectedMonth == null && localHint.month != null) detectedMonth = localHint.month;
     }
+
+    // A multi-year pension report belongs to this year when it has deposit lines for it.
+    if (detectedType === 'pension_report' && result.yearMatches && before.year != null) detectedYear = before.year;
 
     if (!result.yearMatches && detectedYear != null && before.year != null && detectedYear !== before.year) {
       return this.rejectUpload(
@@ -416,7 +459,10 @@ export class DocumentValidationService {
       // null = read and nothing printed; a payslip checked before this was read has no such field at all.
       extractedVacation: detectedType === 'payslip' ? (result.vacation ?? null) : null,
       // [] = read, none found; null = not read (older OCR / unavailable).
-      extractedContributions: detectedType === 'payslip' ? (result.contributions ?? []) : null,
+      extractedComponents: detectedType === 'payslip' ? (result.payComponents ?? []) : null,
+      // [] = read, none found; null = not read (older OCR / unavailable).
+      // Payslip: the contribution table. Pension report: the deposits the fund received, by salary month.
+      extractedContributions: detectedType === 'payslip' || detectedType === 'pension_report' ? (result.contributions ?? []) : null,
       extractedAnnualGross: result.annualGross ?? null,
       extractedFunds: funds.length ? funds : null,
       extractedContributionKinds: (result.contributionKinds ?? []).length
@@ -513,7 +559,7 @@ export class DocumentValidationService {
     if (!doc || doc.year == null) return;
 
     if (doc.documentType === 'payslip' && doc.month != null && doc.extractedGrossSalary != null && doc.extractedGrossSalary > 0) {
-      this.store.applyPayslipSalary(doc.year, doc.month, doc.extractedGrossSalary, doc.extractedPensionBase ?? null, doc.id);
+      this.store.applyPayslipSalary(doc.year, doc.month, doc.extractedGrossSalary, doc.extractedPensionBase ?? finalMonthPensionBase(doc.extractedComponents), doc.id);
       this.store.syncContributionsFromDocuments();
     }
 

@@ -3,6 +3,7 @@
  * Unlike PhotoService, this does not reject non-payslip documents.
  */
 import { PdfDoc, PdfLockedError, PdfUnlocker, openPdf } from './pdf-open';
+import { QualityProblem, findQualityProblem } from './payslip-quality';
 
 const MAX_SIDE = 2000;
 const MAX_PAGES = 3;
@@ -13,6 +14,30 @@ export async function prepareDocumentImages(file: File, unlock?: PdfUnlocker | n
   if (isPdf(file)) return pdfToJpegs(file, unlock);
   if (isImage(file)) return [await toJpeg(file)];
   throw new Error('אפשר להעלות תמונה (JPG, PNG או WEBP) או קובץ PDF.');
+}
+
+/**
+ * Resolution, light and sharpness of a photographed or scanned page, judged on this device before any paid check.
+ * null when the picture looks readable, or when the file is not a picture this browser can open.
+ */
+export async function imageQualityProblem(file: File): Promise<QualityProblem | null> {
+  if (isPdf(file) || !isImage(file) || /\.heic$/i.test(file.name)) return null;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return null;
+  }
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return findQualityProblem(canvas);
 }
 
 function isPdf(file: File): boolean {

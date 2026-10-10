@@ -1,4 +1,8 @@
 import { DecimalPipe } from '@angular/common';
+import { PENSION_COVERAGE_KEYS, PensionKind, pensionKindOf } from '../../core/review.models';
+import { productsInYear } from '../../core/product-summary';
+import { ReadingProblemsComponent } from '../../core/reading-problems.component';
+import { findReadingProblems } from '../../core/reading-problems';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonButton } from '@ionic/angular/standalone';
@@ -15,7 +19,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
 @Component({
   selector: 'app-review-report',
   standalone: true,
-  imports: [IonButton, RouterLink, DecimalPipe, ReviewStepNavComponent],
+  imports: [IonButton, RouterLink, DecimalPipe, ReviewStepNavComponent, ReadingProblemsComponent],
   styles: [`
     .verdict {
       margin: 8px 0 18px; padding: 14px 16px;
@@ -161,6 +165,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
   `],
   template: `
     <h2>הסיכום שלכם</h2>
+    <app-reading-problems [problems]="readingProblems()" />
 
     @if (a(); as analysis) {
       @if (explanation(); as e) {
@@ -344,9 +349,17 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
         </div>
       </section>
 
+      @if (ongoing()) {
+        <section class="sec" aria-label="בדיקה קבועה">
+          <h3>כדאי לבדוק שוב כל כמה חודשים</h3>
+          <p class="lead">מעלים את התלושים החדשים ואת דוח ההפקדות העדכני, והבדיקה מתעדכנת עד החודש האחרון.</p>
+          <a routerLink="/review/documents">להעלאת מסמכים חדשים</a>
+        </section>
+      }
+
       <section class="sec estimate" aria-label="אומדן סיום">
-        <h3>מה מגיע בסיום העבודה</h3>
-        <p class="lead">מה שהופקד לקופה אינו בהכרח מה שמגיע כפיצויי פיטורים.</p>
+        <h3>{{ ongoing() ? 'מה היה מגיע אם תסיימו היום' : 'מה מגיע בסיום העבודה' }}</h3>
+        <p class="lead">{{ ongoing() ? 'הערכה בלבד, לפי השכר האחרון. היא מניחה פיטורים ביום הבדיקה.' : 'מה שהופקד לקופה אינו בהכרח מה שמגיע כפיצויי פיטורים.' }}</p>
         @if (exitTotal() != null) {
           <p class="big">{{ store.fmt(exitTotal()) }}</p>
           <p class="sub">הערכה לפי השכר האחרון וסיבת הסיום.</p>
@@ -448,8 +461,15 @@ export class ReviewReportPage implements OnInit {
   readonly reasonLabel = computed(() => {
     const raw = this.store.review()?.period?.exitReason;
     if (!raw) return '—';
+    if (raw === 'Ongoing') return 'עדיין עובד/ת';
     return REASON_LABELS[raw as ExitReason] ?? raw;
   });
+
+  /** Still working there: the report is a regular check, not a settlement. */
+  readonly ongoing = computed(() => this.store.review()?.period?.exitReason === 'Ongoing');
+
+  /** Files whose lines were read only in part: the summary below leans on them. */
+  readonly readingProblems = computed(() => findReadingProblems(this.store.review()?.documents ?? []));
 
   readonly sims = computed(() => this.a()?.simulations ?? []);
   readonly exitTotal = computed(() => this.wizard.active()?.estimatedTotal ?? null);
@@ -471,7 +491,16 @@ export class ReviewReportPage implements OnInit {
       // Form 106 for year Y is issued by end of March Y+1.
       const form106Due = new Date() > new Date(y + 1, 2, 31);
       if (form106Due && !has('form106', y) && !this.store.isWaived('form106', y)) out.push(`טופס 106 לשנת ${y}`);
-      if (!has('pension_report', y) && !this.store.isWaived('pension_report', y)) out.push(`דוח פנסיה / קופות לשנת ${y}`);
+      const hasPension = (kind: PensionKind) =>
+        r.documents.some(d => d.documentType === 'pension_report' && d.year === y && pensionKindOf(d) === kind);
+      const pensionWaived = (kind: PensionKind) =>
+        this.store.isWaived(PENSION_COVERAGE_KEYS[kind], y) || this.store.isWaived('pension_report', y);
+      if (form106Due && !hasPension('annual') && !pensionWaived('annual')) out.push(`דוח שנתי מפורט לעמיתים לשנת ${y}`);
+      if (!hasPension('deposits') && !pensionWaived('deposits')) out.push(`דוח הפקדות לשנת ${y}`);
+      // A report for each other product the payslips of the year show.
+      const products = productsInYear(r.documents, y);
+      if (products.managers && !hasPension('managers') && !pensionWaived('managers')) out.push(`דוח ביטוח מנהלים לשנת ${y}`);
+      if (products.study && !hasPension('study') && !pensionWaived('study')) out.push(`דוח קרן השתלמות לשנת ${y}`);
     }
     return out;
   });
@@ -507,7 +536,9 @@ export class ReviewReportPage implements OnInit {
       const reason = (['Fired', 'Resigned', 'ResignedJustified', 'ContractEnded'] as const)
         .find(x => x === p.exitReason) ?? 'Fired';
       this.wizard.choice.set(reason);
-      this.wizard.profile.set({ ...this.wizard.profile(), startDate: p.startDate, endDate: p.endDate, monthlySalary: salary });
+      // For someone still working the estimate is for finishing today.
+      const end = this.ongoing() ? new Date().toISOString().slice(0, 10) : p.endDate;
+      this.wizard.profile.set({ ...this.wizard.profile(), startDate: p.startDate, endDate: end, monthlySalary: salary });
       await this.calc.calculate();
     } finally {
       this.exitBusy.set(false);

@@ -13,8 +13,15 @@ describe('DocumentValidationService — paid checks', () => {
 
   async function pngFile(): Promise<File> {
     const c = document.createElement('canvas');
-    c.width = 40; c.height = 40;
-    c.getContext('2d')!.fillRect(0, 0, 40, 40);
+    // Large and sharp enough to pass the on-device photo-quality gate: bold blocks survive the downscale.
+    c.width = 1000; c.height = 1300;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, 1000, 1300);
+    g.fillStyle = '#222';
+    for (let y = 0; y < 1300; y += 40) {
+      for (let x = (y / 40) % 2 ? 0 : 40; x < 1000; x += 80) g.fillRect(x, y, 40, 40);
+    }
     const blob = await new Promise<Blob>(r => c.toBlob(b => r(b!), 'image/png'));
     return new File([blob], 'payslip.png', { type: 'image/png' });
   }

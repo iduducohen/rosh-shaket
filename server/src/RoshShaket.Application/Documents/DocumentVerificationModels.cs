@@ -56,6 +56,12 @@ public sealed record ExtractedVacation(
     public bool HasAny => Balance is not null || Used is not null || Accrued is not null || PreviousBalance is not null;
 }
 
+/// <summary>
+/// One payment line of a payslip. Kind: salary | overtime | recuperation | notice | vacation_redemption |
+/// severance_pay | expenses | bonus | other. Used to tell what a final payslip is made of.
+/// </summary>
+public sealed record ExtractedPayComponent(string Kind, decimal Amount);
+
 public sealed record ExtractedContributionLine(
     string Kind,
     string Payer,
@@ -85,7 +91,9 @@ public sealed record DocumentExtraction(
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
     AiUsage? Usage = null,
     /// <summary>Payslip only: vacation days balance, use and accrual, when printed.</summary>
-    ExtractedVacation? Vacation = null);
+    ExtractedVacation? Vacation = null,
+    /// <summary>Payslip only: the payment lines (salary, notice pay, vacation redemption, ...).</summary>
+    IReadOnlyList<ExtractedPayComponent>? PayComponents = null);
 
 public sealed record AiUsage(string Model, int InputTokens, int OutputTokens);
 
@@ -109,7 +117,8 @@ public sealed record DocumentVerificationResult(
     decimal? PensionBase = null,
     IReadOnlyList<ExtractedContributionLine>? Contributions = null,
     string? EmployerName = null,
-    ExtractedVacation? Vacation = null);
+    ExtractedVacation? Vacation = null,
+    IReadOnlyList<ExtractedPayComponent>? PayComponents = null);
 
 public static class DocumentVerificationMapper
 {
@@ -122,7 +131,10 @@ public static class DocumentVerificationMapper
 
         var typeMatches = detectedType == expectedType;
         // Missing year is NOT a match — otherwise a 2026 payslip can be accepted into a 2016 cube.
-        var yearMatches = x.DetectedYear is int dy && dy == expected.ExpectedYear;
+        // A pension report may cover several years: it belongs to this year when it has deposit lines for it.
+        var yearMatches = (x.DetectedYear is int dy && dy == expected.ExpectedYear)
+            || (detectedType == ReviewDocumentTypes.PensionReport
+                && x.Contributions?.Any(c => c.ForYear == expected.ExpectedYear) == true);
         var monthNeeded = expectedType == ReviewDocumentTypes.Payslip;
         var monthMatches = !monthNeeded
             || expected.ExpectedMonth is null
@@ -151,7 +163,8 @@ public static class DocumentVerificationMapper
             Positive(x.PensionBase),
             x.Contributions,
             x.EmployerName,
-            detectedType == "payslip" && x.Vacation is { HasAny: true } ? x.Vacation : null);
+            detectedType == "payslip" && x.Vacation is { HasAny: true } ? x.Vacation : null,
+            detectedType == "payslip" ? x.PayComponents : null);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;
@@ -167,7 +180,7 @@ public static class DocumentVerificationMapper
         bool monthMatches)
     {
         if (!readable)
-            return "לא הצלחנו לקרוא את המסמך בבירור. העלו קובץ חד וקריא של כל הדף.";
+            return "לא הצלחנו לקרוא את המסמך בבירור. צלמו שוב ישר מעל הדף, באור טוב ובלי צל, כך שכל הדף בתמונה. עדיף להעלות PDF.";
 
         if (detectedType is "other" or "unknown")
             return "הקובץ אינו תלוש שכר, טופס 106 או דוח פנסיה — לא ניתן להעלות אותו כאן.";
@@ -175,7 +188,7 @@ public static class DocumentVerificationMapper
         if (!typeMatches)
             return $"זוהה {Label(detectedType)}, אבל בחרתם {Label(expectedType)}.";
 
-        if (x.DetectedYear is null)
+        if (x.DetectedYear is null && !yearMatches)
             return expectedType == ReviewDocumentTypes.Payslip
                 ? "לא הצלחנו לזהות את שנת התלוש במסמך — העלו קובץ ברור יותר."
                 : "לא הצלחנו לזהות את השנה במסמך — העלו קובץ ברור יותר.";
@@ -196,12 +209,21 @@ public static class DocumentVerificationMapper
                 $"תלוש מאומת ל־{m}/{y}.",
             ReviewDocumentTypes.Form106 when x.DetectedYear is int y =>
                 $"טופס 106 מאומת לשנת המס {y}.",
-            ReviewDocumentTypes.PensionReport when x.DetectedYear is int y =>
-                string.IsNullOrWhiteSpace(x.PeriodLabel)
-                    ? $"דוח פנסיה מאומת לשנת {y}."
-                    : $"דוח פנסיה מאומת ({x.PeriodLabel}).",
+            ReviewDocumentTypes.PensionReport =>
+                PensionMessage(x, expected.ExpectedYear),
             _ => "המסמך תואם לבחירה."
         };
+    }
+
+    private static string PensionMessage(DocumentExtraction x, int year)
+    {
+        var deposits = x.Contributions?.Count(c => c.ForYear == year) ?? 0;
+        var head = string.IsNullOrWhiteSpace(x.PeriodLabel)
+            ? $"דוח פנסיה מאומת לשנת {year}."
+            : $"דוח פנסיה מאומת ({x.PeriodLabel}).";
+        return deposits > 0
+            ? $"{head} נקראו {deposits} שורות הפקדה."
+            : $"{head} לא נמצאה בו טבלת הפקדות לפי חודש, ולכן אי אפשר להשוות אותו לתלושים.";
     }
 
     private static string Label(string type) => type switch

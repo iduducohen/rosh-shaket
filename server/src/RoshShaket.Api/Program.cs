@@ -126,6 +126,7 @@ app.MapWorkspaceEndpoints();
 app.MapPayslipEndpoints();
 app.MapDocumentVerifyEndpoints();
 app.MapContentEndpoints();
+app.MapReminderEndpoints();
 app.MapAuthEndpoints();
 app.MapHelpEndpoints();
 app.MapReviewEndpoints();

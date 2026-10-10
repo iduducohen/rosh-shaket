@@ -144,7 +144,7 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
         'קורה שמעסיק מנכה מהשכר אבל מעביר לקופה באיחור או לא מעביר — רק הדוח מהקופה יראה את זה.'
       ],
       actions: [
-        { text: 'הורידו דוח הפקדות מהאזור האישי בקופה או מהר הכסף, והעלו אותו לבדיקה.', link: '/review/documents', linkLabel: 'איך משיגים דוח פנסיה' }
+        { text: 'הורידו דוח הפקדות מהאזור האישי בקופה, או בקשו אותו מהקופה או מחברת הביטוח, והעלו אותו לבדיקה. הר הכסף והר הביטוח מראים רק מי הגוף.', link: '/review/documents', linkLabel: 'איך משיגים דוח פנסיה' }
       ]
     });
   }

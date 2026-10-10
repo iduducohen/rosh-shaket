@@ -161,6 +161,7 @@ interface FlagOption {
     .term ul.links { list-style: none; padding: 0; }
     .term a { font-weight: 700; color: var(--ion-color-primary); }
     .sheet a { font-weight: 700; }
+    .option.ongoing { margin: 0 0 14px; }
     .sheet-note { margin: 18px 0 0; color: var(--ion-color-medium); font-size: 13.5px; }
     @media (min-width: 992px) {
       .option:hover, .flag:hover { border-color: var(--ion-color-primary); }
@@ -175,43 +176,54 @@ interface FlagOption {
   `],
   template: `
     <h2>ספרו לנו על תקופת העבודה</h2>
-    <p class="lead">נתחיל מהתאריכים והסיבה — בלי מספרים כבדים עדיין.</p>
+    <p class="lead">{{ ongoing ? 'נבדוק את ההפקדות מתחילת העבודה ועד היום.' : 'נתחיל מהתאריכים והסיבה — בלי מספרים כבדים עדיין.' }}</p>
+
+    <div class="option ongoing" [class.selected]="ongoing">
+      <button type="button" class="pick" [attr.aria-pressed]="ongoing" (click)="setOngoing(!ongoing)">
+        <b>אני עדיין עובד/ת במקום העבודה</b>
+        <span>בלי תאריך סיום. בודקים את ההפקדות עד היום, ואפשר לחזור ולבדוק שוב כל כמה חודשים.</span>
+      </button>
+    </div>
 
     <div class="date-row">
       <app-date-field
         class="in-row"
         label="תחילת עבודה"
         [value]="startDate"
-        [max]="latestStart"
+        [max]="ongoing ? today : latestStart"
         [state]="dateState('start')"
         [error]="dateError('start')"
         (valueChange)="startDate = $event">
       </app-date-field>
-      <app-date-field
-        class="in-row"
-        label="סיום / מתוכנן"
-        [value]="endDate"
-        [min]="earliestEnd()"
-        [max]="latestEnd"
-        [state]="dateState('end')"
-        [error]="dateError('end')"
-        (valueChange)="endDate = $event">
-      </app-date-field>
-    </div>
-
-    <h3 class="section-title">סיבת סיום</h3>
-    <p class="muted">הסיבה משפיעה על אומדן הזכויות בסיום — לא על חישוב ההפקדות החודשיות.</p>
-    <div class="desk-grid-2">
-      @for (o of reasons; track o.value) {
-        <div class="option" [class.selected]="exitReason === o.value">
-          <button type="button" class="pick" [attr.aria-pressed]="exitReason === o.value" (click)="exitReason = o.value">
-            <b>{{ o.label }}</b>
-            <span>{{ o.hint }}</span>
-          </button>
-          <button type="button" class="more" (click)="info.set(o)">מידע נוסף</button>
-        </div>
+      @if (!ongoing) {
+        <app-date-field
+          class="in-row"
+          label="סיום / מתוכנן"
+          [value]="endDate"
+          [min]="earliestEnd()"
+          [max]="latestEnd"
+          [state]="dateState('end')"
+          [error]="dateError('end')"
+          (valueChange)="endDate = $event">
+        </app-date-field>
       }
     </div>
+
+    @if (!ongoing) {
+      <h3 class="section-title">סיבת סיום</h3>
+      <p class="muted">הסיבה משפיעה על אומדן הזכויות בסיום — לא על חישוב ההפקדות החודשיות.</p>
+      <div class="desk-grid-2">
+        @for (o of reasons; track o.value) {
+          <div class="option" [class.selected]="exitReason === o.value">
+            <button type="button" class="pick" [attr.aria-pressed]="exitReason === o.value" (click)="exitReason = o.value">
+              <b>{{ o.label }}</b>
+              <span>{{ o.hint }}</span>
+            </button>
+            <button type="button" class="more" (click)="info.set(o)">מידע נוסף</button>
+          </div>
+        }
+      </div>
+    }
 
     <h3 class="section-title">איך הייתה העבודה בפועל?</h3>
     <div class="structure-intro">
@@ -290,6 +302,8 @@ export class ReviewEmploymentPage {
   startDate = this.store.review()?.period?.startDate ?? '';
   endDate = this.store.review()?.period?.endDate ?? '';
   exitReason = this.store.review()?.period?.exitReason ?? 'Fired';
+  /** Still working there: no end date and no exit reason, the check runs up to the last full month. */
+  ongoing = this.store.review()?.period?.exitReason === 'Ongoing';
   sameEmployer = this.store.review()?.period?.sameEmployerThroughout ?? true;
   hadBreak = this.store.review()?.period?.hadWorkBreak ?? false;
   multiple = this.store.review()?.period?.multiplePeriods ?? false;
@@ -324,6 +338,28 @@ export class ReviewEmploymentPage {
 
   constructor() {
     addIcons({ closeOutline });
+    // Reopened later: the period reaches up to the latest month again.
+    if (this.ongoing) this.endDate = this.ongoingEnd();
+  }
+
+  /** The last day of the previous month, the latest month a payslip exists for (never before the start date). */
+  private ongoingEnd(): string {
+    const now = new Date();
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    const iso = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+    return this.startDate && iso < this.startDate ? this.today : iso;
+  }
+
+  setOngoing(on: boolean): void {
+    this.ongoing = on;
+    this.err = '';
+    if (on) {
+      this.exitReason = 'Ongoing';
+      this.endDate = this.ongoingEnd();
+    } else {
+      this.exitReason = 'Fired';
+      this.endDate = '';
+    }
   }
 
   isOn(key: FlagOption['key']): boolean {
@@ -351,7 +387,7 @@ export class ReviewEmploymentPage {
       if (this.startDate > this.today) return 'תאריך התחלה לא יכול להיות בעתיד.';
     }
     if (which === 'end') {
-      if (!this.endDate) return '';
+      if (this.ongoing || !this.endDate) return '';
       if (this.startDate && this.endDate < this.startDate) return 'תאריך הסיום לפני ההתחלה.';
       if (this.endDate > this.latestEnd) return END_TOO_FAR;
       const earliest = earliestEndDate(this.startDate);
@@ -367,6 +403,10 @@ export class ReviewEmploymentPage {
 
   save(): void {
     this.err = '';
+    if (this.ongoing) {
+      this.exitReason = 'Ongoing';
+      this.endDate = this.ongoingEnd();
+    }
     if (!this.startDate || !this.endDate) {
       this.err = 'בחרו תאריך התחלה ותאריך סיום.';
       return;
@@ -375,12 +415,12 @@ export class ReviewEmploymentPage {
       this.err = 'תאריך הסיום לפני ההתחלה.';
       return;
     }
-    if (this.endDate > this.latestEnd) {
+    if (!this.ongoing && this.endDate > this.latestEnd) {
       this.err = END_TOO_FAR;
       return;
     }
     const earliest = earliestEndDate(this.startDate);
-    if (earliest && this.endDate < earliest) {
+    if (!this.ongoing && earliest && this.endDate < earliest) {
       this.err = END_TOO_SOON;
       return;
     }

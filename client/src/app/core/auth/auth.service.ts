@@ -86,13 +86,20 @@ export class AuthService {
   }
 
   private async doRefresh(): Promise<boolean> {
-    if (!this.tokens?.refreshToken) return false;
+    if (!this.tokens?.refreshToken) {
+      this.clearLocalSession();
+      return false;
+    }
     try {
       const res = await firstValueFrom(this.http.post<TokenResponse>(`${this.base}/refresh`, { refreshToken: this.tokens.refreshToken }));
       this.store(res);
       return true;
-    } catch {
-      this.clearLocalSession();
+    } catch (err) {
+      // Only a refusal ends the session. A server that is down, slow or unreachable says nothing about the token,
+      // and must not sign the person out: the tokens stay and the next try, when the server answers, restores them.
+      if (err instanceof HttpErrorResponse && (err.status === 400 || err.status === 401 || err.status === 403)) {
+        this.clearLocalSession();
+      }
       return false;
     }
   }
@@ -121,9 +128,9 @@ export class AuthService {
       return;
     }
     try {
-      await this.loadMe(); // the interceptor refreshes an expired access token
-    } catch (err) {
-      if (!(err instanceof HttpErrorResponse) || err.status === 401) this.clearLocalSession();
+      await this.loadMe(); // the interceptor refreshes an expired access token, and ends the session if the refresh is refused
+    } catch {
+      // Nothing to do here: a refused refresh already cleared the session, and an unreachable server keeps it.
     }
   }
 
@@ -131,11 +138,10 @@ export class AuthService {
   private async revalidate(): Promise<void> {
     try {
       await this.loadMe();
-    } catch (err) {
-      if (!(err instanceof HttpErrorResponse) || err.status === 401) {
-        this.clearLocalSession();
-        void this.router.navigateByUrl('/login');
-      }
+    } catch {
+      // The session ends only when the server refused the refresh (doRefresh clears it): then go to the login screen.
+      // A server that cannot be reached keeps the person signed in.
+      if (this.tokens === null) void this.router.navigateByUrl('/login');
     }
   }
 }

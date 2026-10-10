@@ -1,9 +1,12 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { CalculationResponse, ChecklistItem, ExitReason, FundLine, ProfileDraft, ProfileDto, RightsReport, RightsSource } from './models';
 import type { ExtractedContribution } from './review.models';
+
+/** One document check reads up to three pages with an AI model: generous, but not endless. */
+const VERIFY_TIMEOUT_MS = 150_000;
 
 /** Thin HTTP adapter. Knows URLs and shapes, nothing about the flow. */
 @Injectable({ providedIn: 'root' })
@@ -66,7 +69,8 @@ export class ApiService {
     form.append('expectedType', body.expectedType);
     form.append('expectedYear', String(body.expectedYear));
     if (body.expectedMonth != null) form.append('expectedMonth', String(body.expectedMonth));
-    return firstValueFrom(this.http.post<DocumentVerificationResult>(`${this.base}/api/documents/verify`, form));
+    // A server that does not answer must not leave the spinner running for ever: after this the document waits for a re-check.
+    return firstValueFrom(this.http.post<DocumentVerificationResult>(`${this.base}/api/documents/verify`, form).pipe(timeout(VERIFY_TIMEOUT_MS)));
   }
 
   checklist(reason?: ExitReason | null): Promise<ChecklistItem[]> {
@@ -181,6 +185,8 @@ export interface DocumentVerificationResult {
   contributions?: ExtractedContribution[] | null;
   /** Payslip only: vacation days as printed; a figure the payslip does not show is null. */
   vacation?: { balance: number | null; used: number | null; accrued: number | null; previousBalance: number | null } | null;
+  /** Payslip only: the payment lines (salary, notice pay, vacation redemption, ...). */
+  payComponents?: Array<{ kind: string; amount: number }> | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */

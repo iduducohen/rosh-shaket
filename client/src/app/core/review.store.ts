@@ -15,6 +15,9 @@ import {
   emptyTriplet,
   money
 } from './review.models';
+import { coverageKeyOf } from './review.models';
+import { finalMonthPensionBase } from './pay-components';
+import { isStudyFund } from './pension-deposits';
 
 /** Document states the user still has to resolve (check, confirm, or fix) before the review can go on. */
 const UNRESOLVED = new Set(['pending', 'checking', 'mismatch', 'unreadable', 'unavailable']);
@@ -44,14 +47,22 @@ export class ReviewStore {
    * Why the documents step is not done yet (null = done): at least one checked document, and none still
    * checking or waiting on the user. Missing months are fine — the check step shows them as gaps.
    */
+  /** Documents that still wait for a check or for the person's decision, with the year they sit in. */
+  readonly unresolvedDocuments = computed(() =>
+    (this.review()?.documents ?? []).filter(d => d.year != null && d.validationStatus != null && UNRESOLVED.has(d.validationStatus)));
+
   readonly documentsBlocker = computed<string | null>(() => {
     const docs = this.review()?.documents ?? [];
     if (!docs.length) return 'העלו לפחות מסמך אחד כדי להמשיך לבדיקה.';
-    const open = docs.filter(d => d.validationStatus != null && UNRESOLVED.has(d.validationStatus));
+    const open = this.unresolvedDocuments();
     if (open.length) {
-      return open.length === 1
-        ? 'יש מסמך אחד שעוד לא נבדק או שצריך את אישורכם. סיימו אותו כדי להמשיך.'
-        : `יש ${open.length} מסמכים שעוד לא נבדקו או שצריכים את אישורכם. סיימו אותם כדי להמשיך.`;
+      const years = [...new Set(open.map(d => d.year!))].sort((a, b) => a - b).join(', ');
+      const where = `במרכז המסמכים, לחצו על השנה ${years}, ובמסמך עצמו בחרו «לבדוק עכשיו», «בדיקה מחדש» או «אישור ידני».`;
+      if (open.length === 1) {
+        const d = open[0];
+        return `יש מסמך אחד שעוד לא נבדק או שצריך את אישורכם: ${d.fileName || d.extractedSummary || 'מסמך'}, בשנת ${d.year}. ${where}`;
+      }
+      return `יש ${open.length} מסמכים שעוד לא נבדקו או שצריכים את אישורכם, בשנים ${years}. ${where}`;
     }
     return null;
   });
@@ -297,7 +308,10 @@ export class ReviewStore {
   private clearWaiversForDoc(waivers: DocumentWaiver[], doc: ReviewDocumentMeta): DocumentWaiver[] {
     if (doc.year == null) return waivers;
     return waivers.filter(w => {
-      if (w.documentType !== doc.documentType || w.year !== doc.year) return true;
+      // A pension report clears the waiver of its own kind, and an older waiver for the whole pension type.
+      const covers = w.documentType === coverageKeyOf(doc)
+        || (doc.documentType === 'pension_report' && w.documentType === 'pension_report');
+      if (!covers || w.year !== doc.year) return true;
       if (w.month == null) return false; // uploading clears type-level waive
       if (doc.documentType === 'payslip' && doc.month != null) return w.month !== doc.month;
       return false;
@@ -452,7 +466,7 @@ export class ReviewStore {
         const row = r.months.find(m => m.year === d.year && m.month === d.month);
         if (!row) continue;
         if (row.flags === 'manual' && row.grossSalary != null) continue;
-        this.applyPayslipSalary(d.year, d.month, d.extractedGrossSalary, d.extractedPensionBase ?? null, d.id);
+        this.applyPayslipSalary(d.year, d.month, d.extractedGrossSalary, d.extractedPensionBase ?? finalMonthPensionBase(d.extractedComponents), d.id);
       }
     }
     this.syncContributionsFromDocuments();
@@ -474,7 +488,8 @@ export class ReviewStore {
       if (Array.isArray(d.extractedContributions)) read.add(`${d.year}-${d.month}`);
       for (const c of d.extractedContributions ?? []) {
         const key = `${c.forYear ?? d.year}-${c.forMonth ?? d.month}`;
-        const line = contributionLine(c.kind, c.payer);
+        // A study fund is known by its name; the reading sometimes files its lines under pension or severance.
+        const line = contributionLine(isStudyFund(c) ? 'study' : c.kind, c.payer);
         const t = totals.get(key) ?? {};
         t[line] = (t[line] ?? 0) + c.amount;
         totals.set(key, t);

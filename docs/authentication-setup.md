@@ -205,6 +205,13 @@ Set `Cors__Origins__0` to the production frontend. `*.vercel.app` previews are a
 | `ConnectionStrings__Postgres` | **Yes** | Users + **Data Protection keys** |
 | `ConnectionStrings__Redis` | Strongly recommended | OTP + refresh denylist |
 | `Cors__Origins__0` | Prod yes | Exact frontend origin |
+| `Reminders__Enabled` | Optional | `true` turns on reminder emails (off by default) |
+| `Reminders__PublicApiUrl` | With reminders | Public API address, e.g. `https://rosh-shaket-production.up.railway.app`. The "stop reminders" link in every email uses it |
+| `Reminders__AppUrl` | With reminders | The frontend origin for the button in the email. Empty = `Authentication__RedirectOrigin` |
+| `Authentication__Resend__Templates__ReviewReminder` | Optional | Resend template id for the "check again" reminder |
+| `Authentication__Resend__Templates__YearEndReminder` | Optional | Resend template id for the Form 106 / annual report reminder |
+
+On Railway use the `Reminders__*` names above directly. The flat `REMINDERS_*` names in `.env.example` exist only for docker compose, which maps them to `Reminders__*`.
 
 **Do not rely on `DataProtection__KeysPath` on Railway** when Postgres is available.
 
@@ -264,6 +271,8 @@ needed: the API reuses the same `re_...` key and `From`. Each email kind can the
 | Variable | Value |
 |---|---|
 | `Authentication__Resend__Templates__LoginCode` | Template id from the Resend editor URL (`/templates/<id>/editor`) |
+| `Authentication__Resend__Templates__ReviewReminder` | Reminder to check again. HTML: `Auth/EmailTemplates/review-reminder.html`. Variables `{{{LINK}}}`, `{{{UNSUBSCRIBE_URL}}}`, `{{{EMAIL}}}` |
+| `Authentication__Resend__Templates__YearEndReminder` | Form 106 / annual report reminder. HTML: `Auth/EmailTemplates/year-end-docs-reminder.html`. Variables `{{{YEAR}}}`, `{{{DOCS}}}`, `{{{HEADLINE}}}`, `{{{INTRO}}}`, `{{{LINK}}}`, `{{{UNSUBSCRIBE_URL}}}`, `{{{EMAIL}}}` |
 | `Authentication__Resend__ApiKey` | Optional — only if it differs from the SMTP password |
 | `Authentication__Resend__From` | Optional — only if it differs from the SMTP `From` |
 

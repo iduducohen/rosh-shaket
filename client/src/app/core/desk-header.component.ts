@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, refreshOutline, statsChartOutline } from 'ionicons/icons';
+import { checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline } from 'ionicons/icons';
 import { filter, map, startWith } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { WizardStore } from './wizard.store';
@@ -95,7 +95,7 @@ import { installReturnTracker } from './wizard-nav';
   `],
   template: `
     <div class="bar">
-      <button class="brand" (click)="home()" aria-label="יוצאים בראש שקט – לדף הבית"><app-logo [size]="30"></app-logo></button>
+      <button class="brand" (click)="goToStart()" aria-label="יוצאים בראש שקט – לתחילת הבדיקה"><app-logo [size]="30"></app-logo></button>
 
       <div class="end">
         @if (auth.isSignedIn() && workspaces.saveStatus() !== 'idle') {
@@ -108,12 +108,6 @@ import { installReturnTracker } from './wizard-nav';
           </span>
         }
         <nav class="actions" aria-label="פעולות קבועות">
-          @if (isSidePage() || isReviewFlow() || step() > 1) {
-            <button type="button" class="action" (click)="home()">
-              <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
-              חזרה להתחלה
-            </button>
-          }
           @if (tabs() && !isSidePage()) {
             <a class="action" routerLink="/results/reports" routerLinkActive="active">
               <ion-icon name="stats-chart-outline" aria-hidden="true"></ion-icon>
@@ -174,7 +168,7 @@ export class DeskHeaderComponent {
   );
 
   constructor() {
-    addIcons({ refreshOutline, checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
+    addIcons({ checkboxOutline, libraryOutline, logInOutline, logOutOutline, statsChartOutline });
     installReturnTracker(this.router);
   }
 
@@ -209,10 +203,9 @@ export class DeskHeaderComponent {
     void this.router.navigateByUrl('/login');
   }
 
-  async home(): Promise<void> {
-    if (!(await this.workspaces.confirmRestart())) return;
-    this.review.clear();
-    await this.workspaces.restartFlow();
-    await this.router.navigateByUrl('/start', { replaceUrl: true });
+  /** Back to the first step of the case already open. Nothing is deleted. */
+  goToStart(): void {
+    const target = this.isReviewFlow() ? '/review/employment' : '/start';
+    void this.router.navigateByUrl(target);
   }
 }

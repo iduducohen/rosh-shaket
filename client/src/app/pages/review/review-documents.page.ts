@@ -1,9 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AuthService } from '../../core/auth/auth.service';
 import { BillingService } from '../../core/billing.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { IonButton, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -11,12 +11,15 @@ import {
   closeOutline, cloudUploadOutline, createOutline, trashOutline,
   downloadOutline, clipboardOutline, printOutline, eyeOutline
 } from 'ionicons/icons';
-import { DOC_CHECKLIST, ReviewDocumentMeta } from '../../core/review.models';
+import { DOC_CHECKLIST, PENSION_COVERAGE_KEYS, PensionKind, ReviewDocumentMeta, coverageKeyOf } from '../../core/review.models';
+import { productsInYear } from '../../core/product-summary';
 import { ReviewStore } from '../../core/review.store';
 import { DocumentValidationService, SECOND_FORM106_MSG } from '../../core/document-validation.service';
 import { ReviewDocumentFilesService } from '../../core/review-document-files.service';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 import { PENSION_GUIDE } from './pension-guide';
+import { ReadingProblemsComponent } from '../../core/reading-problems.component';
+import { findReadingProblems } from '../../core/reading-problems';
 
 /** Basic yearly coverage — not every document type in the catalog. */
 const CORE_TYPES = [
@@ -31,9 +34,104 @@ const CORE_TYPES = [
     where: 'מהמעסיק — בדרך כלל בסוף שנת מס או בתחילת השנה שאחריה (סיכום שנתי של שכר וניכויים).'
   },
   {
-    key: 'pension_report',
-    label: 'דוח פנסיה / קופות',
-    where: 'מאזור אישי בקופה או דרך הר הכסף. ממלא אוטומטית יתרות במסך הקופות (פנסיה / פיצויים / השתלמות).'
+    key: 'pension_deposits',
+    label: 'דוח הפקדות',
+    where: 'דוח שמזמינים מהקופה או מחברת הביטוח, עם סכום לכל חודש. הר הכסף והר הביטוח רק מראים מי הקופות.'
+  },
+  {
+    key: 'pension_annual',
+    label: 'דוח שנתי מפורט לעמיתים',
+    where: 'מהאזור האישי בקופה או בחברת הביטוח. כולל הפקדות לפי חודש, יתרה, דמי ניהול ותשואה.'
+  }
+] as const;
+
+/** Reports a year needs besides those: only when the payslips of that year show the product. */
+const EXTRA_TYPES = [
+  {
+    key: 'pension_managers',
+    label: 'דוח ביטוח מנהלים',
+    where: 'מחברת הביטוח: דוח שנתי או דוח הפקדות של הפוליסה, עם סכום לכל חודש. מופיע כאן כי בתלושים יש הפרשה לביטוח מנהלים.'
+  },
+  {
+    key: 'pension_study',
+    label: 'דוח קרן השתלמות',
+    where: 'מקרן ההשתלמות: דוח שנתי או דוח הפקדות, עם סכום לכל חודש. מופיע כאן כי בתלושים יש הפרשה לקרן השתלמות.'
+  }
+] as const;
+
+/** Rotating lines under the progress bar while a batch is checked; they only say things that are true. */
+const CHECKING_LINES = [
+  'קוראים את הטקסט במסמך…',
+  'מזהים אם זה תלוש, טופס 106 או דוח פנסיה…',
+  'מאתרים את השנה והחודש…',
+  'מחלצים שכר, הפרשות לקופות וימי חופשה…',
+  'בתלוש, החודש מתמלא לבד. אין צורך לבחור אותו.',
+  'אם משהו לא תואם, נציג את זה מיד אחרי הבדיקה.',
+  'קובץ שכבר הועלה לא נשמר פעמיים.'
+] as const;
+
+type BatchState = 'wait' | 'now' | 'done' | 'skip';
+
+/** How to photograph a page so it can be read. Shown under the upload area, and opened after a poor photo. */
+const PHOTO_TIPS = [
+  'עדיף להעלות PDF: מהמעסיק, מאפליקציית השכר או מהאזור האישי בקופה. הוא תמיד חד.',
+  'מניחים את הדף שטוח על שולחן, בלי קפלים, וכל הדף נכנס לתמונה כולל הפינות.',
+  'מצלמים באור יום או באור אחיד, בלי פלאש ובלי צל של היד או של הטלפון.',
+  'מחזיקים את הטלפון ישר מעל הדף ולא באלכסון, ומחכים שהמיקוד יתייצב לפני הצילום.',
+  'בודקים בתצוגה שאפשר לקרוא את הסכומים. אם צריך לקרב כדי לראות אותם, צלמו שוב.',
+  'תלוש או דוח של כמה עמודים: מצלמים כל עמוד בנפרד, או סורקים לקובץ אחד.'
+] as const;
+
+/** The two reports that show what actually reached the fund. Both are checked the same way. */
+const PENSION_KINDS = [
+  {
+    key: 'annual',
+    title: 'דוח שנתי מפורט לעמיתים',
+    what: 'נשלח או זמין מהקופה פעם בשנה. כולל הפקדות לפי חודש משכורת, יתרה, דמי ניהול ותשואה.',
+    steps: [
+      'היכנסו לאזור האישי באתר או באפליקציה של הקופה או חברת הביטוח.',
+      'חפשו «דוחות» או «דוח שנתי» ובחרו «דוח שנתי מפורט לעמיתים».',
+      'בחרו את השנה הזו והורידו את הדוח כ-PDF.',
+      'ודאו שיש בו טבלת הפקדות עם חודש משכורת לכל שורה.'
+    ],
+    note: 'יש כמה קופות? מעלים דוח נפרד לכל קופה. שמות התפריטים משתנים בין הקופות.'
+  },
+  {
+    key: 'deposits',
+    title: 'דוח הפקדות מהקופה (דרך הר הכסף)',
+    what: 'הר הכסף מראה אילו קופות יש לכם. את דוח ההפקדות עצמו מזמינים מכל קופה.',
+    steps: [
+      'בהר הכסף (איתור חסכונות) מקבלים רשימה של גופים עם פרטי קשר, בלי סכומים. את הרשימה הזו לא מעלים.',
+      'ברשימה, חפשו גופים בסוג מוצר «פעילה». אלה הקופות שמופקד אליהן כסף.',
+      'אצל כל גוף כזה היכנסו לאזור האישי, או פנו אליו בדוא"ל או בטלפון מהטבלה, ובקשו דוח הפקדות לתקופת העבודה.',
+      'ביטוח מנהלים? בהר הביטוח רואים רק את הפוליסה והחברה. את דוח ההפקדות מזמינים מחברת הביטוח.',
+      'הורידו את הדוח כ-PDF והעלו אותו כאן. כמה קופות פעילות? דוח נפרד לכל אחת.'
+    ],
+    note: 'אפשר להזמין דוח הפקדות בכל חלק של השנה, גם לפני שהשנה הסתיימה. הפקדות של החודשיים האחרונים יכולות עוד לא להופיע בו, כי הן נקלטות באיחור, וזה תקין. מסך התוצאות של הר הכסף ומסך הפוליסות של הר הביטוח אינם דוח הפקדות. דוח שמציג יתרות בלבד גם לא מספיק, כי צריך בו סכום לכל חודש.'
+  },
+  {
+    key: 'managers',
+    title: 'דוח ביטוח מנהלים',
+    what: 'דוח מחברת הביטוח על הפוליסה: הפקדות לפי חודש, יתרה ודמי ניהול.',
+    steps: [
+      'בתלוש מופיעה הפרשה לביטוח מנהלים (למשל «מגדל ביט»). זו הפוליסה שהדוח שלה נדרש.',
+      'היכנסו לאזור האישי בחברת הביטוח, או פנו אליה, ובקשו דוח שנתי או דוח הפקדות לפוליסה.',
+      'ודאו שיש בו סכום לכל חודש.',
+      'הורידו את הדוח כ-PDF והעלו אותו כאן.'
+    ],
+    note: 'ביטוח מנהלים ופנסיה באותה חברה (למשל מגדל) הם שני דוחות נפרדים. הר הביטוח רק מראה שהפוליסה קיימת, ולא את ההפקדות.'
+  },
+  {
+    key: 'study',
+    title: 'דוח קרן השתלמות',
+    what: 'דוח מקרן ההשתלמות: הפקדות לפי חודש, של העובד ושל המעסיק, ויתרה.',
+    steps: [
+      'בתלוש מופיעה הפרשה לקרן השתלמות (למשל «מור קה"ש»).',
+      'היכנסו לאזור האישי בקרן ההשתלמות, או פנו אליה, ובקשו דוח שנתי או דוח הפקדות.',
+      'ודאו שיש בו סכום לכל חודש, גם של העובד וגם של המעסיק.',
+      'הורידו את הדוח כ-PDF והעלו אותו כאן.'
+    ],
+    note: 'קרן השתלמות אינה חלק מהפנסיה, והדוח שלה נפרד.'
   }
 ] as const;
 
@@ -45,6 +143,8 @@ interface YearGap {
   missing: { key: string; label: string }[];
   have: { key: string; label: string }[];
   waived: { key: string; label: string }[];
+  /** Year-end documents that are not issued yet: not missing, just not available. */
+  later: { key: string; label: string }[];
   ok: boolean;
   hasWaivers: boolean;
 }
@@ -52,9 +152,13 @@ interface YearGap {
 @Component({
   selector: 'app-review-documents',
   standalone: true,
-  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent, NgTemplateOutlet],
+  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent, NgTemplateOutlet, ReadingProblemsComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
+    .reminder-note {
+      margin: 0 0 14px; padding: 9px 12px; font-size: 13.5px; line-height: 1.55; color: var(--ion-color-medium-shade, #5E6F73);
+      background: var(--rs-soft); border-radius: 10px;
+    }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 12px; line-height: 1.45; }
     .section-title { margin: 18px 0 8px; font-size: 18px; }
     .year-grid {
@@ -115,22 +219,27 @@ interface YearGap {
     }
     .type-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+      grid-auto-rows: 1fr;
+      gap: 6px;
       margin: 0 0 10px;
     }
     .type-chip {
       text-align: start; font: inherit; color: inherit; cursor: pointer;
       background: var(--ion-item-background); border: 1.5px solid var(--rs-line);
-      border-radius: 12px; padding: 10px 12px;
+      border-radius: 10px; padding: 8px 10px; min-height: 76px; box-sizing: border-box;
+      display: flex; flex-direction: column; justify-content: flex-start; gap: 2px;
     }
     .type-chip.selected { border-color: var(--ion-color-primary); background: var(--rs-soft); }
-    .type-chip.have { border-color: color-mix(in srgb, var(--ion-color-success) 55%, var(--rs-line)); }
+    /* Everything for the type is there: green whether or not the chip is the selected one. */
+    .type-chip.have { border-color: color-mix(in srgb, var(--ion-color-success) 55%, var(--rs-line)); background: color-mix(in srgb, var(--ion-color-success) 10%, var(--ion-item-background)); }
+    .type-chip.have .meta { color: var(--ion-color-success-shade, #1a7a3c); font-weight: 700; }
+    .type-chip.selected.have { border-color: var(--ion-color-success); box-shadow: 0 0 0 1px var(--ion-color-success); }
     .type-chip.need:not(.have):not(.selected) {
       border-color: color-mix(in srgb, var(--ion-color-danger) 40%, var(--rs-line));
     }
-    .type-chip b { display: block; font-size: 13px; font-weight: 700; line-height: 1.3; }
-    .type-chip .meta { display: block; font-size: 12.5px; margin-top: 3px; color: var(--ion-color-medium); }
+    .type-chip b { display: block; font-size: 12.5px; font-weight: 700; line-height: 1.25; }
+    .type-chip .meta { display: block; font-size: 11.5px; line-height: 1.3; margin-top: 2px; color: var(--ion-color-medium); }
     .type-chip.need:not(.have) .meta { color: var(--ion-color-danger); font-weight: 600; }
     .type-chip .chip-waive {
       background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
@@ -155,7 +264,50 @@ interface YearGap {
     }
     .drop-busy ion-spinner { width: 28px; height: 28px; color: var(--ion-color-primary); }
     .drop-busy b { margin: 0; font-size: 14px; }
+    .pension-kinds { display: grid; gap: 8px; margin: 6px 0 10px; }
+    .pension-kind { text-align: start; font: inherit; color: inherit; cursor: pointer; border: 1.5px solid var(--rs-line); border-radius: 12px; background: var(--ion-item-background); padding: 10px 12px; display: grid; gap: 2px; }
+    .pension-kind b { font-size: 14.5px; }
+    .pension-kind span { font-size: 13px; color: var(--ion-color-medium); line-height: 1.45; }
+    .pension-kind.selected { border-color: var(--ion-color-primary); background: var(--rs-soft); }
+    .pension-steps { margin: 0 0 8px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.55; }
+    .doc-group { margin: 14px 0 4px; font-size: 14px; font-weight: 800; }
+    .doc-group-toggle {
+      display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 4px; border: 0; background: none;
+      font: inherit; font-weight: 800; color: inherit; cursor: pointer; text-align: start; border-radius: 8px;
+    }
+    .doc-group-toggle:hover { background: var(--rs-soft); }
+    .doc-group-toggle:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
+    .doc-group-toggle .chev { display: inline-block; width: 14px; transition: transform .15s ease; color: var(--ion-color-primary); }
+    .doc-group-toggle .chev.closed { transform: rotate(90deg); }
+    .doc-group .count { font-weight: 500; color: var(--ion-color-medium); }
+    .photo-tips { margin: 0 0 10px; border: 1px solid var(--rs-line); border-radius: 10px; background: var(--ion-item-background); font-size: 13.5px; }
+    .photo-tips summary { cursor: pointer; padding: 9px 12px; font-weight: 700; color: var(--ion-color-primary); }
+    .photo-tips[open] { border-color: var(--ion-color-primary); }
+    .photo-tips ol { margin: 0; padding: 0 30px 10px 12px; line-height: 1.55; }
+    .drop-busy { width: 100%; }
+    .batch-head { font-weight: 800; font-size: 15px; }
+    .batch-bar { width: 100%; max-width: 360px; height: 6px; border-radius: 99px; background: var(--rs-line); overflow: hidden; }
+    .batch-bar i { display: block; height: 100%; background: var(--ion-color-primary); border-radius: 99px; transition: width .4s ease; }
+    .batch-line { min-height: 20px; font-size: 13.5px; color: var(--ion-color-medium); animation: batchFade .45s ease; }
+    @keyframes batchFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .batch-files { list-style: none; margin: 4px 0 0; padding: 0; width: 100%; max-width: 360px; max-height: 132px; overflow: auto; text-align: start; }
+    .batch-files li { display: flex; align-items: center; gap: 8px; padding: 3px 2px; font-size: 13px; color: var(--ion-color-medium); }
+    .batch-files li span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: start; flex: 1; }
+    .batch-files .mark { flex: none; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; border: 1.5px solid var(--rs-line); }
+    .batch-files .done .mark { background: var(--ion-color-primary); border-color: var(--ion-color-primary); color: var(--ion-color-primary-contrast); }
+    .batch-files .skip .mark { border-color: var(--ion-color-danger); color: var(--ion-color-danger); }
+    .batch-files .now { color: var(--ion-text-color); font-weight: 700; }
+    .batch-files .now .mark { border-color: var(--ion-color-primary); border-top-color: transparent; animation: batchSpin .8s linear infinite; }
+    @keyframes batchSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .batch-line, .batch-files .now .mark { animation: none; } .batch-bar i { transition: none; } }
     .file-err { color: var(--ion-color-danger); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
+    .fix-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+    .fix-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13.5px; }
+    .fix-link {
+      border: 0; background: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer;
+      color: var(--ion-color-primary); text-decoration: underline; text-underline-offset: 3px;
+    }
+    .fix-hint { color: var(--ion-color-medium); }
     .file-ok { color: var(--ion-color-success-shade, #1a7a3c); font-size: 13.5px; margin: 0 0 10px; font-weight: 600; }
     .file-list, .doc-list { margin: 0 0 10px; padding: 0; list-style: none; }
     .file-list li, .doc-list li {
@@ -233,7 +385,28 @@ interface YearGap {
     }
     .val-line.ok { color: var(--ion-color-success-shade, #1a7a3c); font-weight: 600; }
     .val-line.bad { color: var(--ion-color-danger); font-weight: 600; }
-    .val-line.wait { color: var(--ion-color-primary); }
+    .val-line.wait { color: var(--ion-color-primary); display: flex; align-items: center; gap: 6px; }
+    .val-line.wait::before {
+      content: ''; flex: none; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--ion-color-primary); border-top-color: transparent; animation: batchSpin .8s linear infinite;
+    }
+    .recheck {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; padding: 10px 12px;
+      border: 1.5px solid var(--ion-color-primary); border-radius: 12px; background: var(--rs-soft); font-size: 13.5px; line-height: 1.5;
+    }
+    .recheck.ok { border-color: var(--ion-color-success); background: color-mix(in srgb, var(--ion-color-success) 10%, var(--ion-item-background)); }
+    .recheck.bad { border-color: var(--ion-color-danger); background: color-mix(in srgb, var(--ion-color-danger) 8%, var(--ion-item-background)); }
+    .recheck-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+    .recheck-copy b { font-size: 14px; overflow-wrap: anywhere; }
+    .recheck-spin {
+      flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%;
+      border: 2.5px solid var(--ion-color-primary); border-top-color: transparent; animation: batchSpin .8s linear infinite;
+    }
+    .recheck-mark { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: #fff; background: var(--ion-color-medium); }
+    .recheck.ok .recheck-mark { background: var(--ion-color-success); }
+    .recheck.bad .recheck-mark { background: var(--ion-color-danger); }
+    .recheck-close { flex: none; border: 0; background: none; font-size: 20px; line-height: 1; cursor: pointer; color: inherit; padding: 0 4px; }
+    @media (prefers-reduced-motion: reduce) { .recheck-spin, .val-line.wait::before { animation: none; } }
     .val-actions {
       display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: center;
     }
@@ -403,6 +576,16 @@ interface YearGap {
   template: `
     <h2>מרכז מסמכים</h2>
     <p class="lead">לחצו על שנה כדי להוסיף או להשלים מסמכים.</p>
+    <p class="reminder-note">
+      @if (remindersApply()) {
+        נשלח אליכם מייל תזכורת לכתובת של החשבון: בתחילת מרץ, כשטופס 106 והדוח השנתי של השנה שהסתיימה אמורים להגיע,
+        ושוב בתחילת אפריל אם הם עוד לא הועלו. מי שעדיין עובד מקבל גם תזכורת כל כמה חודשים לבדיקה חוזרת.
+        בכל מייל יש קישור להפסקת התזכורות.
+      } @else {
+        התחברו כדי לקבל מייל תזכורת כשטופס 106 והדוח השנתי אמורים להגיע, ובדיקה חוזרת כל כמה חודשים למי שעדיין עובד.
+      }
+    </p>
+    <app-reading-problems [problems]="readingProblems()" [inline]="true" (recheck)="recheckById($event)" />
     <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
 
     <ng-template #paywallBox>
@@ -467,6 +650,18 @@ interface YearGap {
 
     @if (nextBlocked() && store.documentsBlocker()) {
       <p class="file-err" role="alert">{{ store.documentsBlocker() }}</p>
+      @if (store.unresolvedDocuments().length) {
+        <ul class="fix-list" aria-label="מסמכים שצריך לטפל בהם">
+          @for (d of store.unresolvedDocuments(); track d.id) {
+            <li>
+              <button type="button" class="fix-link" (click)="fixDocument(d)">
+                <b>{{ d.year }}</b> · {{ d.fileName || d.extractedSummary || 'מסמך' }}
+              </button>
+              <span class="fix-hint">{{ fixHint(d) }}</span>
+            </li>
+          }
+        </ul>
+      }
     }
     <app-review-step-nav (next)="next()" />
 
@@ -492,17 +687,19 @@ interface YearGap {
                           [class.waived-item]="row.state === 'waived'"
                           [class.miss]="row.state === 'miss'">
                           <span class="check-mark" aria-hidden="true">
-                            {{ row.state === 'have' ? '✓' : row.state === 'waived' ? '–' : '!' }}
+                            {{ row.state === 'have' ? '✓' : row.state === 'waived' ? '–' : row.state === 'later' ? '…' : '!' }}
                           </span>
                           <span class="copy">
                             <span>{{ row.label }}</span>
-                            @if (row.state === 'miss' && row.where) {
+                            @if (row.state === 'later') {
+                              <span class="where">עדיין לא הופק. {{ laterReason(y, row.key) }} אין צורך בו עכשיו.</span>
+                            } @else if (row.state !== 'have' && row.where) {
                               <span class="where">{{ row.where }}</span>
                             }
                             @if (row.state === 'waived') {
                               <span class="where">דולג — אין אפשרות להשיג</span>
                             }
-                            @if (row.state === 'miss' && row.key === 'pension_report') {
+                            @if ((row.state === 'miss' || row.state === 'waived') && row.key.startsWith('pension_')) {
                               <button type="button" class="guide-toggle" (click)="openPensionGuide()">
                                 איך להשיג דוח פנסיה
                               </button>
@@ -516,7 +713,7 @@ interface YearGap {
 
                 <label class="field" style="margin-bottom:6px">מה צריך לשנה הזו</label>
                 <div class="type-grid">
-                  @for (t of coreTypes; track t.key) {
+                  @for (t of typesFor(y); track t.key) {
                     <div class="type-chip"
                       role="button"
                       tabindex="0"
@@ -536,6 +733,9 @@ interface YearGap {
                           (click)="unwaiveType(y, t.key); $event.stopPropagation()">
                           ביטול דילוג
                         </button>
+                      } @else if (coverageState(y, t.key) === 'later') {
+                        <span class="meta">עדיין לא הופק</span>
+                        <span class="meta">צפוי עד סוף מרץ {{ y + 1 }}</span>
                       } @else {
                         <button type="button" class="chip-waive"
                           (click)="waiveType(y, t.key); $event.stopPropagation()">
@@ -546,22 +746,27 @@ interface YearGap {
                   }
                 </div>
 
-                @if (docType === 'pension_report') {
-                  <button type="button" class="guide-toggle" (click)="openPensionGuide()">
-                    איך להשיג דוח פנסיה
-                  </button>
-                }
 
                 <h3 class="section-title" style="margin-top:8px">מה נרשם ל־{{ y }}</h3>
                 @if (!docsForYear(y).length) {
                   <p class="hint">עדיין אין מסמכים לשנה זו.</p>
                 } @else {
+                  @for (g of docGroups(y); track g.key) {
+                  <h4 class="doc-group">
+                    <button type="button" class="doc-group-toggle" [attr.aria-expanded]="!isGroupClosed(y, g.key)"
+                      (click)="toggleGroup(y, g.key)">
+                      <span class="chev" [class.closed]="isGroupClosed(y, g.key)" aria-hidden="true">▾</span>
+                      <span>{{ g.label }}</span>
+                      <span class="count">({{ g.docs.length }})</span>
+                    </button>
+                  </h4>
+                  @if (!isGroupClosed(y, g.key)) {
                   <ul class="doc-list">
-                    @for (d of docsForYear(y); track d.id) {
+                    @for (d of g.docs; track d.id) {
                       <li>
                         <div class="doc-meta">
-                          <b>{{ labelFor(d.documentType) }}</b>
-                          @if (d.month) { <span class="count"> · {{ monthLabel(d.month) }}</span> }
+                          <b>{{ d.documentType === 'payslip' && d.month ? monthLabel(d.month) : labelFor(docKey(d)) }}</b>
+                          @if (d.month && d.documentType !== 'payslip') { <span class="count"> · {{ monthLabel(d.month) }}</span> }
                           <div class="count">{{ d.fileName || d.extractedSummary || '—' }}</div>
                           @if (d.validationMessage) {
                             <div class="val-line"
@@ -602,9 +807,12 @@ interface YearGap {
                             <div class="val-actions">
                               <button type="button" (click)="revalidate(d)">הבדיקה נקטעה — בדיקה מחדש</button>
                             </div>
-                          } @else if (d.documentType === 'payslip' && d.validationStatus !== 'checking' && !isArray(d.extractedContributions) && hasSourceFile(d.id)) {
+                          } @else if ((d.documentType === 'payslip' || d.documentType === 'pension_report') && d.validationStatus !== 'checking' && !isArray(d.extractedContributions) && hasSourceFile(d.id)) {
+                            <!-- Read before the contribution / deposit lines were: a re-check reads them. -->
                             <div class="val-actions">
-                              <button type="button" (click)="revalidate(d)">בדיקה מחדש (קריאת הפרשות)</button>
+                              <button type="button" (click)="revalidate(d)">
+                                {{ d.documentType === 'payslip' ? 'בדיקה מחדש (קריאת הפרשות)' : 'בדיקה מחדש (קריאת הפקדות)' }}
+                              </button>
                             </div>
                           } @else if (d.documentType === 'payslip' && d.validationStatus === 'ok' && d.extractedVacation === undefined && hasSourceFile(d.id)) {
                             <!-- Checked before vacation days were read: a re-check adds them to the vacation follow-up. -->
@@ -644,10 +852,29 @@ interface YearGap {
                       </li>
                     }
                   </ul>
+                  }
+                  }
                 }
               </div>
 
               <div>
+                @if (recheck(); as rc) {
+                  <div class="recheck" [class.ok]="rc.state === 'ok'" [class.bad]="rc.state === 'bad'"
+                    [attr.role]="rc.state === 'bad' ? 'alert' : 'status'" aria-live="polite">
+                    @if (rc.state === 'running') { <span class="recheck-spin" aria-hidden="true"></span> }
+                    @else { <span class="recheck-mark" aria-hidden="true">{{ rc.state === 'ok' ? '✓' : '!' }}</span> }
+                    <div class="recheck-copy">
+                      <b>{{ rc.title }}</b>
+                      <span>{{ rc.text }}</span>
+                    </div>
+                    @if (rc.state !== 'running') {
+                      <button type="button" class="recheck-close" (click)="recheck.set(null)" aria-label="סגירה">×</button>
+                    }
+                  </div>
+                }
+                @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
+                @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
+                @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
                 @if (uploadBlock(); as block) {
                   <div class="paywall upload-closed" role="status">
                     @if (block === 'payment') {
@@ -670,9 +897,28 @@ interface YearGap {
                   (drop)="onDrop($event)">
                   @if (uploading()) {
                     <div class="drop-busy" aria-live="polite" aria-busy="true">
-                      <ion-spinner name="crescent"></ion-spinner>
-                      <b>{{ uploadLabel() }}</b>
-                      <span class="muted small">בודקים סוג, שנה וחודש…</span>
+                      @if (batch().length > 1) {
+                        <span class="batch-head">בודקים מסמך {{ batchPosition() }} מתוך {{ batch().length }}</span>
+                        <div class="batch-bar" role="progressbar" [attr.aria-valuemin]="0" [attr.aria-valuemax]="batch().length" [attr.aria-valuenow]="batchSettled()">
+                          <i [style.width.%]="batchPercent()"></i>
+                        </div>
+                      } @else {
+                        <ion-spinner name="crescent"></ion-spinner>
+                        <b>{{ uploadLabel() }}</b>
+                      }
+                      @for (line of [checkingLine()]; track line) {
+                        <span class="batch-line">{{ line }}</span>
+                      }
+                      @if (batch().length > 1) {
+                        <ul class="batch-files" aria-label="הקבצים בבדיקה">
+                          @for (f of batch(); track $index) {
+                            <li [class]="f.state">
+                              <span class="mark" aria-hidden="true">{{ f.state === 'done' ? '✓' : f.state === 'skip' ? '×' : '' }}</span>
+                              <span>{{ f.name }}</span>
+                            </li>
+                          }
+                        </ul>
+                      }
                     </div>
                   } @else {
                     <b>גררו קבצים או לחצו לבחירה</b>
@@ -685,9 +931,27 @@ interface YearGap {
                 </p>
                 <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
                 }
-                @if (fileError()) { <p class="file-err" role="alert">{{ fileError() }}</p> }
-                @if (validation.blockMessage()) { <p class="file-err" role="alert">{{ validation.blockMessage() }}</p> }
-                @if (uploadOk()) { <p class="file-ok" role="status">{{ uploadOk() }}</p> }
+                <details class="photo-tips" [open]="validation.photoTips()">
+                  <summary>איך מצלמים כך שהמסמך יקרא</summary>
+                  <ol>
+                    @for (tip of photoTips; track tip) { <li>{{ tip }}</li> }
+                  </ol>
+                </details>
+                @if (docType.startsWith('pension_')) {
+                  <div class="pension-kind selected">
+                    <b>{{ activePensionKind().title }}</b>
+                    <span>{{ activePensionKind().what }}</span>
+                  </div>
+                  <ol class="pension-steps">
+                    @for (s of activePensionKind().steps; track s) { <li>{{ s }}</li> }
+                  </ol>
+                  <p class="hint">{{ activePensionKind().note }}</p>
+                  <p class="hint">לכל שנה צריכים שני דוחות: הדוח השנתי המפורט ודוח ההפקדות. אפשר לדלג על כל אחד מהם בנפרד.</p>
+                  <button type="button" class="guide-toggle" (click)="openPensionGuide()">
+                    איך להשיג דוח פנסיה
+                  </button>
+                }
+
 
                 @if (pendingFiles.length && !uploading()) {
                   <ul class="file-list">
@@ -747,7 +1011,7 @@ interface YearGap {
           </div>
           <div class="sheet-body">
           @if (g.ok) {
-            <p>{{ g.hasWaivers ? 'אפשר להמשיך — חלק מהמסמכים דולגו.' : 'כיסוי בסיסי מלא לשנה זו.' }}</p>
+            <p>{{ g.hasWaivers ? 'הושלם, עם דילוגים: חלק מהמסמכים סומנו «אין לי» ולא ייבדקו.' : 'כיסוי בסיסי מלא לשנה זו.' }}</p>
           } @else {
             <ul>@for (m of g.missing; track m.key) { <li class="miss">{{ m.label }}</li> }</ul>
           }
@@ -880,13 +1144,19 @@ interface YearGap {
     }
   `
 })
-export class ReviewDocumentsPage implements OnInit {
+export class ReviewDocumentsPage implements OnInit, OnDestroy {
   readonly store = inject(ReviewStore);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly validation = inject(DocumentValidationService);
   readonly billing = inject(BillingService);
   private readonly auth = inject(AuthService);
   get freeDocs(): number { return this.billing.freeDocuments(); }
+
+  /** Reminder emails go to the address of the account, so they apply to someone who is signed in. */
+  remindersApply(): boolean {
+    return this.signedIn();
+  }
 
   /** Signed in, or holding a valid session whose profile is still loading (right after a refresh). */
   private signedIn(): boolean {
@@ -905,6 +1175,26 @@ export class ReviewDocumentsPage implements OnInit {
   private readonly files = inject(ReviewDocumentFilesService);
   private readonly sanitizer = inject(DomSanitizer);
   readonly coreTypes = CORE_TYPES;
+
+  /** The reports a year needs: the core ones, and one for managers insurance or a study fund when its payslips show them. */
+  typesFor(year: number): Array<{ key: string; label: string; where: string }> {
+    const found = productsInYear(this.store.review()?.documents ?? [], year);
+    return [
+      ...CORE_TYPES,
+      ...EXTRA_TYPES.filter(t => (t.key === 'pension_managers' ? found.managers : found.study))
+    ];
+  }
+
+  /** The pension-side report rows of a year, for the written summary and the table. */
+  private pensionRowsFor(year: number): Array<readonly [string, string]> {
+    const shortLabels: Record<string, string> = {
+      pension_annual: 'דוח שנתי מפורט',
+      pension_deposits: 'דוח הפקדות',
+      pension_managers: 'דוח ביטוח מנהלים',
+      pension_study: 'דוח קרן השתלמות'
+    };
+    return this.typesFor(year).filter(t => t.key.startsWith('pension_')).map(t => [t.key, shortLabels[t.key] ?? t.label] as const);
+  }
   /** Hover tooltips only in browser — native Capacitor uses aria-label only. */
   readonly showTooltips = !Capacitor.isNativePlatform();
 
@@ -921,6 +1211,22 @@ export class ReviewDocumentsPage implements OnInit {
   readonly fileError = signal('');
   readonly uploading = signal(false);
   readonly uploadLabel = signal('');
+  readonly photoTips = PHOTO_TIPS;
+  readonly pensionKinds = PENSION_KINDS;
+  /** The guidance for the pension chip that is selected. */
+  activePensionKind() {
+    return PENSION_KINDS.find(k => PENSION_COVERAGE_KEYS[k.key] === this.docType) ?? PENSION_KINDS[0];
+  }
+  readonly batch = signal<Array<{ name: string; state: BatchState }>>([]);
+  private readonly lineTick = signal(0);
+  private lineTimer: ReturnType<typeof setInterval> | null = null;
+  readonly batchSettled = computed(() => this.batch().filter(f => f.state === 'done' || f.state === 'skip').length);
+  readonly batchPosition = computed(() => Math.min(this.batchSettled() + 1, this.batch().length));
+  readonly batchPercent = computed(() => {
+    const total = this.batch().length;
+    return total ? Math.round((this.batchSettled() / total) * 100) : 0;
+  });
+  readonly checkingLine = computed(() => CHECKING_LINES[this.lineTick() % CHECKING_LINES.length]);
   readonly uploadOk = signal('');
   readonly copied = signal(false);
   readonly pensionGuideOpen = signal(false);
@@ -944,7 +1250,23 @@ export class ReviewDocumentsPage implements OnInit {
     });
   }
 
+  /** Files whose lines were read only in part: shown with what to do about each. */
+  readonly readingProblems = computed(() => findReadingProblems(this.store.review()?.documents ?? []));
+
+  /** The button on the notice: open the file's year and group, and check it again. */
+  recheckById(id: string): void {
+    const d = this.store.review()?.documents.find(x => x.id === id);
+    if (!d) return;
+    this.fixDocument(d);
+    this.revalidate(d);
+  }
+
   ngOnInit(): void {
+    // Arrived from another step through "to re-check": open that file's year, so the button is on screen.
+    const fix = this.route.snapshot.queryParamMap.get('fix');
+    const target = fix ? this.store.review()?.documents.find(x => x.id === fix) : undefined;
+    if (target) this.fixDocument(target);
+
     const ids = (this.store.review()?.documents ?? []).map(d => d.id);
     void this.files.hydrate(ids).then(() => this.files.syncPending());
     this.billing.plans().catch(() => undefined);
@@ -970,11 +1292,13 @@ export class ReviewDocumentsPage implements OnInit {
       const missing = rows.filter(r => r.state === 'miss').map(r => ({ key: r.key, label: r.label }));
       const have = rows.filter(r => r.state === 'have').map(r => ({ key: r.key, label: r.label }));
       const waived = rows.filter(r => r.state === 'waived').map(r => ({ key: r.key, label: r.label }));
+      const later = rows.filter(r => r.state === 'later').map(r => ({ key: r.key, label: r.label }));
       return {
         year,
         missing,
         have,
         waived,
+        later,
         ok: missing.length === 0,
         hasWaivers: waived.length > 0
       };
@@ -1005,18 +1329,20 @@ export class ReviewDocumentsPage implements OnInit {
 
   yearCubeLabel(g: YearGap): string {
     if (!g.ok) return `${g.missing.length} חסרים`;
-    if (g.hasWaivers) return 'אפשר להמשיך';
+    if (g.hasWaivers) return 'הושלם, עם דילוגים';
+    if (g.later.length) return 'תקין עד כה';
     return 'תקין';
   }
 
   statusBoxTitle(g: YearGap): string {
     if (!g.ok) return 'חסר לשנה הזו';
-    if (g.hasWaivers) return 'אפשר להמשיך — חלק מהמסמכים דולגו';
+    if (g.hasWaivers) return 'הושלם, עם דילוגים: חלק מהמסמכים סומנו «אין לי»';
+    if (g.later.length) return 'יש את כל מה שאפשר לקבל עד עכשיו';
     return 'יש את כל מה שצריך לשנה';
   }
 
-  coverageRows(year: number): { key: string; label: string; where: string; state: 'have' | 'waived' | 'miss' }[] {
-    return CORE_TYPES.map(t => ({
+  coverageRows(year: number): { key: string; label: string; where: string; state: 'have' | 'waived' | 'miss' | 'later' }[] {
+    return this.typesFor(year).map(t => ({
       key: t.key,
       label: t.label,
       where: t.where,
@@ -1024,17 +1350,36 @@ export class ReviewDocumentsPage implements OnInit {
     }));
   }
 
-  coverageState(year: number, key: string): 'have' | 'waived' | 'miss' {
+  /** Why a year-end document is not there yet, and when it normally arrives. */
+  laterReason(year: number, key: string): string {
+    return key === 'form106'
+      ? `טופס 106 מונפק רק אחרי שמסתיימת שנת המס, ב-31 בדצמבר ${year}. בדרך כלל מקבלים אותו מהמעסיק עד סוף מרץ ${year + 1}. נשלח לכם מייל תזכורת בתחילת מרץ.`
+      : `הדוח השנתי מופק רק אחרי שהשנה מסתיימת, ב-31 בדצמבר ${year}. בדרך כלל מקבלים אותו מהקופה עד סוף מרץ ${year + 1}. נשלח לכם מייל תזכורת בתחילת מרץ.`;
+  }
+
+  /** The annual pension report and Form 106 are issued after the year ends: due once March of the next year has passed. */
+  private yearEndDocsDue(year: number): boolean {
+    return new Date() > new Date(year + 1, 2, 31);
+  }
+
+  coverageState(year: number, key: string): 'have' | 'waived' | 'miss' | 'later' {
     if (key === 'payslip') return this.payslipCoverageState(year);
+    if (key.startsWith('pension_')) {
+      if (this.typesPresent(year).has(key)) return 'have';
+      // A waiver saved before the two kinds existed covered the whole pension type.
+      if (this.store.isWaived(key, year, null) || this.store.isWaived('pension_report', year, null)) return 'waived';
+      return key === 'pension_annual' && !this.yearEndDocsDue(year) ? 'later' : 'miss';
+    }
     if (this.typesPresent(year).has(key)) return 'have';
     if (this.store.isWaived(key, year, null)) return 'waived';
-    return 'miss';
+    return key === 'form106' && !this.yearEndDocsDue(year) ? 'later' : 'miss';
   }
 
   coverageMeta(year: number, key: string): string {
     const s = this.coverageState(year, key);
     if (s === 'have') return 'יש';
     if (s === 'waived') return 'דולג';
+    if (s === 'later') return 'עדיין לא הופק';
     return 'חסר';
   }
 
@@ -1093,20 +1438,78 @@ export class ReviewDocumentsPage implements OnInit {
     return new Set(
       (this.store.review()?.documents ?? [])
         .filter(d => d.year === year)
-        .map(d => d.documentType)
+        .flatMap(d => (d.documentType === 'pension_report' ? [d.documentType, coverageKeyOf(d)] : [d.documentType]))
     );
   }
 
+  /** The document groups the person opened in this window. Every group starts collapsed each time the window opens. */
+  private readonly openGroups = signal<ReadonlySet<string>>(new Set());
+
+  isGroupClosed(year: number, key: string): boolean {
+    return !this.openGroups().has(`${year}|${key}`);
+  }
+
+  toggleGroup(year: number, key: string): void {
+    const next = new Set(this.openGroups());
+    const id = `${year}|${key}`;
+    if (!next.delete(id)) next.add(id);
+    this.openGroups.set(next);
+  }
+
+  /** The year's documents grouped by what they count toward: payslips (by month), Form 106, then the two pension reports. */
+  docGroups(year: number): Array<{ key: string; label: string; docs: ReviewDocumentMeta[] }> {
+    const docs = this.docsForYear(year);
+    const order = ['payslip', 'form106', 'pension_deposits', 'pension_annual', 'pension_managers', 'pension_study'];
+    const titles: Record<string, string> = {
+      payslip: 'תלושי שכר',
+      form106: 'טופס 106',
+      pension_annual: 'דוח שנתי מפורט לעמיתים',
+      pension_deposits: 'דוחות הפקדות',
+      pension_managers: 'דוח ביטוח מנהלים',
+      pension_study: 'דוח קרן השתלמות'
+    };
+    const keyOf = (d: ReviewDocumentMeta) => coverageKeyOf(d);
+    const keys = [...order.filter(k => docs.some(d => keyOf(d) === k)),
+      ...new Set(docs.map(keyOf).filter(k => !order.includes(k)))];
+    return keys.map(key => ({
+      key,
+      label: titles[key] ?? this.labelFor(key),
+      docs: docs.filter(d => keyOf(d) === key).sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+    }));
+  }
+
+  /** The coverage key of a document, for its title in the list. */
+  docKey(d: ReviewDocumentMeta): string {
+    return coverageKeyOf(d);
+  }
+
   docsForYear(year: number): ReviewDocumentMeta[] {
-    return (this.store.review()?.documents ?? []).filter(d =>
-      d.year === year
-      && d.validationStatus !== 'pending'
-      && d.validationStatus !== 'checking'
-    );
+    // A check that is still running is shown by the upload area. One that was cut short stays in the list,
+    // with a re-check button, instead of being hidden while it still counts as an upload.
+    return (this.store.review()?.documents ?? []).filter(d => d.year === year);
+  }
+
+  /** Opens the year the document is in, with its group open, so the button that fixes it is on screen. */
+  fixDocument(d: ReviewDocumentMeta): void {
+    if (d.year == null) return;
+    this.openYear(d.year);
+    this.openGroups.update(s => new Set(s).add(`${d.year}|${coverageKeyOf(d)}`));
+  }
+
+  /** What the person does with a document that is waiting. */
+  fixHint(d: ReviewDocumentMeta): string {
+    switch (d.validationStatus) {
+      case 'unavailable': return 'לא נבדק: ללחוץ «לבדוק עכשיו», או «להמשיך בלי בדיקה».';
+      case 'mismatch': return 'לא תואם את השנה או הסוג: «התאמה למה שזוהה», או «אישור ידני».';
+      case 'unreadable': return 'לא קריא: «בדיקה מחדש», או החלפת קובץ בצילום או PDF חד יותר.';
+      case 'checking': return 'הבדיקה לא הסתיימה: ללחוץ «בדיקה מחדש».';
+      default: return 'ממתין לבדיקה: ללחוץ «בדיקה מחדש».';
+    }
   }
 
   openYear(year: number): void {
     this.ensurePeriod();
+    this.openGroups.set(new Set());
     this.yearModal.set(year);
     this.pendingFiles = [];
     this.uploadMonth = null;
@@ -1129,7 +1532,33 @@ export class ReviewDocumentsPage implements OnInit {
     this.uploadOk.set('');
     this.uploading.set(false);
     this.uploadLabel.set('');
+    this.stopBatch();
+    this.recheck.set(null);
     this.validation.clearBlockMessage();
+  }
+
+  ngOnDestroy(): void {
+    this.stopBatch();
+  }
+
+  private startBatch(names: string[]): void {
+    this.stopBatch();
+    this.lineTick.set(0);
+    this.batch.set(names.map(name => ({ name, state: 'wait' as BatchState })));
+    this.lineTimer = setInterval(() => this.lineTick.update(n => n + 1), 3000);
+  }
+
+  private stopBatch(): void {
+    if (this.lineTimer) clearInterval(this.lineTimer);
+    this.lineTimer = null;
+    this.batch.set([]);
+  }
+
+  private markBatch(name: string, from: BatchState, to: BatchState): void {
+    const list = this.batch();
+    const at = list.findIndex(f => f.name === name && f.state === from);
+    if (at < 0) return;
+    this.batch.set(list.map((f, i) => (i === at ? { ...f, state: to } : f)));
   }
 
   onUploadMonth(ev: Event): void {
@@ -1175,7 +1604,7 @@ export class ReviewDocumentsPage implements OnInit {
   }
 
   labelFor(key: string): string {
-    return CORE_TYPES.find(d => d.key === key)?.label
+    return [...CORE_TYPES, ...EXTRA_TYPES].find(d => d.key === key)?.label
       ?? DOC_CHECKLIST.find(d => d.key === key)?.label
       ?? key;
   }
@@ -1194,11 +1623,18 @@ export class ReviewDocumentsPage implements OnInit {
     let keptCount = 0;
     let waitingCount = 0;
     this.uploading.set(true);
+    this.startBatch(queued.map(f => f.name));
     try {
       for (const file of queued) {
         const key = `${file.name.trim().toLowerCase()}|${file.size}`;
+        // The same file left behind by a check that never finished is replaced by this upload.
+        for (const stale of this.validation.staleDuplicates(year, file)) {
+          this.store.removeDocument(stale.id);
+          await this.files.remove(stale.id);
+        }
         if (seenInBatch.has(key) || this.validation.isDuplicateFile(year, file)) {
           this.validation.setBlockMessage(this.validation.duplicateFileMessage(file.name));
+          this.markBatch(file.name, 'wait', 'skip');
           continue;
         }
         seenInBatch.add(key);
@@ -1208,10 +1644,14 @@ export class ReviewDocumentsPage implements OnInit {
         }
 
         this.uploadLabel.set(`בודקים את ${file.name}…`);
+        this.markBatch(file.name, 'wait', 'now');
         const id = crypto.randomUUID();
+        // Stored before the document is registered, so the check starts the moment it appears in the list.
+        await this.files.put(id, file);
         this.store.addDocument({
           id,
-          documentType: this.docType,
+          documentType: this.docType.startsWith('pension_') ? 'pension_report' : this.docType,
+          pensionKind: (({ pension_annual: 'annual', pension_deposits: 'deposits', pension_managers: 'managers', pension_study: 'study' }) as Record<string, PensionKind>)[this.docType] ?? null,
           year,
           month: this.docType === 'payslip' ? this.uploadMonth : null,
           source: 'upload',
@@ -1224,13 +1664,13 @@ export class ReviewDocumentsPage implements OnInit {
           validationStatus: 'checking',
           validationMessage: 'בודקים את המסמך…'
         });
-        await this.files.put(id, file);
         const kept = await this.validation.validateDocument(id, file);
+        this.markBatch(file.name, 'now', kept ? 'done' : 'skip');
         if (!kept) await this.files.remove(id);
         else {
           keptCount++;
           if (this.store.review()?.documents.find(d => d.id === id)?.validationStatus === 'unavailable') waitingCount++;
-          void this.files.syncToServer(id, file, this.docType);
+          void this.files.syncToServer(id, file, this.docType.startsWith('pension_') ? 'pension_report' : this.docType);
         }
         // Keep the balance current, so the upload area closes the moment it reaches 0.
         if (this.signedIn()) await this.billing.refresh().catch(() => undefined);
@@ -1243,6 +1683,7 @@ export class ReviewDocumentsPage implements OnInit {
     } finally {
       this.uploading.set(false);
       this.uploadLabel.set('');
+      this.stopBatch();
     }
 
     if (keptCount > 0 && !this.validation.blockMessage()) {
@@ -1411,10 +1852,54 @@ export class ReviewDocumentsPage implements OnInit {
 
   readonly isArray = Array.isArray;
 
+  /** A re-check or a file replacement: shown as a banner at the top of the upload column while it runs, and with its result. */
+  readonly recheck = signal<{ state: 'running' | 'ok' | 'bad'; title: string; text: string } | null>(null);
+
+  private beginRecheck(d: ReviewDocumentMeta, name: string): void {
+    this.fileError.set('');
+    this.uploadOk.set('');
+    this.validation.clearBlockMessage();
+    // The group of the document opens, so the row that is being checked is on screen.
+    if (d.year != null) this.openGroups.update(s => new Set(s).add(`${d.year}|${coverageKeyOf(d)}`));
+    this.recheck.set({
+      state: 'running',
+      title: `בודקים את ${name}`,
+      text: 'קוראים את המסמך ומשווים אותו לשנה ולסוג שנבחרו. זה לוקח כמה שניות.'
+    });
+  }
+
+  private finishRecheck(id: string, name: string, kept: boolean): void {
+    const doc = this.store.review()?.documents.find(x => x.id === id);
+    if (!kept || !doc) {
+      this.recheck.set({
+        state: 'bad',
+        title: `${name} לא התקבל`,
+        text: this.validation.blockMessage() || 'הקובץ לא מתאים למסמך המבוקש.'
+      });
+      return;
+    }
+    const good = doc.validationStatus === 'ok' || doc.validationStatus === 'manual';
+    this.recheck.set({
+      state: good ? 'ok' : 'bad',
+      title: good ? `הבדיקה של ${name} הסתיימה` : `הבדיקה של ${name} לא הושלמה`,
+      text: doc.validationMessage || (good ? 'המסמך נבדק.' : 'צריך לטפל במסמך.')
+    });
+  }
+
   revalidate(d: ReviewDocumentMeta): void {
     void this.files.get(d.id).then(file => {
-      if (!file) return;
+      if (!file) {
+        this.recheck.set({
+          state: 'bad',
+          title: 'אי אפשר לבדוק מחדש',
+          text: 'הקובץ לא נשמר במכשיר הזה. החליפו את הקובץ כדי לבדוק אותו.'
+        });
+        return;
+      }
+      const name = file.name || d.fileName || 'המסמך';
+      this.beginRecheck(d, name);
       void this.validation.validateDocument(d.id, file).then(kept => {
+        this.finishRecheck(d.id, name, kept);
         if (kept) return;
         void this.files.remove(d.id);
         void this.files.removeFromServer(d.serverDocumentId, d.id);
@@ -1424,7 +1909,9 @@ export class ReviewDocumentsPage implements OnInit {
 
   private async applyFileReplace(id: string, file: File): Promise<void> {
     // The old file leaves the account once the new one is in (or the replacement is rejected).
-    const previousServerId = this.store.review()?.documents.find(d => d.id === id)?.serverDocumentId ?? null;
+    const existing = this.store.review()?.documents.find(d => d.id === id);
+    const previousServerId = existing?.serverDocumentId ?? null;
+    if (existing) this.beginRecheck(existing, file.name);
     await this.files.put(id, file);
     this.store.updateDocument(id, {
       fileName: file.name,
@@ -1442,6 +1929,7 @@ export class ReviewDocumentsPage implements OnInit {
       detectedPeriodLabel: null
     });
     const kept = await this.validation.validateDocument(id, file);
+    this.finishRecheck(id, file.name, kept);
     if (!kept) await this.files.remove(id);
     else await this.files.syncToServer(id, file, this.store.review()?.documents.find(d => d.id === id)?.documentType ?? 'payslip');
     // Same file chosen again: the sync relinked the existing copy, which must stay.
@@ -1577,6 +2065,7 @@ export class ReviewDocumentsPage implements OnInit {
       const g = this.gapFor(year);
       const miss: string[] = [];
       const waived: string[] = [];
+      const later: string[] = [];
       for (const m of this.monthsInEmploymentYear(year)) {
         if (this.hasPayslipMonth(year, m)) continue;
         if (this.isPayslipMonthWaived(year, m)) waived.push(`תלוש ${m}/${year}`);
@@ -1584,8 +2073,12 @@ export class ReviewDocumentsPage implements OnInit {
       }
       if (this.coverageState(year, 'form106') === 'miss') miss.push('טופס 106');
       else if (this.coverageState(year, 'form106') === 'waived') waived.push('טופס 106');
-      if (this.coverageState(year, 'pension_report') === 'miss') miss.push('דוח פנסיה');
-      else if (this.coverageState(year, 'pension_report') === 'waived') waived.push('דוח פנסיה');
+      else if (this.coverageState(year, 'form106') === 'later') later.push('טופס 106');
+      for (const [key, label] of this.pensionRowsFor(year)) {
+        if (this.coverageState(year, key) === 'miss') miss.push(label);
+        else if (this.coverageState(year, key) === 'waived') waived.push(label);
+        else if (this.coverageState(year, key) === 'later') later.push(label);
+      }
 
       parts.push(`שנת ${year}`);
       if (!miss.length && !waived.length && g?.ok) parts.push('  ✓ הכל קיים');
@@ -1593,6 +2086,7 @@ export class ReviewDocumentsPage implements OnInit {
         for (const m of miss) parts.push(`  • חסר: ${m}`);
         for (const w of waived) parts.push(`  • דולג (אין לי): ${w}`);
       }
+      for (const l of later) parts.push(`  • עדיין לא הופק: ${l} (השנה מסתיימת ב-31 בדצמבר, וצפוי לקבל עד סוף מרץ ${year + 1})`);
       parts.push('');
     }
     if (this.store.hasAnyWaiver()) {
@@ -1629,15 +2123,17 @@ export class ReviewDocumentsPage implements OnInit {
         year: String(year),
         kind: 'טופס 106',
         month: '—',
-        status: s106 === 'have' ? 'קיים' : s106 === 'waived' ? 'דולג' : 'חסר'
+        status: s106 === 'have' ? 'קיים' : s106 === 'waived' ? 'דולג' : s106 === 'later' ? 'עדיין לא הופק' : 'חסר'
       });
-      const sPen = this.coverageState(year, 'pension_report');
-      rows.push({
-        year: String(year),
-        kind: 'דוח פנסיה',
-        month: '—',
-        status: sPen === 'have' ? 'קיים' : sPen === 'waived' ? 'דולג' : 'חסר'
-      });
+      for (const [key, kind] of this.pensionRowsFor(year)) {
+        const sPen = this.coverageState(year, key);
+        rows.push({
+          year: String(year),
+          kind,
+          month: '—',
+          status: sPen === 'have' ? 'קיים' : sPen === 'waived' ? 'דולג' : sPen === 'later' ? 'עדיין לא הופק' : 'חסר'
+        });
+      }
       rows.push({ year: '', kind: '', month: '', status: '' });
     }
     if (rows.length && !rows[rows.length - 1].year) rows.pop();
@@ -1691,6 +2187,7 @@ export class ReviewDocumentsPage implements OnInit {
       ? `לא ניתן להעלות: ${bad.join(', ')}. רק PDF או תמונה.`
       : '');
     this.uploadOk.set('');
+    this.recheck.set(null);
     this.validation.clearBlockMessage();
     if (!ok.length) return;
     this.pendingFiles = [...this.pendingFiles, ...ok];

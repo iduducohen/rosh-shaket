@@ -47,7 +47,11 @@ public sealed record ReviewDocumentMeta(
     decimal? ExtractedPensionBase = null,
     JsonElement? ExtractedContributions = null,
     /// <summary>The payslip's vacation-days box, kept as the client sent it.</summary>
-    JsonElement? ExtractedVacation = null);
+    JsonElement? ExtractedVacation = null,
+    /// <summary>For a pension report: "annual" (the yearly member report) or "deposits" (a deposit report).</summary>
+    string? PensionKind = null,
+    /// <summary>The payslip's payment lines, kept as the client sent them.</summary>
+    JsonElement? ExtractedComponents = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,

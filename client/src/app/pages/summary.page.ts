@@ -9,8 +9,6 @@ import { RightsSource } from '../core/models';
 import { PaidHelpComponent } from '../core/paid-help.component';
 import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
-import { ReviewStore } from '../core/review.store';
-import { WorkspaceService } from '../core/workspace.service';
 import { SiteFooterComponent } from '../core/site-footer.component';
 
 const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
@@ -165,7 +163,7 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
           <app-paid-help></app-paid-help>
           <app-experience-review></app-experience-review>
         } @else {
-          <p>עוד אין חישוב. <ion-button fill="clear" (click)="restart()">להתחיל</ion-button></p>
+          <p>עוד אין חישוב. <ion-button fill="clear" routerLink="/start">להתחיל</ion-button></p>
         }
       </div>
       <app-site-footer></app-site-footer>
@@ -174,8 +172,6 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
 })
 export class SummaryPage implements ViewWillEnter {
   readonly store = inject(WizardStore);
-  private readonly workspaces = inject(WorkspaceService);
-  private readonly review = inject(ReviewStore);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
   readonly sources = signal<RightsSource[]>([]);
@@ -218,13 +214,6 @@ export class SummaryPage implements ViewWillEnter {
   }
 
   edit(): void { void this.router.navigateByUrl('/details'); }
-
-  async restart(): Promise<void> {
-    if (!(await this.workspaces.confirmRestart())) return;
-    this.review.clear();
-    await this.workspaces.restartFlow();
-    await this.router.navigateByUrl('/start', { replaceUrl: true });
-  }
 
   private async loadSources(): Promise<void> {
     try {

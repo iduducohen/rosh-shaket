@@ -173,9 +173,16 @@ public static class DependencyInjection
         else
             services.AddSingleton<IEmailTransport, LoggingEmailSender>();
         services.AddScoped<IEmailLog, PostgresEmailLog>();
+        services.AddScoped<IEmailLogQuery>(sp => (PostgresEmailLog)sp.GetRequiredService<IEmailLog>());
+        services.AddScoped<IReminderOptOut, PostgresReminderOptOut>();
         services.AddScoped<IPdfPasswordStore, PostgresPdfPasswordStore>();
         services.AddScoped<IPartnerReviewStore, PostgresPartnerReviewStore>();
-        services.AddScoped<IEmailSender, RecordedEmailSender>();
+        services.AddScoped<RecordedEmailSender>();
+        services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<RecordedEmailSender>());
+
+        // Reminder emails (a regular check, year-end documents). Off until Reminders:Enabled is set.
+        services.Configure<RoshShaket.Infrastructure.Reminders.ReminderOptions>(config.GetSection(RoshShaket.Infrastructure.Reminders.ReminderOptions.Section));
+        services.AddHostedService<RoshShaket.Infrastructure.Reminders.ReminderService>();
 
         return services;
     }
@@ -242,6 +249,7 @@ public static class DependencyInjection
                 await EmploymentReviewSchema.EnsureAsync(db, logger);
                 await BillingSchema.EnsureAsync(db, logger);
                 await EmailLogSchema.EnsureAsync(db, logger);
+                await ReminderOptOutSchema.EnsureAsync(db, logger);
                 await PdfPasswordSchema.EnsureAsync(db, logger);
                 await PartnerReviewSchema.EnsureAsync(db, logger);
                 await AnnualValuesSeed.EnsureAsync(db, logger);

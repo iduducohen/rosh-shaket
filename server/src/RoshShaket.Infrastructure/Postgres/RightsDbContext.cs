@@ -22,6 +22,7 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
     public DbSet<BillingPurchaseRow> BillingPurchases => Set<BillingPurchaseRow>();
     public DbSet<ApiUsageRow> ApiUsage => Set<ApiUsageRow>();
     public DbSet<EmailLogRow> EmailLog => Set<EmailLogRow>();
+    public DbSet<ReminderOptOutRow> ReminderOptOuts => Set<ReminderOptOutRow>();
     public DbSet<PdfPasswordRow> PdfPasswords => Set<PdfPasswordRow>();
     public DbSet<PartnerReviewRow> PartnerReviews => Set<PartnerReviewRow>();
     /// <summary>ASP.NET Data Protection key ring — survives Railway container replacements.</summary>
@@ -180,6 +181,12 @@ public sealed class RightsDbContext(DbContextOptions<RightsDbContext> options) :
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => new { x.ToEmail, x.CreatedAt });
+        });
+        b.Entity<ReminderOptOutRow>(e =>
+        {
+            e.ToTable("reminder_optouts");
+            e.HasKey(x => x.Email);
+            e.Property(x => x.Email).HasMaxLength(254);
         });
         b.Entity<PdfPasswordRow>(e =>
         {

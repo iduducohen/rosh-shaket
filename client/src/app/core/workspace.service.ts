@@ -1,7 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { AlertController } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -74,7 +73,6 @@ export class WorkspaceService {
   private readonly auth = inject(AuthService);
   private readonly store = inject(WizardStore);
   private readonly router = inject(Router);
-  private readonly alerts = inject(AlertController);
   private readonly base = `${environment.apiBaseUrl}/api/workspaces`;
 
   readonly workspace = signal<WorkspaceDto | null>(null);
@@ -193,60 +191,6 @@ export class WorkspaceService {
       // Retry once after a short delay.
       setTimeout(() => void this.flushSave(), 2500);
     }
-  }
-
-  async createNew(name = 'חישוב זכויות', discardPrevious = false): Promise<WorkspaceDto> {
-    const ws = await firstValueFrom(this.http.post<WorkspaceDto>(`${this.base}`, { name, discardPrevious }));
-    this.workspace.set(ws);
-    this.store.reset();
-    this.lastStep = 'start';
-    this.ensureAutosave();
-    return ws;
-  }
-
-  /**
-   * Full wizard restart: drop in-memory state and start a clean workspace.
-   * Do not flush-save before this — that would re-persist the abandoned progress.
-   */
-  async restartFlow(): Promise<void> {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-    this.store.reset();
-    this.saveStatus.set('idle');
-    this.saveError.set(null);
-    if (this.auth.isSignedIn() || this.auth.hasSession()) {
-      try {
-        // The old case is unreachable after this, so its documents are deleted from the account (and storage).
-        await this.createNew(undefined, true);
-      } catch {
-        this.clearLocal();
-      }
-    } else {
-      this.clearLocal();
-    }
-  }
-
-  /**
-   * Ask before starting over when the account holds documents for the current case — they will be deleted.
-   * true = go ahead (also when there is nothing to lose).
-   */
-  async confirmRestart(): Promise<boolean> {
-    const count = this.workspace()?.documents.length ?? 0;
-    if (count === 0) return true;
-    const alert = await this.alerts.create({
-      header: 'להתחיל מחדש?',
-      message: count === 1
-        ? 'המסמך שהעליתם והנתונים שהזנתם יימחקו מהחשבון. אי אפשר לשחזר אותם.'
-        : `${count} המסמכים שהעליתם והנתונים שהזנתם יימחקו מהחשבון. אי אפשר לשחזר אותם.`,
-      buttons: [
-        { text: 'ביטול', role: 'cancel' },
-        { text: 'מחיקה והתחלה מחדש', role: 'destructive' }
-      ]
-    });
-    await alert.present();
-    return (await alert.onDidDismiss()).role === 'destructive';
   }
 
   async uploadDocument(file: Blob, fileName: string, documentType = 'payslip'): Promise<WorkspaceDocument> {

@@ -24,6 +24,9 @@ const LEGACY_STEPS: Record<string, string> = {
   imports: [SiteFooterComponent, IonContent, IonSpinner, RouterOutlet, RouterLink, RouterLinkActive, DeskHeaderComponent],
   styles: [`
     .note { font-size: 13px; color: var(--ion-color-medium); margin-bottom: 12px; }
+    /* Less empty space between the step buttons and the footer. */
+    .page { padding-bottom: 12px; }
+    app-site-footer { margin-top: 20px; }
     .busy-row { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
 
     /* Same language as desk-header wizard steps */

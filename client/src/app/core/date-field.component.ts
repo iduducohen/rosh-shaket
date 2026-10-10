@@ -230,14 +230,13 @@ export class DateFieldComponent implements OnDestroy {
     this.pos.set({ top, left, width });
   }
 
+  /**
+   * The calendar can be browsed freely: days outside the allowed range are shown disabled,
+   * so the person always sees where they are instead of meeting a locked button.
+   */
   canShift(offset: number): boolean {
-    const date = new Date(this.viewYear, this.viewMonth + offset, 1);
-    if (date.getFullYear() < 1970) return false;
-    const limit = this.max();
-    if (limit && isoDate(date) > limit) return false;
-    // The target month has a selectable day if its last day is on or after the minimum.
-    const floor = this.min();
-    return !floor || isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0)) >= floor;
+    const year = new Date(this.viewYear, this.viewMonth + offset, 1).getFullYear();
+    return year >= 1970 && year <= 2100;
   }
 
   shift(offset: number): void {

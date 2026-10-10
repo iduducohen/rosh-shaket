@@ -76,6 +76,12 @@ export interface ExtractedFundSnapshot {
 export type ContributionKind = 'pension' | 'managers' | 'severance' | 'disability' | 'study';
 
 /** One deduction / contribution line read from a payslip. forYear/forMonth only on retro lines. */
+/** One payment line of a payslip: salary, overtime, notice pay, vacation redemption, recuperation, ... */
+export interface ExtractedPayComponent {
+  kind: 'salary' | 'overtime' | 'recuperation' | 'notice' | 'vacation_redemption' | 'severance_pay' | 'expenses' | 'bonus' | 'other' | string;
+  amount: number;
+}
+
 export interface ExtractedContribution {
   kind: ContributionKind;
   payer: 'employee' | 'employer';
@@ -95,9 +101,36 @@ export type DocumentValidationStatus =
   | 'unavailable'
   | 'manual';
 
+/**
+ * A year expects two pension fund reports, the member's detailed annual report and a deposit report, and one report
+ * more for each other product that the payslips show: managers insurance and a study fund.
+ */
+export type PensionKind = 'annual' | 'deposits' | 'managers' | 'study';
+
+/** Coverage keys of these reports (the stored document type stays pension_report). */
+export const PENSION_COVERAGE_KEYS: Record<PensionKind, string> = {
+  annual: 'pension_annual',
+  deposits: 'pension_deposits',
+  managers: 'pension_managers',
+  study: 'pension_study'
+};
+
+/** Reports saved before the kinds existed count as the annual report. */
+export function pensionKindOf(doc: { pensionKind?: PensionKind | string | null }): PensionKind {
+  const kind = doc.pensionKind;
+  return kind === 'deposits' || kind === 'managers' || kind === 'study' ? kind : 'annual';
+}
+
+/** What a document counts toward: a pension report per kind, everything else by its type. */
+export function coverageKeyOf(doc: { documentType: string; pensionKind?: PensionKind | null }): string {
+  return doc.documentType === 'pension_report' ? PENSION_COVERAGE_KEYS[pensionKindOf(doc)] : doc.documentType;
+}
+
 export interface ReviewDocumentMeta {
   id: string;
   documentType: string;
+  /** For a pension report: which of the two expected reports it is. */
+  pensionKind?: PensionKind | null;
   year: number | null;
   month: number | null;
   source: string | null;
@@ -130,6 +163,8 @@ export interface ReviewDocumentMeta {
   extractedContributions?: ExtractedContribution[] | null;
   /** The payslip's vacation-days box. undefined = checked before it was read; null = read, nothing printed. */
   extractedVacation?: VacationFigures | null;
+  /** Payslip payment lines. [] = read, none found; null / absent = not read. */
+  extractedComponents?: ExtractedPayComponent[] | null;
 }
 
 /** User marked a required document slot as unobtainable — allows progress without pretending it exists. */

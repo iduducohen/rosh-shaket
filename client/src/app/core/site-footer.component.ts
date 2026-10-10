@@ -34,7 +34,7 @@ interface FooterGroup {
             <h2>{{ g.title }}</h2>
             <ul>
               @for (l of g.links; track l.path) {
-                <li><a [routerLink]="l.path">{{ l.label }}</a></li>
+                <li><a [routerLink]="l.path" target="_blank" rel="noopener">{{ l.label }}</a></li>
               }
             </ul>
           </nav>

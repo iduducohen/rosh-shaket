@@ -32,6 +32,10 @@ services:
       Authentication__Smtp__User: ${SMTP_USER:-}
       Authentication__Smtp__Password: ${SMTP_PASSWORD:-}
       Authentication__Smtp__From: ${SMTP_FROM:-}
+      # Reminder emails: off until REMINDERS_ENABLED=true (see .env.example)
+      Reminders__Enabled: ${REMINDERS_ENABLED:-false}
+      Reminders__PublicApiUrl: ${REMINDERS_PUBLIC_API_URL:-}
+      Reminders__AppUrl: ${REMINDERS_APP_URL:-}
     env_file:
       - path: .env
         required: false
