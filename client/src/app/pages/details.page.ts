@@ -74,6 +74,7 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
     .s14-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .seg-label { font-weight: 600; margin: 12px 0 6px; display: block; }
     .pay-type { margin: 0 0 14px; }
+    .s14-from { margin-top: 10px; max-width: 420px; }
     .pay-type ion-segment { max-width: 520px; }
     .s14-note { display: block; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
     .more {
@@ -209,7 +210,11 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
                            [class.ion-invalid]="!!fieldErrors()['monthlySalary']" [class.ion-touched]="!!fieldErrors()['monthlySalary']"
                            [errorText]="fieldErrors()['monthlySalary'] ?? ''" (ngModelChange)="onSalary($event)"></ion-input>
               </ion-item>
-              <p class="field-hint">שכר יסוד בלבד — בלי שעות נוספות והחזרים</p>
+              <p class="field-hint">
+                השכר הקובע: שכר היסוד ועוד תוספות קבועות (ותק, יוקר, משפחה, משמרות). בעמלות קבועות מזינים ממוצע של 12 החודשים האחרונים.
+                בלי שעות נוספות, בונוסים חד-פעמיים והחזרי הוצאות.
+                @if (isFilled('monthlySalary')) { מהתלוש נקרא שכר היסוד בלבד — הוסיפו תוספות קבועות אם יש. }
+              </p>
             </div>
             @if (payType === 'Global') {
               <div>
@@ -252,6 +257,13 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
                        [errorText]="fieldErrors()['lastRecuperationPaid'] ?? ''"
                        helperText="החודש שבו הופיעה בתלוש. נחשב את החלק היחסי שמגיע מאז, במקום לפי ימים"></ion-input>
           </ion-item>
+          <ion-item [class.field-invalid]="!!fieldErrors()['unpaidLeaveMonths']">
+            <ion-input label='חודשי חל"ת בתקופת העבודה (לא חובה)' labelPlacement="stacked" type="number" inputmode="decimal" min="0" step="0.5"
+                       [(ngModel)]="form.unpaidLeaveMonths" name="unpaidLeave"
+                       [class.ion-invalid]="!!fieldErrors()['unpaidLeaveMonths']" [class.ion-touched]="!!fieldErrors()['unpaidLeaveMonths']"
+                       [errorText]="fieldErrors()['unpaidLeaveMonths'] ?? ''" (ngModelChange)="refreshMarks()"
+                       helperText="חופשה ללא תשלום. מעבר ל-14 יום בשנה היא לא נספרת בוותק לפיצויים"></ion-input>
+          </ion-item>
         </ion-list>
 
         <div class="s14" [class.filled]="isFilled('section14')">
@@ -266,6 +278,16 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
             <ion-segment-button value="None"><ion-label>אין</ion-label></ion-segment-button>
             <ion-segment-button value="Unknown"><ion-label>לא יודע</ion-label></ion-segment-button>
           </ion-segment>
+          @if (form.section14 === 'Full' || form.section14 === 'Partial6') {
+            <ion-item class="s14-from" [class.field-invalid]="!!fieldErrors()['section14From']">
+              <ion-input label="ממתי חל סעיף 14? (לא חובה)" labelPlacement="stacked" type="month" name="s14From"
+                         [min]="form.startDate.slice(0, 7)" [max]="form.endDate.slice(0, 7)"
+                         [ngModel]="section14FromMonth()" (ngModelChange)="onSection14From($event)"
+                         [class.ion-invalid]="!!fieldErrors()['section14From']" [class.ion-touched]="!!fieldErrors()['section14From']"
+                         [errorText]="fieldErrors()['section14From'] ?? ''"
+                         helperText="ממלאים רק אם ההסדר התחיל אחרי תחילת העבודה, למשל למי שהתחיל לפני 2008. על התקופה שלפני כן מגיעים פיצויים מלאים"></ion-input>
+            </ion-item>
+          }
         </div>
 
         <div class="fund-row" [class.filled]="isFilled('hasStudyFund')">
@@ -349,6 +371,11 @@ export class DetailsPage {
   readonly latestEnd = latestEndDate();
   readonly latestStart = latestStartDate();
   earliestEnd(): string | null { return earliestEndDate(this.form.startDate); }
+  section14FromMonth(): string { return this.form.section14From?.slice(0, 7) ?? ''; }
+  onSection14From(month: string | null): void {
+    this.form.section14From = month ? month + '-01' : null;
+    if (this.checked()) this.fieldErrors.set(this.collectErrors());
+  }
   recPaidMonth(): string { return this.form.lastRecuperationPaid?.slice(0, 7) ?? ''; }
   onRecPaid(month: string | null): void {
     this.form.lastRecuperationPaid = month ? month + '-01' : null;
@@ -510,6 +537,8 @@ export class DetailsPage {
       vacationBalanceDays: Number(f.vacationBalanceDays) || 0,
       recuperationDaysPaidLastYear: Number(f.recuperationDaysPaidLastYear) || 0,
       lastRecuperationPaid: f.lastRecuperationPaid || null,
+      unpaidLeaveMonths: Math.max(0, Number(f.unpaidLeaveMonths) || 0),
+      section14From: (f.section14 === 'Full' || f.section14 === 'Partial6') && f.section14From ? f.section14From : null,
       hasStudyFund: !!f.hasStudyFund
     });
   }
@@ -545,6 +574,13 @@ export class DetailsPage {
     }
     const recPaid = this.form.lastRecuperationPaid;
     if (recPaid && this.form.endDate && recPaid > this.form.endDate) errors['lastRecuperationPaid'] = 'החודש צריך להיות לפני תאריך הסיום.';
+    const leave = Number(this.form.unpaidLeaveMonths) || 0;
+    if (leave < 0) errors['unpaidLeaveMonths'] = 'מספר החודשים לא יכול להיות שלילי.';
+    else if (leave > 0 && this.form.startDate && this.form.endDate && leave > monthsBetween(this.form.startDate, this.form.endDate)) {
+      errors['unpaidLeaveMonths'] = 'החל"ת ארוך מתקופת העבודה.';
+    }
+    const s14From = this.form.section14From;
+    if (s14From && this.form.endDate && s14From > this.form.endDate) errors['section14From'] = 'החודש צריך להיות לפני תאריך הסיום.';
     return errors;
   }
 
@@ -626,4 +662,9 @@ function sanitizeAmount(raw: string, allowFraction: boolean): { text: string; va
   const text = fraction !== undefined ? `${groupDigits(whole) || '0'}.${fraction}` : groupDigits(whole);
   const value = text === '' || text === '.' ? 0 : Number(text.replace(/,/g, ''));
   return { text, value: Number.isFinite(value) ? value : 0 };
+}
+
+/** Whole and partial months between two yyyy-MM-dd dates. */
+function monthsBetween(start: string, end: string): number {
+  return (Date.parse(end) - Date.parse(start)) / (1000 * 60 * 60 * 24 * 30.4375);
 }

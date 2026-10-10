@@ -18,11 +18,14 @@ public sealed record ProfileDto(
     decimal? HourlyRate = null,
     decimal? AverageMonthlyHours = null,
     DateOnly? LastRecuperationPaid = null,
-    decimal? GlobalOvertime = null)
+    decimal? GlobalOvertime = null,
+    decimal UnpaidLeaveMonths = 0m,
+    DateOnly? Section14From = null)
 {
     public EmploymentProfile ToDomain() => EmploymentProfile.Create(
         StartDate, EndDate, MonthlySalary, JobPercent, (WorkWeek)WorkDaysPerWeek,
-        VacationBalanceDays, RecuperationDaysPaidLastYear, Section14, HasStudyFund, PayType, HourlyRate, AverageMonthlyHours, LastRecuperationPaid, GlobalOvertime);
+        VacationBalanceDays, RecuperationDaysPaidLastYear, Section14, HasStudyFund, PayType, HourlyRate, AverageMonthlyHours, LastRecuperationPaid, GlobalOvertime,
+        UnpaidLeaveMonths, Section14From);
 }
 
 public sealed record CalculateRequest(ProfileDto Profile, ExitReason Reason, bool FromPayslip = false, bool ConsentToAnonymousStats = false);

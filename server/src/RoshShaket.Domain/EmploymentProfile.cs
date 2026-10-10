@@ -29,14 +29,24 @@ public sealed record EmploymentProfile
     /// Zero when the payslip does not separate it from the base salary.
     /// </summary>
     public decimal? GlobalOvertime { get; }
+    /// <summary>Months of unpaid leave (חל"ת) during the employment. Beyond 14 days a year they are not counted for severance.</summary>
+    public decimal UnpaidLeaveMonths { get; }
+    /// <summary>
+    /// When section 14 started to apply, if later than the start of work (an employee from before 2008,
+    /// or an arrangement added to the contract later). Null = from the first day.
+    /// </summary>
+    public DateOnly? Section14From { get; }
 
     public Seniority Seniority => Seniority.Between(StartDate, EndDate);
     public decimal JobFraction => JobPercent / 100m;
 
     private EmploymentProfile(DateOnly start, DateOnly end, decimal salary, decimal jobPercent, WorkWeek workWeek,
         decimal vacationBalance, decimal recuperationPaid, Section14Arrangement section14, bool hasStudyFund, PayType payType,
-        decimal? hourlyRate, decimal? averageMonthlyHours, DateOnly? lastRecuperationPaid, decimal? globalOvertime)
+        decimal? hourlyRate, decimal? averageMonthlyHours, DateOnly? lastRecuperationPaid, decimal? globalOvertime,
+        decimal unpaidLeaveMonths, DateOnly? section14From)
     {
+        UnpaidLeaveMonths = unpaidLeaveMonths;
+        Section14From = section14From;
         LastRecuperationPaid = lastRecuperationPaid;
         GlobalOvertime = globalOvertime;
         StartDate = start;
@@ -57,7 +67,7 @@ public sealed record EmploymentProfile
         WorkWeek workWeek, decimal vacationBalanceDays, decimal recuperationDaysPaidLastYear,
         Section14Arrangement section14, bool hasStudyFund, PayType payType = PayType.Monthly,
         decimal? hourlyRate = null, decimal? averageMonthlyHours = null, DateOnly? lastRecuperationPaid = null,
-        decimal? globalOvertime = null)
+        decimal? globalOvertime = null, decimal unpaidLeaveMonths = 0m, DateOnly? section14From = null)
     {
         var errors = new Dictionary<string, string>();
         if (payType == PayType.Hourly)
@@ -89,10 +99,16 @@ public sealed record EmploymentProfile
         if (recuperationDaysPaidLastYear < 0) errors["recuperationDaysPaidLastYear"] = "ימי הבראה לא יכולים להיות שליליים";
         globalOvertime = payType == PayType.Global ? globalOvertime ?? 0m : null;
         if (globalOvertime < 0) errors["globalOvertime"] = "רכיב השעות הנוספות לא יכול להיות שלילי";
+        if (unpaidLeaveMonths < 0) errors["unpaidLeaveMonths"] = "חודשי חל\"ת לא יכולים להיות שליליים";
+        else if (end > start && unpaidLeaveMonths > Seniority.Between(start, end).Months) errors["unpaidLeaveMonths"] = "חודשי החל\"ת ארוכים מתקופת העבודה";
+        // The date matters only with an arrangement, and only when it is after the first day.
+        if (section14 is not (Section14Arrangement.Full or Section14Arrangement.Partial6) || section14From <= start) section14From = null;
+        if (section14From > end) errors["section14From"] = "סעיף 14 לא יכול להתחיל אחרי תאריך הסיום";
         if (lastRecuperationPaid > end) errors["lastRecuperationPaid"] = "מועד תשלום ההבראה לא יכול להיות אחרי תאריך הסיום";
         if (errors.Count > 0) throw new DomainValidationException(errors);
 
         return new EmploymentProfile(start, end, monthlySalary, jobPercent, workWeek, vacationBalanceDays,
-            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours, lastRecuperationPaid, globalOvertime);
+            recuperationDaysPaidLastYear, section14, hasStudyFund, payType, hourlyRate, averageMonthlyHours, lastRecuperationPaid, globalOvertime,
+            unpaidLeaveMonths, section14From);
     }
 }

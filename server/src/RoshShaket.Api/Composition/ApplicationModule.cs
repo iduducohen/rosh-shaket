@@ -18,6 +18,7 @@ public static class ApplicationModule
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddSingleton<IRightsRule, SeveranceRule>();
+        services.AddSingleton<IRightsRule, SeveranceTaxRule>();
         services.AddSingleton<IRightsRule, NoticePeriodRule>();
         services.AddSingleton<IRightsRule, VacationRedemptionRule>();
         services.AddSingleton<IRightsRule, RecuperationRule>();
@@ -25,6 +26,7 @@ public static class ApplicationModule
 
         services.AddSingleton<IAdvisoryRule, ExitReasonAdvisoryRule>();
         services.AddSingleton<IAdvisoryRule, PayTypeAdvisoryRule>();
+        services.AddSingleton<IAdvisoryRule, SettlementAdvisoryRule>();
 
         services.AddSingleton<IRightsCalculator, RightsCalculator>();
         services.AddSingleton<PayslipUploadPolicy>();

@@ -27,6 +27,10 @@ export interface ProfileDto {
   lastRecuperationPaid?: string | null;
   /** Global salary only: the monthly global-overtime component, paid on top of monthlySalary (the base). 0 = not separated. */
   globalOvertime?: number | null;
+  /** Months of unpaid leave (חל"ת). Beyond 14 days a year they are not counted for severance. */
+  unpaidLeaveMonths?: number | null;
+  /** yyyy-MM-01: when section 14 started to apply, if later than the start of work. */
+  section14From?: string | null;
 }
 
 /** Global = a monthly salary with a fixed global-overtime component; the rights follow the monthly rules. */

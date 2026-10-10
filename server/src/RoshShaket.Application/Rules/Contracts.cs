@@ -28,4 +28,5 @@ public static class SourceKeys
     public const string ResignedJustified = "resigned-justified";
     public const string Hearing = "hearing";
     public const string PensionClearing = "pension-clearing";
+    public const string SeveranceTax = "severance-tax";
 }

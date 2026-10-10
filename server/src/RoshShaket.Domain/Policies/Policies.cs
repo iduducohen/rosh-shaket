@@ -88,6 +88,42 @@ public static class SeverancePolicy
 
     public static decimal FullEntitlement(decimal monthlySalary, Seniority seniority) => monthlySalary * seniority.Years;
 
+    public static decimal FullEntitlement(decimal monthlySalary, decimal countedYears) => monthlySalary * countedYears;
+
+    /// <summary>Unpaid leave of up to this many days a year still counts in the seniority (Severance Pay Regulations, reg. 10).</summary>
+    public const int UnpaidLeaveDaysCountedPerYear = 14;
+
+    private const decimal DaysPerMonth = 365.25m / 12m;
+
+    /// <summary>
+    /// Years counted for severance: unpaid leave keeps the continuity of work, but only the first
+    /// 14 days of it in each year are counted. The yearly allowance is applied to the total, as an estimate.
+    /// </summary>
+    public static decimal CountedYears(Seniority seniority, decimal unpaidLeaveMonths)
+    {
+        if (unpaidLeaveMonths <= 0m) return seniority.Years;
+        var allowance = UnpaidLeaveDaysCountedPerYear * Math.Ceiling(seniority.Years);
+        var notCounted = Math.Max(0m, unpaidLeaveMonths * DaysPerMonth - allowance);
+        return Math.Max(0m, seniority.TotalDays - notCounted) / 365.25m;
+    }
+
+    /// <summary>Part of the employment (0–1) that came before section 14 applied. 0 when it applied from the start.</summary>
+    public static decimal ShareBeforeSection14(DateOnly start, DateOnly end, DateOnly? section14From)
+    {
+        if (section14From is not { } from || from <= start) return 0m;
+        var total = end.DayNumber - start.DayNumber;
+        if (total <= 0) return 0m;
+        var before = Math.Min(from.DayNumber, end.DayNumber) - start.DayNumber;
+        return (decimal)before / total;
+    }
+
+    /// <summary>
+    /// The tax-exempt part of statutory severance: one month's salary per year of work,
+    /// and no more than the yearly ceiling (Income Tax Ordinance s. 9(7a)).
+    /// </summary>
+    public static decimal TaxExempt(decimal monthlySalary, decimal countedYears, decimal ceilingPerYear) =>
+        Math.Min(monthlySalary, ceilingPerYear) * countedYears;
+
     /// <summary>Share of the full entitlement the employer still pays at exit, given the section 14 arrangement.</summary>
     public static decimal EmployerTopUpShare(Section14Arrangement arrangement, decimal fullRatePercent) => arrangement switch
     {
@@ -96,6 +132,31 @@ public static class SeverancePolicy
         Section14Arrangement.None => 1m,
         _ => throw new InvalidOperationException("Unknown arrangement has no single share; present a range instead.")
     };
+}
+
+public static class VacationPolicy
+{
+    /// <summary>Annual vacation by year of work, in work days (Annual Leave Law). Index 0 = first year.</summary>
+    private static readonly int[] FiveDayWeek = [12, 12, 12, 12, 12, 14, 15, 16, 17, 18, 19, 20];
+    private static readonly int[] SixDayWeek = [14, 14, 14, 14, 14, 16, 18, 19, 20, 21, 22, 23, 24];
+
+    public static int AnnualDays(int yearOfWork, WorkWeek workWeek)
+    {
+        var table = (int)workWeek == 6 ? SixDayWeek : FiveDayWeek;
+        return table[Math.Clamp(yearOfWork, 1, table.Length) - 1];
+    }
+
+    /// <summary>Unused vacation can be claimed for the last three years and the current one.</summary>
+    public const int YearsRedeemable = 4;
+
+    /// <summary>The most days the law lets an employee redeem at the legal minimum, by seniority.</summary>
+    public static int MaxRedeemableDays(Seniority seniority, WorkWeek workWeek)
+    {
+        var current = seniority.CurrentYearOfWork;
+        var days = 0;
+        for (var year = current; year > current - YearsRedeemable && year >= 1; year--) days += AnnualDays(year, workWeek);
+        return days;
+    }
 }
 
 public static class DailyWagePolicy
