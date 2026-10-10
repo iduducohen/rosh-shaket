@@ -9,6 +9,7 @@ import {
 } from '../core/tax-refund';
 import { WizardStore } from '../core/wizard.store';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 /** One-time amounts the employer pays in the final settlement. */
 const LUMP_SUM_CODES = ['severance', 'vacation', 'recuperation'];
@@ -48,7 +49,7 @@ const LINKS: Array<{ title: string; desc: string; url: string }> = [
 @Component({
   selector: 'app-tax-refund',
   standalone: true,
-  imports: [DeskHeaderComponent, PaidHelpComponent, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonCheckbox],
+  imports: [SiteFooterComponent, DeskHeaderComponent, PaidHelpComponent, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonCheckbox],
   styles: [`
     .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 0 0 6px; }
     .title-row h2 { margin: 0; }
@@ -201,6 +202,7 @@ const LINKS: Array<{ title: string; desc: string; url: string }> = [
         </p>
         <app-paid-help></app-paid-help>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

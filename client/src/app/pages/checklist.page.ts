@@ -10,11 +10,12 @@ import { DeskHeaderComponent } from '../core/desk-header.component';
 import { installReturnTracker, wizardReturn } from '../core/wizard-nav';
 import { WizardStore } from '../core/wizard.store';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 @Component({
   selector: 'app-checklist',
   standalone: true,
-  imports: [
+  imports: [SiteFooterComponent, 
     DeskHeaderComponent, RouterLink,
     IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonListHeader, IonItem, IonCheckbox, IonLabel
   ],
@@ -86,6 +87,7 @@ import { WorkspaceService } from '../core/workspace.service';
           </div>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

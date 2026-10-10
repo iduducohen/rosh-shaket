@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { IonContent } from '@ionic/angular/standalone';
 import { map } from 'rxjs';
 import { SITE_NAME } from '../core/seo';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 /** Public terms and privacy, written to match what the app actually stores. */
 interface LegalSection {
@@ -283,7 +284,7 @@ export function legalDoc(kind: 'terms' | 'privacy'): LegalDoc {
 @Component({
   selector: 'app-legal',
   standalone: true,
-  imports: [IonContent, RouterLink],
+  imports: [SiteFooterComponent, IonContent, RouterLink],
   styles: [`
     article { max-width: 720px; margin: 0 auto; padding-bottom: 64px; }
     h1 { font-family: var(--rs-serif); font-size: 36px; margin: 8px 0 4px; }
@@ -306,6 +307,7 @@ export function legalDoc(kind: 'terms' | 'privacy'): LegalDoc {
         }
         <p class="more"><a [routerLink]="doc().otherPath">{{ doc().otherLabel }}</a></p>
       </article>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

@@ -14,13 +14,14 @@ import { describeError } from '../core/api.service';
 import { CalculationFacade } from '../core/calculation.facade';
 import { FundKind, FundLine, PayType, ProfileDto, hourlyMonthly } from '../core/models';
 import { WizardStore } from '../core/wizard.store';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | 'averageMonthlyHours';
 
 @Component({
   selector: 'app-details',
   standalone: true,
-  imports: [DateFieldComponent, DeskHeaderComponent, FormsModule, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonItem, IonInput,
+  imports: [SiteFooterComponent, DateFieldComponent, DeskHeaderComponent, FormsModule, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonList, IonItem, IonInput,
     IonSegment, IonSegmentButton, IonButton, IonIcon, IonSpinner, IonToggle, IonLabel, DecimalPipe],
   styles: [`
     ion-item {
@@ -329,6 +330,7 @@ type CheckedField = 'startDate' | 'endDate' | 'monthlySalary' | 'hourlyRate' | '
           </ion-button>
         </div>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
 
     @if (sectionInfo()) {

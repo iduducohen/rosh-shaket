@@ -6,6 +6,7 @@ import { checkmarkOutline, closeOutline, copyOutline, logoFacebook, logoInstagra
 import { AuthService } from '../core/auth/auth.service';
 import { LogoComponent } from '../core/logo.component';
 import { FAQ, SHARE_TEXT, SITE_NAME } from '../core/seo';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 interface ShareTarget {
   id: string;
@@ -18,7 +19,7 @@ interface ShareTarget {
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [IonContent, IonButton, IonIcon, RouterLink, LogoComponent],
+  imports: [SiteFooterComponent, IonContent, IonButton, IonIcon, RouterLink, LogoComponent],
   styles: [`
     .hero {
       position: relative; overflow: hidden; color: #F3F1EA;
@@ -165,6 +166,7 @@ interface ShareTarget {
           שתף
         </ion-button>
       </section>
+      <app-site-footer></app-site-footer>
     </ion-content>
 
     @if (shareOpen()) {

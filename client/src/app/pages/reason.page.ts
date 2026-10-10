@@ -8,6 +8,7 @@ import { EXIT_REASON_GUIDE, ExitReasonGuide } from '../core/exit-reason-guide';
 import { ExitChoice } from '../core/models';
 import { WizardStore } from '../core/wizard.store';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 interface Option extends ExitReasonGuide {
   value: ExitChoice;
@@ -16,7 +17,7 @@ interface Option extends ExitReasonGuide {
 @Component({
   selector: 'app-reason',
   standalone: true,
-  imports: [DeskHeaderComponent, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonButton, IonIcon],
+  imports: [SiteFooterComponent, DeskHeaderComponent, IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent, IonButton, IonIcon],
   styles: [`
     .reason-lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 14px; }
     .option { box-shadow: var(--rs-card-shadow);
@@ -106,6 +107,7 @@ interface Option extends ExitReasonGuide {
           <ion-button [disabled]="!store.choice()" (click)="next()">המשך לפרטים</ion-button>
         </div>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
 
     @if (info(); as current) {

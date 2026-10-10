@@ -12,11 +12,12 @@ import { AuthService } from '../core/auth/auth.service';
 import { LogoComponent } from '../core/logo.component';
 import { ReadingPhase, ReadingProgressComponent } from '../core/reading-progress.component';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 @Component({
   selector: 'app-welcome',
   standalone: true,
-  imports: [IonContent, IonButton, IonIcon, RouterLink, DeskHeaderComponent, LogoComponent, ReadingProgressComponent],
+  imports: [SiteFooterComponent, IonContent, IonButton, IonIcon, RouterLink, DeskHeaderComponent, LogoComponent, ReadingProgressComponent],
   styles: [`
     .promise { list-style: none; padding: 0; margin: 18px 0 22px; }
     .promise li { padding: 12px 0; border-bottom: 1px solid var(--rs-line); }
@@ -125,6 +126,7 @@ import { WorkspaceService } from '../core/workspace.service';
         <p class="foot muted">הערכה בלבד, לא ייעוץ משפטי. מותאם לעובד בשכר חודשי. חוזה אישי או הסכם קיבוצי יכולים להיטיב.</p>
         </div>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

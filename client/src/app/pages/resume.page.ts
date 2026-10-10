@@ -6,11 +6,12 @@ import { AuthService } from '../core/auth/auth.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { ReviewStore } from '../core/review.store';
 import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 @Component({
   selector: 'app-resume',
   standalone: true,
-  imports: [DeskHeaderComponent, IonContent, IonButton, IonSpinner, DatePipe],
+  imports: [SiteFooterComponent, DeskHeaderComponent, IonContent, IonButton, IonSpinner, DatePipe],
   styles: [`
     .card {
       background: var(--ion-item-background); border: 1px solid var(--rs-line);
@@ -30,11 +31,13 @@ import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
           <p class="muted">אפשר להמשיך בדיוק מהמקום שעצרתם.</p>
           <div class="card">
             <div class="meta">
-              <div>שלב אחרון: <b>{{ stepLabel(w.currentStep) }}</b></div>
-              <div>מסמכים שנשמרו: <b>{{ w.documents.length }}</b></div>
+              <div>עצרתם ב: <b>{{ placeLabel(w) }}</b></div>
               <div>עודכן לאחרונה: <b>{{ w.updatedAt | date:'dd/MM/yyyy HH:mm' }}</b></div>
+              @if (w.documents.length) {
+                <div>המסמכים שהעליתם שמורים בחשבון: <b>{{ w.documents.length }}</b></div>
+              }
               @if (w.workflow?.snapshot?.results?.length) {
-                <div>יש תוצאות חישוב שמורות</div>
+                <div>יש חישוב שמור של מה שמגיע לכם</div>
               }
             </div>
             <div class="actions">
@@ -49,6 +52,7 @@ import { WorkspaceDto, WorkspaceService } from '../core/workspace.service';
           <ion-button (click)="load()">נסו שוב</ion-button>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })
@@ -102,17 +106,32 @@ export class ResumePage {
     await this.router.navigateByUrl('/start', { replaceUrl: true });
   }
 
-  stepLabel(step: string): string {
-    switch (step) {
-      case 'reason': return 'סיבת העזיבה';
-      case 'details': return 'פרטים';
-      case 'results': return 'מה מגיע לי';
-      case 'checklist': return "צ'קליסט";
-      case 'sources': return 'מקורות';
-      default: return 'צילום תלוש';
-    }
+  /** The screen "המשך" opens, in words: the track and the step inside it. */
+  placeLabel(w: WorkspaceDto): string {
+    const route = this.workspaces.resumeRoute(w);
+    const place = PLACES.find(([prefix]) => route.startsWith(prefix));
+    return place ? place[1] : 'תחילת הבדיקה';
   }
 }
+
+/** Route prefix → what the user sees there. The first match wins. */
+const PLACES: Array<[string, string]> = [
+  ['/review/employment', 'בדיקה מלאה · תקופת ההעסקה'],
+  ['/review/documents', 'בדיקה מלאה · העלאת מסמכים'],
+  ['/review/check', 'בדיקה מלאה · בדיקת ההפקדות'],
+  ['/review/report', 'בדיקה מלאה · תוצאות'],
+  ['/review', 'בדיקה מלאה'],
+  ['/results/reports', 'בדיקה מהירה · דוחות'],
+  ['/results', 'בדיקה מהירה · מה מגיע לי'],
+  ['/details', 'בדיקה מהירה · פרטי ההעסקה'],
+  ['/reason', 'בדיקה מהירה · סיבת העזיבה'],
+  ['/checklist', 'הצ\'קליסט'],
+  ['/sources', 'מקורות ועזרה'],
+  ['/tax-refund', 'החזר מס'],
+  ['/help', 'אנשי מקצוע'],
+  ['/pricing', 'מחירון'],
+  ['/account', 'החשבון שלי']
+];
 
 function isEmpty(w: WorkspaceDto): boolean {
   const s = w.workflow?.snapshot;

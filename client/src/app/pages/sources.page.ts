@@ -9,11 +9,12 @@ import { DeskHeaderComponent } from '../core/desk-header.component';
 import { PaidHelpComponent } from '../core/paid-help.component';
 import { installReturnTracker, wizardReturn } from '../core/wizard-nav';
 import { WizardStore } from '../core/wizard.store';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 @Component({
   selector: 'app-sources',
   standalone: true,
-  imports: [
+  imports: [SiteFooterComponent, 
     DeskHeaderComponent, PaidHelpComponent, RouterLink,
     IonHeader, IonToolbar, IonButtons, IonBackButton, IonContent
   ],
@@ -88,6 +89,7 @@ import { WizardStore } from '../core/wizard.store';
         </ul>
         <app-paid-help></app-paid-help>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

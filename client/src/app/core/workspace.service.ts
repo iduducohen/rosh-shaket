@@ -145,6 +145,8 @@ export class WorkspaceService {
     this.saveError.set(null);
     const snap = this.store.snapshot();
     const route = this.router.url.split('?')[0] || '/start';
+    // The screens around the work are not a place to come back to: keep the route that was saved before.
+    if (NOT_A_PLACE.some(p => route === p || route.startsWith(p + '/'))) return;
     const step = stepFromRoute(route);
     const progress = progressFromStep(step);
     const status = snap.results.length ? 'Calculated' : 'InProgress';
@@ -292,6 +294,9 @@ export class WorkspaceService {
     }
   }
 }
+
+/** Entry, explanation and legal screens: visiting them does not move the saved place. */
+const NOT_A_PLACE = ['/resume', '/login', '/landing', '/how-it-works', '/about', '/glossary', '/terms', '/privacy'];
 
 function stepFromRoute(route: string): string {
   if (route.startsWith('/results')) return 'results';

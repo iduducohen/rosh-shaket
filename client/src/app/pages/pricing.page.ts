@@ -8,6 +8,7 @@ import { describeError } from '../core/api.service';
 import { AuthService } from '../core/auth/auth.service';
 import { BillingPlan, BillingService, PlansResponse, pricePerDocument } from '../core/billing.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 /** Typical documents per year of employment: 12 payslips + form 106 + one fund report. */
 const DOCS_PER_YEAR = 14;
@@ -15,7 +16,7 @@ const DOCS_PER_YEAR = 14;
 @Component({
   selector: 'app-pricing',
   standalone: true,
-  imports: [IonContent, IonButton, IonIcon, IonSpinner, RouterLink, DeskHeaderComponent, DecimalPipe],
+  imports: [SiteFooterComponent, IonContent, IonButton, IonIcon, IonSpinner, RouterLink, DeskHeaderComponent, DecimalPipe],
   styles: [`
     .lead { font-size: 17px; color: var(--ion-color-medium); max-width: 62ch; margin: 0 0 22px; line-height: 1.5; }
     .free {
@@ -158,6 +159,7 @@ const DOCS_PER_YEAR = 14;
           <ion-spinner name="crescent"></ion-spinner>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
 
     @if (selected(); as p) {

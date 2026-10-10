@@ -58,7 +58,8 @@ describe('Another device', () => {
     // Signing in opens the saved work, not an empty start screen.
     cy.location('pathname', { timeout: 8000 }).should('eq', '/resume');
     cy.contains('ברוכים השבים, דנה');
-    cy.contains('יש תוצאות חישוב שמורות');
+    cy.contains('עצרתם ב').should('contain', 'קליסט');
+    cy.contains('יש חישוב שמור של מה שמגיע לכם');
     cy.contains('ion-button', 'המשך').click();
 
     // The route the user left from, with the tick made on the other device.

@@ -9,13 +9,14 @@ import { ChartSlice, ExitReason, RightsReport } from '../core/models';
 import { ReviewStore } from '../core/review.store';
 import { WizardStore } from '../core/wizard.store';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A'];
 
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [DeskHeaderComponent, DecimalPipe, RouterLink, IonContent, IonButton, IonSpinner],
+  imports: [SiteFooterComponent, DeskHeaderComponent, DecimalPipe, RouterLink, IonContent, IonButton, IonSpinner],
   styles: [`
     .results-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
     .results-nav a {
@@ -173,6 +174,7 @@ const PALETTE = ['#0E7C6B', '#14967F', '#F2A93B', '#0B5F53', '#5B8A84', '#C47B3A
           <p>עוד אין חישוב. <ion-button fill="clear" (click)="restart()">להתחיל</ion-button></p>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

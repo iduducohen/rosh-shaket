@@ -7,6 +7,7 @@ import { DeskHeaderComponent } from '../../core/desk-header.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ReviewStore } from '../../core/review.store';
 import { WorkspaceService } from '../../core/workspace.service';
+import { SiteFooterComponent } from '../../core/site-footer.component';
 
 const LEGACY_STEPS: Record<string, string> = {
   '/review/salary': '/review/check',
@@ -20,7 +21,7 @@ const LEGACY_STEPS: Record<string, string> = {
 @Component({
   selector: 'app-review-shell',
   standalone: true,
-  imports: [IonContent, IonSpinner, RouterOutlet, RouterLink, RouterLinkActive, DeskHeaderComponent],
+  imports: [SiteFooterComponent, IonContent, IonSpinner, RouterOutlet, RouterLink, RouterLinkActive, DeskHeaderComponent],
   styles: [`
     .note { font-size: 13px; color: var(--ion-color-medium); margin-bottom: 12px; }
     .busy-row { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; color: var(--ion-color-medium); }
@@ -93,6 +94,7 @@ const LEGACY_STEPS: Record<string, string> = {
         @if (store.error()) { <p class="muted" style="color:var(--ion-color-danger)">{{ store.error() }}</p> }
         <router-outlet></router-outlet>
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

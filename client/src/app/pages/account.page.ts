@@ -7,6 +7,7 @@ import { AuthService } from '../core/auth/auth.service';
 import { BillingLedgerEntry, BillingService, PlansResponse } from '../core/billing.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { PdfPasswordService } from '../core/pdf-passwords.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 const DOC_LABELS: Record<string, string> = { payslip: 'תלוש', form106: 'טופס 106', pension_report: 'דוח קופה' };
 const LOW_BALANCE = 3;
@@ -14,7 +15,7 @@ const LOW_BALANCE = 3;
 @Component({
   selector: 'app-account',
   standalone: true,
-  imports: [IonContent, IonButton, IonSpinner, RouterLink, DeskHeaderComponent, DecimalPipe, DatePipe],
+  imports: [SiteFooterComponent, IonContent, IonButton, IonSpinner, RouterLink, DeskHeaderComponent, DecimalPipe, DatePipe],
   styles: [`
     .hello { color: var(--ion-color-medium); margin: 0 0 20px; font-size: 16px; }
     .notice { padding: 12px 14px; border-radius: 12px; background: var(--rs-warn-bg); color: var(--rs-warn); font-size: 14.5px; margin: 0 0 16px; }
@@ -144,6 +145,7 @@ const LOW_BALANCE = 3;
           }
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

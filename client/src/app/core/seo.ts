@@ -29,6 +29,21 @@ export const SEO = {
   checklist: { title: 'צ\'קליסט · יוצאים בראש שקט', index: false },
   sources: { title: 'מקורות · יוצאים בראש שקט', index: false },
   taxRefund: { title: 'החזר מס · יוצאים בראש שקט', index: false },
+  howItWorks: {
+    title: 'איך זה עובד · יוצאים בראש שקט',
+    description: 'איך בודקים מה מגיע בסיום עבודה: בדיקה מהירה מתלוש אחד, ובדיקה מלאה של ההפרשות לפנסיה לאורך כל התקופה, שלב אחרי שלב.',
+    index: true
+  },
+  about: {
+    title: 'אודות · יוצאים בראש שקט',
+    description: 'למה בנינו את יוצאים בראש שקט, איך המערכת מחשבת זכויות בסיום עבודה, ומה היא לא.',
+    index: true
+  },
+  glossary: {
+    title: 'מילון מונחים לסיום עבודה · יוצאים בראש שקט',
+    description: 'פיצויי פיטורים, סעיף 14, שכר קובע, הודעה מוקדמת, טופס 161 ועוד: המונחים של סיום עבודה במילים פשוטות.',
+    index: true
+  },
   professionals: { title: 'אנשי מקצוע · יוצאים בראש שקט', index: false },
   lawyers: { title: 'עורכי דין · יוצאים בראש שקט', index: false },
   terms: {

@@ -11,13 +11,14 @@ import { ExperienceReviewComponent } from '../core/experience-review.component';
 import { WizardStore } from '../core/wizard.store';
 import { ReviewStore } from '../core/review.store';
 import { WorkspaceService } from '../core/workspace.service';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 
 @Component({
   selector: 'app-summary',
   standalone: true,
-  imports: [DeskHeaderComponent, PaidHelpComponent, ExperienceReviewComponent, DecimalPipe, RouterLink, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
+  imports: [SiteFooterComponent, DeskHeaderComponent, PaidHelpComponent, ExperienceReviewComponent, DecimalPipe, RouterLink, IonContent, IonSegment, IonSegmentButton, IonLabel, IonButton],
   styles: [`
     .total { margin: 8px 0 18px; padding: 18px 0 16px; border-top: 2px solid var(--ion-text-color); border-bottom: 1px solid var(--rs-line); }
     .num { font-family: var(--rs-serif); font-size: 50px; font-weight: 700; line-height: 1; }
@@ -167,6 +168,7 @@ const MONTHS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מא�
           <p>עוד אין חישוב. <ion-button fill="clear" (click)="restart()">להתחיל</ion-button></p>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

@@ -52,6 +52,9 @@ export const routes: Routes = [
   },
   { path: 'pricing', loadComponent: () => import('./pages/pricing.page').then(m => m.PricingPage) },
   { path: 'account', canActivate: [sessionGuard], loadComponent: () => import('./pages/account.page').then(m => m.AccountPage) },
+  { path: 'how-it-works', loadComponent: () => import('./pages/info.page').then(m => m.InfoPage), data: { seo: SEO.howItWorks, doc: 'how' } },
+  { path: 'about', loadComponent: () => import('./pages/info.page').then(m => m.InfoPage), data: { seo: SEO.about, doc: 'about' } },
+  { path: 'glossary', loadComponent: () => import('./pages/glossary.page').then(m => m.GlossaryPage), data: { seo: SEO.glossary } },
   { path: 'terms', loadComponent: () => import('./pages/legal.page').then(m => m.LegalPage), data: { seo: SEO.terms, doc: 'terms' } },
   { path: 'privacy', loadComponent: () => import('./pages/legal.page').then(m => m.LegalPage), data: { seo: SEO.privacy, doc: 'privacy' } },
   { path: '**', redirectTo: 'login' }

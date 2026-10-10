@@ -8,13 +8,14 @@ import { ApiService, describeError, PartnerOffer } from '../core/api.service';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { StarsComponent } from '../core/stars.component';
 import { WizardStore } from '../core/wizard.store';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 type HelpKind = 'Professional' | 'Lawyer';
 
 @Component({
   selector: 'app-partners',
   standalone: true,
-  imports: [DeskHeaderComponent, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
+  imports: [SiteFooterComponent, DeskHeaderComponent, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
   styles: [`
     .back { margin: 0 0 12px; }
     .grid { display: grid; gap: 14px; }
@@ -105,6 +106,7 @@ type HelpKind = 'Professional' | 'Lawyer';
           </div>
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })

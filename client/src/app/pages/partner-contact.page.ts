@@ -11,13 +11,14 @@ import { DeskHeaderComponent } from '../core/desk-header.component';
 import { REASON_LABELS } from '../core/models';
 import { SITE_NAME } from '../core/seo';
 import { WizardStore } from '../core/wizard.store';
+import { SiteFooterComponent } from '../core/site-footer.component';
 
 type HelpKind = 'Professional' | 'Lawyer';
 
 @Component({
   selector: 'app-partner-contact',
   standalone: true,
-  imports: [DeskHeaderComponent, FormsModule, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
+  imports: [SiteFooterComponent, DeskHeaderComponent, FormsModule, RouterLink, IonContent, IonButton, IonIcon, IonSpinner, StarsComponent],
   styles: [`
     .reviews h3 { margin: 0 0 6px; }
     .review { padding: 10px 0; border-bottom: 1px solid var(--rs-line); }
@@ -193,6 +194,7 @@ type HelpKind = 'Professional' | 'Lawyer';
           }
         }
       </div>
+      <app-site-footer></app-site-footer>
     </ion-content>
   `
 })
