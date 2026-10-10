@@ -606,6 +606,11 @@ interface YearGap {
                             <div class="val-actions">
                               <button type="button" (click)="revalidate(d)">בדיקה מחדש (קריאת הפרשות)</button>
                             </div>
+                          } @else if (d.documentType === 'payslip' && d.validationStatus === 'ok' && d.extractedVacation === undefined && hasSourceFile(d.id)) {
+                            <!-- Checked before vacation days were read: a re-check adds them to the vacation follow-up. -->
+                            <div class="val-actions">
+                              <button type="button" (click)="revalidate(d)">בדיקה מחדש (קריאת ימי חופשה)</button>
+                            </div>
                           }
                         </div>
                         <div class="row-actions">

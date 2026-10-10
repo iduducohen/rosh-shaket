@@ -28,7 +28,9 @@ public sealed record WizardSnapshot(
     int ActiveIndex,
     string CurrentRoute,
     string CurrentStep,
-    int StateVersion = 1);
+    int StateVersion = 1,
+    /// <summary>The user's own marks (checklist ticks, tax-refund answers), so another device shows the same.</summary>
+    string? PrefsJson = null);
 
 public sealed record UserWorkspace(
     Guid Id,

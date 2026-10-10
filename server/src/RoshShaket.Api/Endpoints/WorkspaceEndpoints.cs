@@ -20,7 +20,8 @@ public sealed record WizardSnapshotDto(
     int ActiveIndex,
     string CurrentRoute,
     string CurrentStep,
-    int StateVersion = 1);
+    int StateVersion = 1,
+    object? Prefs = null);
 
 public sealed record WorkflowStateDto(
     string CurrentStep, string? PreviousStep, string Status, int ProgressPercentage,
@@ -150,7 +151,8 @@ public static class WorkspaceEndpoints
             s.FilledFieldsJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<string[]>(s.FilledFieldsJson, WizardSnapshotJson.Options),
             s.FromPayslip, s.PayslipMonth,
             s.ResultsJson is null ? null : ParseJson(s.ResultsJson),
-            s.ActiveIndex, s.CurrentRoute, s.CurrentStep, s.StateVersion);
+            s.ActiveIndex, s.CurrentRoute, s.CurrentStep, s.StateVersion,
+            s.PrefsJson is null ? null : ParseJson(s.PrefsJson));
 
     private static WizardSnapshot ToSnapshot(WizardSnapshotDto d) =>
         new(d.Choice,
@@ -159,7 +161,8 @@ public static class WorkspaceEndpoints
             d.FilledFields is null ? null : System.Text.Json.JsonSerializer.Serialize(d.FilledFields, WizardSnapshotJson.Options),
             d.FromPayslip, d.PayslipMonth,
             d.Results is null ? null : System.Text.Json.JsonSerializer.Serialize(d.Results, WizardSnapshotJson.Options),
-            d.ActiveIndex, d.CurrentRoute, d.CurrentStep, d.StateVersion <= 0 ? WorkspaceHandlers.CurrentStateVersion : d.StateVersion);
+            d.ActiveIndex, d.CurrentRoute, d.CurrentStep, d.StateVersion <= 0 ? WorkspaceHandlers.CurrentStateVersion : d.StateVersion,
+            d.Prefs is null ? null : System.Text.Json.JsonSerializer.Serialize(d.Prefs, WizardSnapshotJson.Options));
 
     private static object? ParseJson(string json)
     {

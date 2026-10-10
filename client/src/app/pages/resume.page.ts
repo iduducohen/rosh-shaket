@@ -67,16 +67,23 @@ export class ResumePage {
     void this.load();
   }
 
+  /** Ionic keeps the page alive: after signing out and in again, load the account that is signed in now. */
+  ionViewWillEnter(): void {
+    if (!this.loading()) void this.load();
+  }
+
   async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.ws.set(null);
     try {
       const ws = await this.workspaces.restore();
-      this.ws.set(ws);
       // Brand-new empty workspace → skip the resume card.
       if (ws && isEmpty(ws)) {
-        await this.router.navigateByUrl('/start');
+        await this.router.navigateByUrl('/start', { replaceUrl: true });
+        return;
       }
+      this.ws.set(ws);
     } catch {
       this.error.set('לא הצלחנו לטעון את העבודה השמורה.');
     } finally {

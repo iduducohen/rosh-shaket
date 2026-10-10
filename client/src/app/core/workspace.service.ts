@@ -7,6 +7,7 @@ import { filter } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth/auth.service';
 import { CalculationResponse, ExitChoice, FundLine, ProfileDto } from './models';
+import { UserPrefs } from './user-prefs';
 import { WizardStore } from './wizard.store';
 
 export interface WorkspaceDocument {
@@ -51,6 +52,7 @@ export interface WorkspaceDto {
       currentRoute: string;
       currentStep: string;
       stateVersion: number;
+      prefs?: UserPrefs | null;
     };
     version: number;
     startedAt: string;
@@ -108,7 +110,8 @@ export class WorkspaceService {
         fromPayslip: !!snap.fromPayslip,
         payslipMonth: snap.payslipMonth ?? null,
         results: snap.results ?? [],
-        activeIndex: snap.activeIndex ?? 0
+        activeIndex: snap.activeIndex ?? 0,
+        prefs: snap.prefs ?? null
       });
     }
     this.lastStep = ws.currentStep || 'start';
@@ -165,7 +168,8 @@ export class WorkspaceService {
           activeIndex: snap.activeIndex,
           currentRoute: route,
           currentStep: step,
-          stateVersion: 1
+          stateVersion: 1,
+          prefs: snap.prefs
         }
       };
       const updated = await firstValueFrom(this.http.put<WorkspaceDto>(`${this.base}/${ws.id}/state`, body));

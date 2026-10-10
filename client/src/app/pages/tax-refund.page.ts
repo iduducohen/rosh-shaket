@@ -1,5 +1,5 @@
 import { Location } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { IonBackButton, IonButtons, IonCheckbox, IonContent, IonHeader, IonToolbar } from '@ionic/angular/standalone';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { PaidHelpComponent } from '../core/paid-help.component';
@@ -8,8 +8,8 @@ import {
   assessTaxRefund, REFUND_QUESTIONS, REFUND_YEARS_BACK, RefundAnswerKey, RefundAnswers, RefundInput
 } from '../core/tax-refund';
 import { WizardStore } from '../core/wizard.store';
+import { WorkspaceService } from '../core/workspace.service';
 
-const STORAGE_KEY = 'rs-tax-refund';
 /** One-time amounts the employer pays in the final settlement. */
 const LUMP_SUM_CODES = ['severance', 'vacation', 'recuperation'];
 
@@ -146,7 +146,7 @@ const LINKS: Array<{ title: string; desc: string; url: string }> = [
 
         <section class="sec" aria-labelledby="refund-questions-title">
           <h3 id="refund-questions-title">דברים שרק אתם יודעים</h3>
-          <p class="muted small">סמנו מה נכון לגביכם באחת מהשנים האחרונות. הסימונים נשמרים במכשיר בלבד.</p>
+          <p class="muted small">סמנו מה נכון לגביכם באחת מהשנים האחרונות. {{ savedWhere }}</p>
           <div class="questions">
             @for (q of questions; track q.key) {
               <label>
@@ -208,12 +208,16 @@ export class TaxRefundPage {
   readonly wizard = inject(WizardStore);
   private readonly review = inject(ReviewStore);
   private readonly location = inject(Location);
+  private readonly workspaces = inject(WorkspaceService);
 
   readonly questions = REFUND_QUESTIONS;
   readonly steps = STEPS;
   readonly links = LINKS;
   readonly yearsBack = REFUND_YEARS_BACK;
-  readonly answers = signal<RefundAnswers>(load());
+  readonly answers = computed<RefundAnswers>(() => this.wizard.prefs().taxRefund ?? {});
+  get savedWhere(): string {
+    return this.workspaces.workspace() ? 'הסימונים נשמרים בחשבון שלכם.' : 'הסימונים נשמרים במכשיר בלבד.';
+  }
 
   /** The quick check's details when filled, otherwise the full review's employment period. */
   private readonly input = computed<RefundInput>(() => {
@@ -244,14 +248,9 @@ export class TaxRefundPage {
   });
 
   toggle(key: RefundAnswerKey, value: boolean): void {
-    const next = { ...this.answers(), [key]: value };
-    this.answers.set(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* storage full or blocked: keep in memory */ }
+    this.wizard.setPref('taxRefund', { ...this.answers(), [key]: value });
+    this.workspaces.scheduleSave();
   }
 
   back(): void { this.location.back(); }
-}
-
-function load(): RefundAnswers {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'); } catch { return {}; }
 }

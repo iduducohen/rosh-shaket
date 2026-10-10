@@ -66,7 +66,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             ReviewDocumentTypes.PensionReport =>
                 $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את שנת הדוח ואת יתרות הקופות אם מופיעות. אל תעתיק את {expectedYear} אלא אם היא באמת כתובה במסמך.",
             _ when expectedMonth is int em =>
-                $"המסך שנפתח מצפה לתלוש שכר עבור {em}/{expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים, הברוטו, הבסיס לפנסיה ואת כל שורות הניכויים וההפרשות לקופות. אל תנחש ואל תעתיק שנה/חודש מהציפייה — רק מה שמופיע במסמך.",
+                $"המסך שנפתח מצפה לתלוש שכר עבור {em}/{expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים, הברוטו, הבסיס לפנסיה, נתוני ימי החופשה ואת כל שורות הניכויים וההפרשות לקופות. אל תנחש ואל תעתיק שנה/חודש מהציפייה — רק מה שמופיע במסמך.",
             _ =>
                 $"המסך שנפתח הוא לשנת {expectedYear}. קרא מתוך התמונה בלבד את חודש ושנת התלוש המודפסים, הברוטו, הבסיס לפנסיה ואת כל שורות הניכויים וההפרשות לקופות. אל תנחש ואל תעתיק את {expectedYear} — detected_year ו־detected_month חייבים להיות מהמסמך בלבד."
         };
@@ -85,6 +85,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
              "gross_salary": מספר או null,
              "pension_base": מספר או null,
              "annual_gross": מספר או null,
+             "vacation": {"balance": מספר, "used": מספר, "accrued": מספר, "previous_balance": מספר},
              "contribution_kinds": ["pension"|"severance"|"disability"|"study"],
              "contributions": [{"kind":"pension"|"managers"|"severance"|"disability"|"study","payer":"employee"|"employer","provider":"שם הקופה או מחרוזת ריקה","rate_percent":מספר או 0,"amount":מספר,"for_year":שנה או 0,"for_month":חודש או 0}],
              "funds": [{"kind":"pension"|"severance"|"study"|"managers","provider":"שם הגוף או null","balance":מספר או null,"as_of":"YYYY-MM-DD או null","fee_annual_percent":מספר או null,"return_annual_percent":מספר או null,"track":"מסלול או null"}]}
@@ -109,6 +110,14 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 כלול גם ניכויי עובד רטרו וגם הפרשות מעסיק רטרו. אל תאחד שורות של חודשים שונים.
               * «ביט» / «ביטוח» / «ב.מנהלים» בשם הקופה = managers, גם אם הגוף הוא חברת ביטוח שמנהלת גם פנסיה.
               * אל תכלול מס הכנסה, ביטוח לאומי, ביטוח בריאות או ניכויים אחרים. מערך ריק אם אין.
+            - לתלוש: vacation = נתוני ימי החופשה כפי שמודפסים בתלוש (בדרך כלל בתיבת «חופשה» / «נתונים מצטברים» / «היעדרויות»), בימים:
+              * balance = היתרה בסוף החודש («יתרה», «יתרה חדשה», «יתרת חופשה»). יכולה להיות שלילית.
+              * used = ימים שנוצלו בחודש הזה («ניצול», «נוצל החודש»). אם מודפס 0 החזר 0.
+              * accrued = ימים שנצברו בחודש הזה («צבירה», «זכאות חודשית», «צבירה חודשית»). לא המכסה השנתית.
+              * previous_balance = היתרה מהחודש הקודם («יתרה קודמת», «יתרת פתיחה»).
+              * לכל נתון שלא מודפס בתלוש החזר ‎-999 בדיוק. אל תחשב ואל תשלים נתון חסר. אם החופשה מנוהלת בשעות ולא בימים, החזר ‎-999 בכל השדות.
+              * אל תערבב עם ימי מחלה או הבראה.
+            - למסמך שאינו תלוש: ‎-999 בכל שדות vacation.
             - ל־106: annual_gross = סה״כ שכר שנתי אם מופיע. contribution_kinds ו־contributions ריקים.
             - לדוח קופות: מלא funds לכל קופה ברורה. pension=פנסיה/תגמולים, severance=פיצויים, study=השתלמות, managers=ביטוח מנהלים. מערך ריק אם אין יתרות. contribution_kinds ו־contributions ריקים.
             - readable=false אם מטושטש/חתוך/כהה.
@@ -205,8 +214,26 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
                 ReadContributionKinds(raw),
                 ReadDecimal(raw, "pension_base"),
                 ReadContributions(raw),
-                Clip(ReadString(raw, "employer_name")));
+                Clip(ReadString(raw, "employer_name")),
+                Vacation: ReadVacation(raw));
         }
+    }
+
+    /// <summary>A figure the payslip does not print comes back as the sentinel and becomes null.</summary>
+    internal const decimal VacationNotPrinted = -999m;
+
+    internal static ExtractedVacation? ReadVacation(JsonElement raw)
+    {
+        if (!raw.TryGetProperty("vacation", out var box) || box.ValueKind != JsonValueKind.Object) return null;
+        var vacation = new ExtractedVacation(
+            Days(box, "balance"), NonNegativeDays(box, "used"), NonNegativeDays(box, "accrued"), Days(box, "previous_balance"));
+        return vacation.HasAny ? vacation : null;
+
+        // Plausible day counts only: a misread amount in shekels is dropped, not kept as days.
+        static decimal? Days(JsonElement obj, string name) =>
+            ReadDecimal(obj, name) is { } v && v > -200m && v < 400m ? v : null;
+        static decimal? NonNegativeDays(JsonElement obj, string name) =>
+            Days(obj, name) is { } v && v >= 0m && v <= 60m ? v : null;
     }
 
     private static IReadOnlyList<ExtractedContributionLine> ReadContributions(JsonElement raw)
@@ -330,6 +357,17 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
             "gross_salary": { "type": ["number", "null"] },
             "pension_base": { "type": ["number", "null"] },
             "annual_gross": { "type": ["number", "null"] },
+            "vacation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "balance": { "type": "number" },
+                "used": { "type": "number" },
+                "accrued": { "type": "number" },
+                "previous_balance": { "type": "number" }
+              },
+              "required": ["balance", "used", "accrued", "previous_balance"]
+            },
             "contribution_kinds": {
               "type": "array",
               "items": { "type": "string", "enum": ["pension", "severance", "disability", "study"] }
@@ -369,7 +407,7 @@ public sealed class ClaudeDocumentVerifier(HttpClient http, IOptions<ClaudeOptio
               }
             }
           },
-          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "employer_name", "gross_salary", "pension_base", "annual_gross", "contribution_kinds", "contributions", "funds"]
+          "required": ["readable", "detected_type", "detected_year", "detected_month", "period_label", "summary_he", "employer_name", "gross_salary", "pension_base", "annual_gross", "vacation", "contribution_kinds", "contributions", "funds"]
         }
         """;
 }

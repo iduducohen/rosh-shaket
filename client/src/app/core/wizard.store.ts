@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { CalculationResponse, ExitChoice, ExitReason, FundLine, ProfileDraft, ProfileDto, hourlyMonthly } from './models';
+import { UserPrefs, clearLocalPrefs, readLocalPrefs, writeLocalPrefs } from './user-prefs';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -26,6 +27,8 @@ export class WizardStore {
   readonly payslipMonth = signal<string | null>(null);
   readonly results = signal<CalculationResponse[]>([]);
   readonly activeIndex = signal(0);
+  /** The user's own marks: checklist ticks and tax-refund answers. Saved with the workspace when signed in. */
+  readonly prefs = signal<UserPrefs>(readLocalPrefs());
 
   readonly active = computed(() => this.results()[this.activeIndex()] ?? null);
   readonly activeReason = computed<ExitReason | null>(() => this.active()?.reason ?? null);
@@ -59,6 +62,18 @@ export class WizardStore {
     this.payslipMonth.set(d.payslipMonth);
   }
 
+  setPref<K extends keyof UserPrefs>(key: K, value: UserPrefs[K]): void {
+    const next = { ...this.prefs(), [key]: value };
+    this.prefs.set(next);
+    writeLocalPrefs(next);
+  }
+
+  /** Sign-out: the marks belong to the account, so they do not stay behind in this browser. */
+  forgetPrefs(): void {
+    this.prefs.set({});
+    clearLocalPrefs();
+  }
+
   reset(): void {
     this.choice.set(null);
     this.profile.set(emptyProfile());
@@ -80,6 +95,7 @@ export class WizardStore {
     payslipMonth: string | null;
     results: CalculationResponse[];
     activeIndex: number;
+    prefs?: UserPrefs | null;
   }): void {
     this.choice.set(snap.choice);
     this.profile.set({ ...emptyProfile(), ...snap.profile });
@@ -89,6 +105,11 @@ export class WizardStore {
     this.payslipMonth.set(snap.payslipMonth ?? null);
     this.results.set(snap.results ?? []);
     this.activeIndex.set(snap.activeIndex ?? 0);
+    // The account's marks win over what this browser had; a snapshot saved before marks existed keeps the local ones.
+    if (snap.prefs) {
+      this.prefs.set(snap.prefs);
+      writeLocalPrefs(snap.prefs);
+    }
   }
 
   snapshot(): {
@@ -100,6 +121,7 @@ export class WizardStore {
     payslipMonth: string | null;
     results: CalculationResponse[];
     activeIndex: number;
+    prefs: UserPrefs;
   } {
     return {
       choice: this.choice(),
@@ -109,7 +131,8 @@ export class WizardStore {
       fromPayslip: this.fromPayslip(),
       payslipMonth: this.payslipMonth(),
       results: this.results(),
-      activeIndex: this.activeIndex()
+      activeIndex: this.activeIndex(),
+      prefs: this.prefs()
     };
   }
 }

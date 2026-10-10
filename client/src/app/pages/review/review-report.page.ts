@@ -6,6 +6,7 @@ import { CalculationFacade } from '../../core/calculation.facade';
 import { REASON_LABELS, type ExitReason } from '../../core/models';
 import { FindingSeverity, explainReview } from '../../core/gap-explainer';
 import { ReviewStore } from '../../core/review.store';
+import { VacationSeverity, trackVacation } from '../../core/vacation-tracker';
 import { WizardStore } from '../../core/wizard.store';
 import { ReviewStepNavComponent } from './review-step-nav.component';
 
@@ -106,6 +107,18 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
     .verdict.sev-check .status { color: var(--rs-warn, #9a6b00); }
     .verdict p + p { margin-top: 6px; }
 
+    .vac-table { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 14px; }
+    .vac-table th, .vac-table td { padding: 8px 6px; text-align: start; border-bottom: 1px solid var(--rs-line); white-space: nowrap; }
+    .vac-table th { font-size: 12.5px; font-weight: 700; color: var(--ion-color-medium); }
+    .vac-table td.num, .vac-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
+    .vac-table tr.mismatch td { background: color-mix(in srgb, var(--ion-color-danger) 7%, transparent); }
+    .vac-table tr.mismatch td.state { color: var(--ion-color-danger); font-weight: 800; }
+    .vac-table tr.note td.state { color: var(--rs-warn, #9a6b00); font-weight: 700; }
+    .vac-table tr.noData td { color: var(--ion-color-medium); }
+    .vac-table tr.why td { white-space: normal; font-size: 13px; line-height: 1.4; color: var(--ion-text-color); border-bottom: 1px solid var(--rs-line); }
+    .vac-wrap { overflow-x: auto; }
+    .sec > details > summary { cursor: pointer; margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--ion-color-primary); }
+
     .findings { display: grid; gap: 12px; }
     .finding {
       background: var(--ion-item-background, #fff); border: 1px solid var(--rs-line); border-radius: 14px;
@@ -190,6 +203,55 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
             </div>
           } @else {
             <p class="ok-note">לא נמצאו פערים בנתונים שיש. עדיין מומלץ לעבור על פירוט ההפקדות. <a routerLink="/review/check">לפירוט הפקדות</a></p>
+          }
+        </section>
+
+        <section class="sec" aria-label="ימי חופשה">
+          <h3>ימי חופשה</h3>
+          @if (vacation(); as v) {
+            @if (v.hasData) {
+              <p class="lead">עקבנו אחרי יתרת ימי החופשה מתלוש לתלוש: היתרה הקודמת, ועוד מה שנצבר, פחות מה שנוצל, צריכה להיות שווה ליתרה שמודפסת.</p>
+              <div class="findings">
+                @for (f of v.findings; track f.title) {
+                  <article [class]="'finding sev-' + vacationSeverity(f.severity)">
+                    <header>
+                      <span class="chip">{{ severityLabel(vacationSeverity(f.severity)) }}</span>
+                      <h4>{{ f.title }}</h4>
+                    </header>
+                    @if (f.months.length) { <p class="months">{{ f.months.join(' · ') }}</p> }
+                    <p class="what">{{ f.text }}</p>
+                  </article>
+                }
+              </div>
+              <details>
+                <summary>פירוט לפי חודשים</summary>
+                <div class="vac-wrap">
+                  <table class="vac-table">
+                    <thead>
+                      <tr><th>חודש</th><th class="num">יתרה קודמת</th><th class="num">נצבר</th><th class="num">נוצל</th><th class="num">יתרה בתלוש</th><th>מצב</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (m of v.months; track m.label) {
+                        <tr [class]="m.status">
+                          <td>{{ m.label }}</td>
+                          <td class="num">{{ dayCell(m.opening) }}</td>
+                          <td class="num">{{ dayCell(m.accrued) }}</td>
+                          <td class="num">{{ dayCell(m.used) }}</td>
+                          <td class="num">{{ dayCell(m.balance) }}</td>
+                          <td class="state">{{ vacationState(m.status) }}</td>
+                        </tr>
+                        @if (m.note) { <tr class="why"><td colspan="6">{{ m.note }}</td></tr> }
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            } @else {
+              <p class="ok-note">בתלושים שנבדקו לא מודפסים נתוני ימי חופשה, ולכן אי אפשר לעקוב אחרי היתרה. בקשו מהמעסיק פירוט של ימי החופשה: כמה נצברו, כמה נוצלו ומה היתרה.</p>
+            }
+            @if (v.notReadCount) {
+              <p class="ok-note">{{ v.notReadCount }} תלושים נבדקו לפני שהמערכת קראה ימי חופשה, ולכן הם לא נכללים כאן. כדי לכלול אותם, בדקו אותם מחדש בשלב המסמכים. <a routerLink="/review/documents">למסמכים</a></p>
+            }
           }
         </section>
 
@@ -342,6 +404,34 @@ export class ReviewReportPage implements OnInit {
     const review = this.store.review();
     return analysis && review ? explainReview(review, analysis) : null;
   });
+
+  /** The vacation-days balance followed from payslip to payslip, with the months that do not add up. */
+  readonly vacation = computed(() => {
+    const review = this.store.review();
+    if (!review?.period) return null;
+    const payslips = review.documents
+      .filter(d => d.documentType === 'payslip' && d.validationStatus === 'ok' && d.year != null && d.month != null)
+      .map(d => ({ year: d.year!, month: d.month!, vacation: d.extractedVacation }));
+    if (!payslips.length) return null;
+    return trackVacation({
+      payslips,
+      startDate: review.period.startDate,
+      endDate: review.period.endDate,
+      salaryFor: (year, month) => review.months.find(m => m.year === year && m.month === month)?.grossSalary ?? null
+    });
+  });
+
+  vacationSeverity(s: VacationSeverity): FindingSeverity {
+    return s === 'warn' ? 'check' : s;
+  }
+
+  vacationState(status: string): string {
+    return status === 'mismatch' ? 'לא מסתדר' : status === 'note' ? 'לבדוק' : status === 'noData' ? 'אין נתונים' : 'תקין';
+  }
+
+  dayCell(value: number | null): string {
+    return value == null ? '—' : String(Math.round(value * 100) / 100);
+  }
 
   severityLabel(s: FindingSeverity): string {
     return s === 'serious' ? 'חשוב לבדוק' : s === 'check' ? 'כדאי לבדוק' : s === 'info' ? 'לידיעה' : 'תקין';

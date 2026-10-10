@@ -43,6 +43,19 @@ public sealed record ExtractedFundLine(
 /// Kind: pension | managers | severance | disability | study. Payer: employee | employer.
 /// ForYear/ForMonth set only for retro lines (הפרשים) that belong to an earlier month.
 /// </summary>
+/// <summary>
+/// The vacation-days box of a payslip, in days. Each figure is null when the payslip does not print it.
+/// The balance can be negative (days taken in advance).
+/// </summary>
+public sealed record ExtractedVacation(
+    decimal? Balance,
+    decimal? Used,
+    decimal? Accrued,
+    decimal? PreviousBalance)
+{
+    public bool HasAny => Balance is not null || Used is not null || Accrued is not null || PreviousBalance is not null;
+}
+
 public sealed record ExtractedContributionLine(
     string Kind,
     string Payer,
@@ -70,7 +83,9 @@ public sealed record DocumentExtraction(
     /// <summary>The employer as printed on a payslip / Form 106 (a company, not the employee).</summary>
     string? EmployerName = null,
     /// <summary>Tokens the AI call used — for cost tracking, never sent to the client.</summary>
-    AiUsage? Usage = null);
+    AiUsage? Usage = null,
+    /// <summary>Payslip only: vacation days balance, use and accrual, when printed.</summary>
+    ExtractedVacation? Vacation = null);
 
 public sealed record AiUsage(string Model, int InputTokens, int OutputTokens);
 
@@ -93,7 +108,8 @@ public sealed record DocumentVerificationResult(
     IReadOnlyList<string>? ContributionKinds = null,
     decimal? PensionBase = null,
     IReadOnlyList<ExtractedContributionLine>? Contributions = null,
-    string? EmployerName = null);
+    string? EmployerName = null,
+    ExtractedVacation? Vacation = null);
 
 public static class DocumentVerificationMapper
 {
@@ -134,7 +150,8 @@ public static class DocumentVerificationMapper
             x.ContributionKinds,
             Positive(x.PensionBase),
             x.Contributions,
-            x.EmployerName);
+            x.EmployerName,
+            detectedType == "payslip" && x.Vacation is { HasAny: true } ? x.Vacation : null);
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;

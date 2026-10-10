@@ -571,6 +571,7 @@ export class ReviewStore {
   }
 
   clear(): void {
+    if (this.syncTimer) clearTimeout(this.syncTimer);
     localStorage.removeItem(LS_KEY);
     this.review.set(null);
     this.analysis.set(null);
@@ -591,9 +592,17 @@ export class ReviewStore {
     this.scheduleSync();
   }
 
+  /** Send a change that is still waiting for its timer. Sign-out calls it so the last edit is not lost. */
+  async flush(): Promise<void> {
+    if (!this.syncTimer) return;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = null;
+    await this.pushToServer();
+  }
+
   private scheduleSync(): void {
     if (this.syncTimer) clearTimeout(this.syncTimer);
-    this.syncTimer = setTimeout(() => void this.pushToServer(), 450);
+    this.syncTimer = setTimeout(() => { this.syncTimer = null; void this.pushToServer(); }, 450);
   }
 
   private async pushToServer(): Promise<void> {

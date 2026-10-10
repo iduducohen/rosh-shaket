@@ -413,6 +413,8 @@ export class DocumentValidationService {
       extractedSummary: result.summaryHe || before.extractedSummary || null,
       extractedGrossSalary: result.grossSalary ?? null,
       extractedPensionBase: result.pensionBase ?? null,
+      // null = read and nothing printed; a payslip checked before this was read has no such field at all.
+      extractedVacation: detectedType === 'payslip' ? (result.vacation ?? null) : null,
       // [] = read, none found; null = not read (older OCR / unavailable).
       extractedContributions: detectedType === 'payslip' ? (result.contributions ?? []) : null,
       extractedAnnualGross: result.annualGross ?? null,

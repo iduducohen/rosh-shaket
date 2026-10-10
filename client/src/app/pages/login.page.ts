@@ -120,7 +120,8 @@ export class LoginPage implements OnInit, OnDestroy {
     try {
       const credential = await flow.getCredential(info);
       await this.auth.signInWithProvider(id, credential);
-      await this.router.navigateByUrl('/start', { replaceUrl: true });
+      // The resume screen loads the saved work — the same state on any device — and sends a new account on to /start.
+      await this.router.navigateByUrl('/resume', { replaceUrl: true });
     } catch (err) {
       if (!(err instanceof SignInCancelled)) this.error.set(describeError(err).message);
     } finally {
@@ -150,7 +151,7 @@ export class LoginPage implements OnInit, OnDestroy {
     this.busy.set('verify');
     try {
       await this.auth.verifyEmail(this.email.trim(), this.code.trim());
-      await this.router.navigateByUrl('/start', { replaceUrl: true });
+      await this.router.navigateByUrl('/resume', { replaceUrl: true });
     } catch (err) {
       this.error.set(describeError(err).message);
     } finally {

@@ -9,8 +9,7 @@ import { ChecklistItem, REASON_LABELS, RightsSource } from '../core/models';
 import { DeskHeaderComponent } from '../core/desk-header.component';
 import { installReturnTracker, wizardReturn } from '../core/wizard-nav';
 import { WizardStore } from '../core/wizard.store';
-
-const STORAGE_KEY = 'rs-checked';
+import { WorkspaceService } from '../core/workspace.service';
 
 @Component({
   selector: 'app-checklist',
@@ -56,9 +55,9 @@ const STORAGE_KEY = 'rs-checked';
         </div>
         <p class="muted small">
           @if (reasonLabel(); as label) {
-            מותאם ל{{ label }}. הסימונים נשמרים במכשיר.
+            מותאם ל{{ label }}. {{ savedWhere }}
           } @else {
-            רשימה קבועה לסיום עבודה. אחרי בחירת סיבת העזיבה היא תותאם אליכם. הסימונים נשמרים במכשיר.
+            רשימה קבועה לסיום עבודה. אחרי בחירת סיבת העזיבה היא תותאם אליכם. {{ savedWhere }}
           }
         </p>
         @if (error()) { <div class="note">{{ error() }}</div> }
@@ -94,12 +93,16 @@ export class ChecklistPage implements ViewWillEnter {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   readonly store = inject(WizardStore);
+  private readonly workspaces = inject(WorkspaceService);
 
   readonly items = signal<ChecklistItem[]>([]);
   readonly sources = signal<RightsSource[]>([]);
   readonly error = signal('');
   readonly loading = signal(true);
-  readonly checked = signal<Record<string, boolean>>(load());
+  readonly checked = computed<Record<string, boolean>>(() => this.store.prefs().checklist ?? {});
+  get savedWhere(): string {
+    return this.workspaces.workspace() ? 'הסימונים נשמרים בחשבון שלכם.' : 'הסימונים נשמרים במכשיר.';
+  }
   readonly back = computed(() => wizardReturn(this.store));
   readonly reason = computed(() => this.store.activeReason() ?? mapChoice(this.store.choice()));
   readonly reasonLabel = computed(() => {
@@ -134,9 +137,8 @@ export class ChecklistPage implements ViewWillEnter {
   }
 
   toggle(key: string, value: boolean): void {
-    const next = { ...this.checked(), [key]: value };
-    this.checked.set(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* storage full or blocked: keep in memory */ }
+    this.store.setPref('checklist', { ...this.checked(), [key]: value });
+    this.workspaces.scheduleSave();
   }
 
   private async reload(): Promise<void> {
@@ -166,8 +168,4 @@ export class ChecklistPage implements ViewWillEnter {
 function mapChoice(choice: string | null): 'Fired' | 'ResignedJustified' | 'Resigned' | 'ContractEnded' | null {
   if (choice === 'Fired' || choice === 'ResignedJustified' || choice === 'Resigned' || choice === 'ContractEnded') return choice;
   return null;
-}
-
-function load(): Record<string, boolean> {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'); } catch { return {}; }
 }

@@ -1,3 +1,4 @@
+import { VacationFigures } from './vacation-tracker';
 /** Client models for the multi-year employment & pension review flow. */
 
 export type FundKind = 'Pension' | 'Severance' | 'Study' | 'Managers';
@@ -127,6 +128,8 @@ export interface ReviewDocumentMeta {
   /** «בסיס לפנסיה» — the salary contributions are calculated from. */
   extractedPensionBase?: number | null;
   extractedContributions?: ExtractedContribution[] | null;
+  /** The payslip's vacation-days box. undefined = checked before it was read; null = read, nothing printed. */
+  extractedVacation?: VacationFigures | null;
 }
 
 /** User marked a required document slot as unobtainable — allows progress without pretending it exists. */

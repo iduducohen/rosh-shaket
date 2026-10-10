@@ -193,9 +193,12 @@ export class DeskHeaderComponent {
   }
 
   async signOut(): Promise<void> {
+    // Save what is still waiting, so signing in on another device shows exactly this state.
+    await Promise.allSettled([this.review.flush(), this.workspaces.flushSave()]);
     this.review.clear();
     this.workspaces.clearLocal();
     this.store.reset();
+    this.store.forgetPrefs();
     await this.auth.signOut();
     void this.router.navigateByUrl('/login', { replaceUrl: true });
   }

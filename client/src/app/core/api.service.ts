@@ -179,6 +179,8 @@ export interface DocumentVerificationResult {
   contributionKinds?: string[] | null;
   pensionBase?: number | null;
   contributions?: ExtractedContribution[] | null;
+  /** Payslip only: vacation days as printed; a figure the payslip does not show is null. */
+  vacation?: { balance: number | null; used: number | null; accrued: number | null; previousBalance: number | null } | null;
 }
 
 /** Turns an API failure into a sentence the user can act on. The server sends Hebrew problem titles. */
