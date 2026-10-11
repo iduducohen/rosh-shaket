@@ -85,6 +85,26 @@ public sealed class PostgresBillingStore(RightsDbContext db, TimeProvider clock)
         return true;
     }
 
+    /// <summary>Up to this many free re-reads per paid slot.</summary>
+    private const int MaxRereadsPerSlot = 3;
+
+    public async Task<bool> TryRereadAsync(Guid userId, string documentType, int? year, int? month, CancellationToken ct)
+    {
+        var slot = db.BillingLedger.Where(l => l.UserId == userId && l.DocumentType == documentType && l.Year == year && l.Month == month);
+        var paid = await slot.CountAsync(l => l.Kind == "document", ct);
+        if (paid == 0) return false;
+        var used = await slot.CountAsync(l => l.Kind == "reread", ct);
+        // Each paid check of the slot earns re-reads, up to the cap, so a slot checked twice is not locked after three.
+        if (used >= Math.Min(MaxRereadsPerSlot * paid, 9)) return false;
+        db.BillingLedger.Add(new BillingLedgerRow
+        {
+            Id = Guid.NewGuid(), UserId = userId, Delta = 0, Kind = "reread",
+            DocumentType = documentType, Year = year, Month = month, CreatedAt = clock.GetUtcNow()
+        });
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task RefundAsync(Guid userId, string documentType, int? year, int? month, CancellationToken ct)
     {
         var now = clock.GetUtcNow();

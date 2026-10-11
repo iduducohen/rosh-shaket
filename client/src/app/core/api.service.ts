@@ -63,12 +63,15 @@ export class ApiService {
     expectedType: string;
     expectedYear: number;
     expectedMonth?: number | null;
+    /** The document was already paid for and is read again because the reading improved: costs no credit. */
+    reread?: boolean;
   }): Promise<DocumentVerificationResult> {
     const form = new FormData();
     body.images.forEach((img, i) => form.append('files', img, `doc-${i + 1}.jpg`));
     form.append('expectedType', body.expectedType);
     form.append('expectedYear', String(body.expectedYear));
     if (body.expectedMonth != null) form.append('expectedMonth', String(body.expectedMonth));
+    if (body.reread) form.append('reread', 'true');
     // A server that does not answer must not leave the spinner running for ever: after this the document waits for a re-check.
     return firstValueFrom(this.http.post<DocumentVerificationResult>(`${this.base}/api/documents/verify`, form).pipe(timeout(VERIFY_TIMEOUT_MS)));
   }

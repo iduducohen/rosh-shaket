@@ -84,6 +84,12 @@ export interface ExtractedFundTotal {
   employer: number;
 }
 
+/**
+ * Bumped whenever the reading learns something new (a field, a column, a classification). Documents read by an older
+ * version are read again by the app by itself, from the saved file, at no cost.
+ */
+export const EXTRACTION_VERSION = 5;
+
 /** One payment line of a payslip: salary, overtime, notice pay, vacation redemption, recuperation, ... */
 export interface ExtractedPayComponent {
   kind: 'salary' | 'overtime' | 'recuperation' | 'notice' | 'vacation_redemption' | 'severance_pay' | 'expenses' | 'bonus' | 'other' | string;
@@ -177,6 +183,8 @@ export interface ReviewDocumentMeta {
   extractedComponents?: ExtractedPayComponent[] | null;
   /** A final-settlement payslip ("גמר חשבון"): notice pay and vacation redemption instead of a regular month. */
   isSettlement?: boolean | null;
+  /** The version of the reading that produced the extracted fields (see EXTRACTION_VERSION). Older = read again. */
+  extractionVersion?: number | null;
   /** Form 106: the per-fund yearly totals. [] = no table found; null / absent = not read. */
   extractedFundTotals?: ExtractedFundTotal[] | null;
 }

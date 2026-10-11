@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { PENSION_COVERAGE_KEYS, PensionKind, pensionKindOf } from '../../core/review.models';
 import { productsInYear } from '../../core/product-summary';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
+import { UpgradeNoticeComponent } from '../../core/upgrade-notice.component';
 import { findReadingProblems } from '../../core/reading-problems';
 import { verifiedYears } from '../../core/annual-reconcile';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
@@ -20,7 +21,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
 @Component({
   selector: 'app-review-report',
   standalone: true,
-  imports: [IonButton, RouterLink, DecimalPipe, ReviewStepNavComponent, ReadingProblemsComponent],
+  imports: [IonButton, RouterLink, DecimalPipe, ReviewStepNavComponent, ReadingProblemsComponent, UpgradeNoticeComponent],
   styles: [`
     .verdict {
       margin: 8px 0 18px; padding: 14px 16px;
@@ -122,6 +123,14 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
     .vac-table tr.noData td { color: var(--ion-color-medium); }
     .vac-table tr.why td { white-space: normal; font-size: 13px; line-height: 1.4; color: var(--ion-text-color); border-bottom: 1px solid var(--rs-line); }
     .vac-wrap { overflow-x: auto; }
+    .vac-case { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--rs-line); }
+    .vac-case h5 { margin: 0 0 6px; font-size: 14.5px; font-weight: 800; }
+    .vac-calc { border-collapse: collapse; margin: 4px 0 8px; font-size: 14px; }
+    .vac-calc td { padding: 3px 10px 3px 0; }
+    .vac-calc td.sign { width: 18px; color: var(--ion-color-medium); }
+    .vac-calc td.num { text-align: end; font-variant-numeric: tabular-nums; padding-inline-start: 18px; }
+    .vac-calc tr.total td { border-top: 1px solid var(--rs-line); font-weight: 700; }
+    .vac-calc tr.diff td { font-weight: 800; color: var(--ion-color-danger); }
     .sec > details > summary { cursor: pointer; margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--ion-color-primary); }
 
     .findings { display: grid; gap: 12px; }
@@ -166,6 +175,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
   `],
   template: `
     <h2>הסיכום שלכם</h2>
+    <app-upgrade-notice />
     <app-reading-problems [problems]="readingProblems()" />
 
     @if (a(); as analysis) {
@@ -226,11 +236,26 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
                     </header>
                     @if (f.months.length) { <p class="months">{{ f.months.join(' · ') }}</p> }
                     <p class="what">{{ f.text }}</p>
+                    @for (mm of f.mismatches ?? []; track mm.label) {
+                      <div class="vac-case">
+                        <h5>{{ mm.label }}: {{ mm.difference < 0 ? 'חסרים' : 'עודפים' }} {{ absDays(mm.difference) }} ימים</h5>
+                        <table class="vac-calc">
+                          @for (r of mm.rows; track r.title) {
+                            <tr [class.total]="r.sign === '='"><td class="sign">{{ r.sign }}</td><td>{{ r.title }}</td><td class="num">{{ r.days }}</td></tr>
+                          }
+                          @if (mm.kind !== 'carry') {
+                            <tr class="printed"><td></td><td>יתרה שמודפסת בתלוש</td><td class="num">{{ mm.printed }}</td></tr>
+                          }
+                          <tr class="diff"><td></td><td>הפרש</td><td class="num">{{ mm.difference }}</td></tr>
+                        </table>
+                        @for (line of mm.explanation; track line) { <p class="what">{{ line }}</p> }
+                      </div>
+                    }
                   </article>
                 }
               </div>
               <details>
-                <summary>פירוט לפי חודשים</summary>
+                <summary>כל חודשי העבודה: יתרת חופשה מהתלושים</summary>
                 <div class="vac-wrap">
                   <table class="vac-table">
                     <thead>
@@ -238,6 +263,7 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
                     </thead>
                     <tbody>
                       @for (m of v.months; track m.label) {
+                        @if (m.status !== 'noData') {
                         <tr [class]="m.status">
                           <td>{{ m.label }}</td>
                           <td class="num">{{ dayCell(m.opening) }}</td>
@@ -247,10 +273,17 @@ const MONTH_LABELS = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 
                           <td class="state">{{ vacationState(m.status) }}</td>
                         </tr>
                         @if (m.note) { <tr class="why"><td colspan="6">{{ m.note }}</td></tr> }
+                        }
                       }
                     </tbody>
                   </table>
                 </div>
+                @if (vacationMissing(v).length) {
+                  <p class="ok-note">
+                    לא נקראו נתוני חופשה מהתלושים של: {{ vacationMissing(v).join(', ') }}.
+                    ייתכן שהקריאה נעשתה לפני שהמערכת למדה לקרוא את טבלת החופשה בתלוש. לחצו על בדיקה מחדש לתלושים האלה בשלב המסמכים. <a routerLink="/review/documents">למסמכים</a>
+                  </p>
+                }
               </details>
             } @else {
               <p class="ok-note">בתלושים שנבדקו לא מודפסים נתוני ימי חופשה, ולכן אי אפשר לעקוב אחרי היתרה. בקשו מהמעסיק פירוט של ימי החופשה: כמה נצברו, כמה נוצלו ומה היתרה.</p>
@@ -425,7 +458,7 @@ export class ReviewReportPage implements OnInit {
     if (!review?.period) return null;
     const payslips = review.documents
       .filter(d => d.documentType === 'payslip' && d.validationStatus === 'ok' && d.year != null && d.month != null)
-      .map(d => ({ year: d.year!, month: d.month!, vacation: d.extractedVacation }));
+      .map(d => ({ year: d.year!, month: d.month!, vacation: d.extractedVacation ?? undefined }));
     if (!payslips.length) return null;
     return trackVacation({
       payslips,
@@ -441,6 +474,15 @@ export class ReviewReportPage implements OnInit {
 
   vacationState(status: string): string {
     return status === 'mismatch' ? 'לא מסתדר' : status === 'note' ? 'לבדוק' : status === 'noData' ? 'אין נתונים' : 'תקין';
+  }
+
+  /** Months of the check that have no vacation figures: no payslip, or a payslip read without them. */
+  vacationMissing(v: { months: Array<{ label: string; status: string }> }): string[] {
+    return v.months.filter(m => m.status === 'noData').map(m => m.label);
+  }
+
+  absDays(v: number): number {
+    return Math.abs(v);
   }
 
   dayCell(value: number | null): string {

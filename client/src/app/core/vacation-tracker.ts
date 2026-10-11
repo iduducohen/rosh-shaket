@@ -32,15 +32,32 @@ export interface VacationMonth {
   expected: number | null;
   status: VacationMonthStatus;
   note: string | null;
+  mismatch?: VacationMismatch;
 }
 
 export type VacationSeverity = 'warn' | 'info' | 'ok';
+
+/** One month that does not add up, with every number that was compared, so the gap can be followed by hand. */
+export interface VacationMismatch {
+  label: string;
+  /** chain: opening + accrued - used differs from the balance. carry: the opening printed differs from last month's balance. drop: the balance fell by more than the use. */
+  kind: 'chain' | 'carry' | 'drop';
+  /** The numbers in the order of the calculation. */
+  rows: Array<{ title: string; days: number; sign: '' | '+' | '−' | '=' }>;
+  printed: number | null;
+  expected: number | null;
+  /** printed - expected: negative = the payslip shows fewer days than the calculation gives. */
+  difference: number;
+  /** What the gap could mean, and what to ask for. */
+  explanation: string[];
+}
 
 export interface VacationFinding {
   severity: VacationSeverity;
   title: string;
   text: string;
   months: string[];
+  mismatches?: VacationMismatch[];
 }
 
 export interface VacationTracking {
@@ -97,7 +114,7 @@ export function trackVacation(input: VacationInput): VacationTracking {
   for (const slip of slips) {
     const label = `${String(slip.month).padStart(2, '0')}/${slip.year}`;
     const index = slip.year * 12 + slip.month;
-    const v = slip.vacation;
+    let v = slip.vacation;
     if (!v || !hasAny(v)) {
       months.push({ year: slip.year, month: slip.month, label, opening: null, accrued: null, used: null, balance: null, expected: null, status: 'noData', note: null });
       prev = null;
@@ -106,24 +123,72 @@ export function trackVacation(input: VacationInput): VacationTracking {
 
     const carried = prev && prev.index === index - 1 ? prev.balance : null;
     const opening = v.previousBalance ?? carried;
+    // The reading sometimes puts the accrual under "used" (or the other way round). The balance equation says which.
+    const repaired = repairColumns(v, opening);
+    if (repaired) v = repaired;
     let status: VacationMonthStatus = 'ok';
-    let note: string | null = null;
+    let note: string | null = repaired ? 'הצבירה והניצול נקראו בעמודות ההפוכות מהתלוש, ותוקנו לפי חישוב היתרה.' : null;
     let expected: number | null = null;
+    let mismatch: VacationMismatch | undefined;
 
     if (v.previousBalance != null && carried != null && differs(v.previousBalance, carried)) {
       status = 'mismatch';
       note = `היתרה הקודמת שמודפסת בתלוש (${days(v.previousBalance)}) שונה מהיתרה בתלוש של החודש הקודם (${days(carried)}).`;
+      const diff = round(v.previousBalance - carried);
+      mismatch = {
+        label, kind: 'carry', printed: v.previousBalance, expected: carried, difference: diff,
+        rows: [
+          { title: 'יתרה בסוף החודש הקודם (לפי התלוש הקודם)', days: carried, sign: '' },
+          { title: 'יתרה פתיחה שמודפסת בתלוש הזה', days: v.previousBalance, sign: '' }
+        ],
+        explanation: [
+          diff < 0
+            ? `בתלוש הזה נפתחת יתרה נמוכה ב-${days(Math.abs(diff))} ימים ממה שנסגר בחודש הקודם: ימים נעלמו בין התלושים.`
+            : `בתלוש הזה נפתחת יתרה גבוהה ב-${days(diff)} ימים ממה שנסגר בחודש הקודם.`,
+          'הסיבה השכיחה: עדכון ידני של היתרה, שינוי בשיטת החישוב, או תיקון שלא הוסבר בתלוש.',
+          'מה לבקש: כרטיס חופשה שמראה כל חודש מה נצבר ומה נוצל, ואת ההסבר לשינוי בין שני החודשים.'
+        ]
+      };
     } else if (opening != null && v.accrued != null && v.used != null && v.balance != null) {
       expected = round(opening + v.accrued - v.used);
       if (differs(v.balance, expected)) {
         status = 'mismatch';
         note = `${days(opening)} + ${days(v.accrued)} שנצברו − ${days(v.used)} שנוצלו = ${days(expected)}, אבל בתלוש מודפסת יתרה של ${days(v.balance)} (הפרש של ${days(Math.abs(v.balance - expected))} ימים).`;
+        const diff = round(v.balance - expected);
+        mismatch = {
+          label, kind: 'chain', printed: v.balance, expected, difference: diff,
+          rows: [
+            { title: 'יתרה בתחילת החודש', days: opening, sign: '' },
+            { title: 'נצבר החודש', days: v.accrued, sign: '+' },
+            { title: 'נוצל החודש', days: v.used, sign: '−' },
+            { title: 'יתרה שצריכה להיות', days: expected, sign: '=' }
+          ],
+          explanation: [
+            diff < 0
+              ? `בתלוש מודפסת יתרה נמוכה ב-${days(Math.abs(diff))} ימים ממה שיוצא מהחשבון. אם נוצלו ימים שלא מופיעים בעמודת הניצול, או שהיתרה עודכנה ידנית, זה ההפרש. אחרת, יתרת החופשה שלכם נמוכה ממה שמגיע.`
+              : `בתלוש מודפסת יתרה גבוהה ב-${days(diff)} ימים ממה שיוצא מהחשבון. ייתכן שנצברו ימים נוספים (למשל תוספת, או חופשה שהוחזרה) שלא הוצגו בעמודת הצבירה.`,
+            `בדקו אם בחודש הזה הייתם בחופשה, ואם ${days(v.used)} ימי הניצול שמודפסים תואמים לימים שנעדרתם בפועל.`,
+            'מה לבקש: כרטיס חופשה לפי חודשים, ובקשה שהמעסיק יסביר את ההפרש וייישר את היתרה.'
+          ]
+        };
       }
     } else if (opening != null && v.balance != null && v.balance < opening - TOLERANCE) {
       const drop = round(opening - v.balance);
       if (v.used != null && drop > v.used + TOLERANCE) {
         status = 'mismatch';
         note = `היתרה ירדה ב-${days(drop)} ימים, אבל בתלוש רשום ניצול של ${days(v.used)} ימים בלבד.`;
+        mismatch = {
+          label, kind: 'drop', printed: v.balance, expected: round(opening - v.used), difference: round(v.balance - (opening - v.used)),
+          rows: [
+            { title: 'יתרה בתחילת החודש', days: opening, sign: '' },
+            { title: 'נוצל לפי התלוש', days: v.used, sign: '−' },
+            { title: 'יתרה שצריכה להיות', days: round(opening - v.used), sign: '=' }
+          ],
+          explanation: [
+            `היתרה ירדה ב-${days(drop)} ימים, אבל רק ${days(v.used)} ימים רשומים כניצול. ${days(round(drop - v.used))} ימים ירדו בלי הסבר.`,
+            'מה לבקש: את הסיבה לירידה, אם נוצלו ימים נוספים, אם הם נוצלו בפועל, או אם בוצע קיזוז.'
+          ]
+        };
       } else if (v.used == null) {
         status = 'note';
         note = `היתרה ירדה ב-${days(drop)} ימים, ובתלוש לא מודפס ניצול. ודאו שאלה ימי חופשה שלקחתם בפועל.`;
@@ -144,7 +209,7 @@ export function trackVacation(input: VacationInput): VacationTracking {
       if (status === 'ok') status = 'note';
     }
 
-    months.push({ year: slip.year, month: slip.month, label, opening, accrued: v.accrued, used: v.used, balance: v.balance, expected, status, note });
+    months.push({ year: slip.year, month: slip.month, label, opening, accrued: v.accrued, used: v.used, balance: v.balance, expected, status, note, mismatch });
     prev = { index, balance: v.balance };
   }
 
@@ -156,8 +221,9 @@ export function trackVacation(input: VacationInput): VacationTracking {
     findings.push({
       severity: 'warn',
       title: mismatches.length === 1 ? 'בחודש אחד היתרה לא מסתדרת' : `ב-${mismatches.length} חודשים היתרה לא מסתדרת`,
-      text: 'היתרה שמודפסת בתלוש שונה ממה שיוצא מהחשבון: היתרה הקודמת, ועוד הימים שנצברו, פחות הימים שנוצלו. בקשו מהמעסיק או ממחלקת השכר פירוט של ימי החופשה לפי חודשים, ותקנו את היתרה לפני גמר החשבון.',
-      months: mismatches.map(m => m.label)
+      text: 'בכל חודש בדקנו: יתרה בתחילת החודש, ועוד מה שנצבר, פחות מה שנוצל, צריכה להיות שווה ליתרה שמודפסת בסוף החודש. בחודשים האלה זה לא מסתדר. הפירוט למטה מראה כל מספר ואת ההפרש.',
+      months: mismatches.map(m => m.label),
+      mismatches: mismatches.flatMap(m => (m.mismatch ? [m.mismatch] : []))
     });
   }
   if (unexplainedDrop.length) {
@@ -225,6 +291,24 @@ export function trackVacation(input: VacationInput): VacationTracking {
     redemptionEstimate,
     notReadCount
   };
+}
+
+/**
+ * Puts used / accrued in the column where the numbers add up: opening + accrued - used = balance.
+ * Only when the printed order does not add up and the other order does, so a real gap is never "fixed".
+ */
+function repairColumns(v: VacationFigures, opening: number | null): VacationFigures | null {
+  if (opening == null || v.balance == null) return null;
+  const adds = (accrued: number, used: number) => !differs(opening + accrued - used, v.balance as number);
+  const a = v.accrued;
+  const u = v.used;
+  if (a != null && u != null) {
+    if (!adds(a, u) && adds(u, a)) return { ...v, accrued: u, used: a };
+    return null;
+  }
+  if (u != null && a == null && !adds(0, u) && adds(u, 0)) return { ...v, accrued: u, used: 0 };
+  if (a != null && u == null && !adds(a, 0) && adds(0, a)) return { ...v, accrued: 0, used: a };
+  return null;
 }
 
 function hasAny(v: VacationFigures): boolean {

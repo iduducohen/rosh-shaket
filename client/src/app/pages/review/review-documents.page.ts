@@ -20,6 +20,7 @@ import { ReviewDocumentFilesService } from '../../core/review-document-files.ser
 import { ReviewStepNavComponent } from './review-step-nav.component';
 import { FUND_SITES, GUIDE_TITLES, PENSION_GUIDE } from './pension-guide';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
+import { UpgradeNoticeComponent } from '../../core/upgrade-notice.component';
 import { findReadingProblems } from '../../core/reading-problems';
 import { verifiedYears } from '../../core/annual-reconcile';
 
@@ -154,7 +155,7 @@ interface YearGap {
 @Component({
   selector: 'app-review-documents',
   standalone: true,
-  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent, NgTemplateOutlet, ReadingProblemsComponent],
+  imports: [IonButton, IonIcon, IonSpinner, RouterLink, ReviewStepNavComponent, NgTemplateOutlet, ReadingProblemsComponent, UpgradeNoticeComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 8px; }
     .reminder-note {
@@ -600,6 +601,7 @@ interface YearGap {
         התחברו כדי לקבל מייל תזכורת כשטופס 106 והדוח השנתי אמורים להגיע, ובדיקה חוזרת כל כמה חודשים למי שעדיין עובד.
       }
     </p>
+    <app-upgrade-notice />
     <app-reading-problems [problems]="readingProblems()" [inline]="true" (recheck)="recheckById($event)" />
     <ng-container *ngTemplateOutlet="paywallBox"></ng-container>
 
@@ -798,7 +800,7 @@ interface YearGap {
                                 {{ d.documentType === 'payslip' ? 'בדיקה מחדש (קריאת הפרשות)' : 'בדיקה מחדש (קריאת הפקדות)' }}
                               </button>
                             </div>
-                          } @else if (d.documentType === 'payslip' && d.validationStatus === 'ok' && d.extractedVacation === undefined && hasSourceFile(d.id)) {
+                          } @else if (d.documentType === 'payslip' && d.validationStatus === 'ok' && d.extractedVacation == null && hasSourceFile(d.id)) {
                             <!-- Checked before vacation days were read: a re-check adds them to the vacation follow-up. -->
                             <div class="val-actions">
                               <button type="button" (click)="revalidate(d)">בדיקה מחדש (קריאת ימי חופשה)</button>

@@ -6,6 +6,7 @@ import { finalMonthParts } from '../../core/pay-components';
 import { AnnualReconcile, reconcileWithForm106 } from '../../core/annual-reconcile';
 import { ReviewDocumentMeta } from '../../core/review.models';
 import { ReadingProblemsComponent } from '../../core/reading-problems.component';
+import { UpgradeNoticeComponent } from '../../core/upgrade-notice.component';
 import { findReadingProblems } from '../../core/reading-problems';
 import { verifiedYears } from '../../core/annual-reconcile';
 import { summarizeProducts, totalOf } from '../../core/product-summary';
@@ -82,7 +83,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
 @Component({
   selector: 'app-review-check',
   standalone: true,
-  imports: [RouterLink, ReviewStepNavComponent, ReadingProblemsComponent],
+  imports: [RouterLink, ReviewStepNavComponent, ReadingProblemsComponent, UpgradeNoticeComponent],
   styles: [`
     .lead { color: var(--ion-color-primary); font-weight: 700; margin: 0 0 6px; }
     .hint { font-size: 13.5px; color: var(--ion-color-medium); margin: 0 0 14px; line-height: 1.5; }
@@ -175,6 +176,7 @@ const FUND_LABELS: Record<FundKind, string> = { Pension: 'פנסיה', Severance
     @if (!years().length) {
       <p class="notice">עדיין אין נתונים. <a routerLink="/review/documents">להעלאת מסמכים</a></p>
     } @else {
+      <app-upgrade-notice />
       <app-reading-problems [problems]="readingProblems()" />
       <div class="year-list">
         @for (y of years(); track y.year) {

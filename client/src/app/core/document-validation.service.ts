@@ -8,7 +8,7 @@ import { finalMonthPensionBase } from './pay-components';
 import { readPdfDocHint, type PdfDocHint } from './document-pdf-period';
 import { PdfLockedError } from './pdf-open';
 import { PdfPasswordService } from './pdf-passwords.service';
-import { DocumentValidationStatus, ExtractedFundSnapshot, ReviewDocumentMeta } from './review.models';
+import { DocumentValidationStatus, EXTRACTION_VERSION, ExtractedFundSnapshot, ReviewDocumentMeta } from './review.models';
 import { ReviewStore } from './review.store';
 
 const ALLOWED_TYPES = new Set(['payslip', 'form106', 'pension_report']);
@@ -454,26 +454,8 @@ export class DocumentValidationService {
       detectedMonth,
       detectedPeriodLabel: result.periodLabel,
       extractedSummary: result.summaryHe || before.extractedSummary || null,
-      extractedGrossSalary: result.grossSalary ?? null,
-      extractedPensionBase: result.pensionBase ?? null,
-      // null = read and nothing printed; a payslip checked before this was read has no such field at all.
-      extractedVacation: detectedType === 'payslip' ? (result.vacation ?? null) : null,
-      // [] = read, none found; null = not read (older OCR / unavailable).
-      extractedComponents: detectedType === 'payslip' ? (result.payComponents ?? []) : null,
-      // Known from the file's own text, or from what the payslip pays: notice pay, vacation redemption, severance.
-      isSettlement: detectedType === 'payslip'
-        && (!!localHint?.settlement
-          || (result.payComponents ?? []).some(c => ['notice', 'vacation_redemption', 'severance_pay'].includes(c.kind))),
-      // Form 106: [] = no table of funds found; null = not read.
-      extractedFundTotals: detectedType === 'form106' ? (result.fundTotals ?? []) : null,
-      // [] = read, none found; null = not read (older OCR / unavailable).
-      // Payslip: the contribution table. Pension report: the deposits the fund received, by salary month.
-      extractedContributions: detectedType === 'payslip' || detectedType === 'pension_report' ? (result.contributions ?? []) : null,
-      extractedAnnualGross: result.annualGross ?? null,
-      extractedFunds: funds.length ? funds : null,
-      extractedContributionKinds: (result.contributionKinds ?? []).length
-        ? [...new Set(result.contributionKinds!.map(k => k.toLowerCase()))]
-        : null,
+      ...this.extractedFields(result, detectedType, localHint, funds),
+      extractionVersion: EXTRACTION_VERSION,
       parsedOk: true,
       needsManualReview: false
     };
@@ -510,6 +492,90 @@ export class DocumentValidationService {
       this.syncFromDoc(docId);
     }
     return true;
+  }
+
+  /** The fields read from the document itself, the same for an upload and for a re-read of a saved file. */
+  private extractedFields(
+    result: DocumentVerificationResult,
+    detectedType: string,
+    localHint: PdfDocHint | null | undefined,
+    funds: ExtractedFundSnapshot[]
+  ): Partial<Omit<ReviewDocumentMeta, 'id'>> {
+    return {
+      extractedGrossSalary: result.grossSalary ?? null,
+      extractedPensionBase: result.pensionBase ?? null,
+      // null = read and nothing printed; a payslip checked before this was read has no such field at all.
+      // A payslip that printed no vacation figures is stored as an empty set, so that null means "not read yet".
+      extractedVacation: detectedType === 'payslip'
+        ? (result.vacation ?? { balance: null, used: null, accrued: null, previousBalance: null })
+        : null,
+      // [] = read, none found; null = not read (older OCR / unavailable).
+      extractedComponents: detectedType === 'payslip' ? (result.payComponents ?? []) : null,
+      // Known from the file's own text, or from what the payslip pays: notice pay, vacation redemption, severance.
+      isSettlement: detectedType === 'payslip'
+        && (!!localHint?.settlement
+          || (result.payComponents ?? []).some(c => ['notice', 'vacation_redemption', 'severance_pay'].includes(c.kind))),
+      // Form 106: [] = no table of funds found; null = not read.
+      extractedFundTotals: detectedType === 'form106' ? (result.fundTotals ?? []) : null,
+      // [] = read, none found; null = not read (older OCR / unavailable).
+      // Payslip: the contribution table. Pension report: the deposits the fund received, by salary month.
+      extractedContributions: detectedType === 'payslip' || detectedType === 'pension_report' ? (result.contributions ?? []) : null,
+      extractedAnnualGross: result.annualGross ?? null,
+      extractedFunds: funds.length ? funds : null,
+      extractedContributionKinds: (result.contributionKinds ?? []).length
+        ? [...new Set(result.contributionKinds!.map(k => k.toLowerCase()))]
+        : null,
+    };
+  }
+
+  /**
+   * Reads a saved, already accepted document again with the current reading and replaces only what was read from it.
+   * Nothing else changes: a re-read that does not clearly match the document leaves it exactly as it was.
+   * Costs no credit (the server allows it only for a slot that was paid for).
+   * @returns true when the document now carries the current reading.
+   */
+  async upgradeDocument(docId: string, file: File): Promise<boolean> {
+    const doc = this.find(docId);
+    if (!doc || doc.year == null || doc.validationStatus !== 'ok') return false;
+    this.running.update(set => new Set(set).add(docId));
+    try {
+      const local = await readPdfDocHint(file, this.passwords);
+      const images = await prepareDocumentImages(file, this.passwords);
+      const result = await this.api.verifyDocument({
+        images,
+        expectedType: doc.documentType,
+        expectedYear: doc.year,
+        expectedMonth: doc.documentType === 'payslip' ? doc.month : null,
+        reread: true
+      });
+      const type = (result.detectedType || '').toLowerCase();
+      const same = result.readable && type === doc.documentType
+        && (result.detectedYear == null || result.detectedYear === doc.year || doc.documentType === 'pension_report')
+        && (doc.documentType !== 'payslip' || result.detectedMonth == null || result.detectedMonth === doc.month);
+      if (!same) return false;
+
+      const funds: ExtractedFundSnapshot[] = (result.funds ?? []).map(fund => ({
+        kind: fund.kind, provider: fund.provider, balance: fund.balance, asOf: fund.asOf,
+        feeAnnualPercent: fund.feeAnnualPercent, returnAnnualPercent: fund.returnAnnualPercent, track: fund.track
+      }));
+      this.store.updateDocument(docId, {
+        ...this.extractedFields(result, type, local, funds),
+        extractedSummary: result.summaryHe || doc.extractedSummary || null,
+        extractionVersion: EXTRACTION_VERSION
+      });
+      this.syncFromDoc(docId);
+      return true;
+    } catch (err) {
+      // Not worth bothering anyone: the document keeps what it had and is tried again another time.
+      console.warn('Document re-read skipped', docId, err);
+      return false;
+    } finally {
+      this.running.update(set => {
+        const next = new Set(set);
+        next.delete(docId);
+        return next;
+      });
+    }
   }
 
   private rejectUpload(docId: string, message: string): false {

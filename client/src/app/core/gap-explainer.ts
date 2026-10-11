@@ -1,4 +1,5 @@
 import { AnalyzeResponse, EmploymentMonth, EmploymentReviewCase, LineReconciliation } from './review.models';
+import { buildDepositIndex, depositedTotals, isStudyFund } from './pension-deposits';
 
 /**
  * Turns the reconciliation numbers into conclusions a person without payroll knowledge can act on:
@@ -65,6 +66,13 @@ const TOLERANCE = 1;
 
 const PENSION_LINES = new Set(['EmployeePension', 'EmployerPension', 'EmployerCompensation']);
 
+/** The part of a fund report a payslip line is compared with. */
+const REPORT_BUCKET: Record<string, 'employee' | 'employer' | 'severance'> = {
+  EmployeePension: 'employee',
+  EmployerPension: 'employer',
+  EmployerCompensation: 'severance'
+};
+
 export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeResponse): ReviewExplanation {
   const months = analysis.summary.months;
   const byKey = new Map(review.months.map(m => [`${m.year}-${m.month}`, m]));
@@ -74,6 +82,7 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
   const withoutData = order.filter(m => !m.hasAnyData);
 
   const findings: GapFinding[] = [];
+  const depositIndex = buildDepositIndex(review.documents);
 
   // 1. Per contribution line: months where the payslip shows less than expected.
   const codes = [...new Set(order.flatMap(m => m.lines.map(l => l.code)))];
@@ -82,7 +91,19 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
       .map(m => ({ m, line: m.lines.find(l => l.code === code), month: byKey.get(`${m.year}-${m.month}`) }))
       .filter((r): r is { m: typeof r.m; line: LineReconciliation; month: EmploymentMonth | undefined } => !!r.line && r.line.expected != null);
 
-    const missing = rows.filter(r => (r.line.expected ?? 0) > TOLERANCE && (r.line.reported ?? 0) <= TOLERANCE);
+    const absent = rows.filter(r => (r.line.expected ?? 0) > TOLERANCE && (r.line.reported ?? 0) <= TOLERANCE);
+    // The payslip does not show the line, but a later payslip or the fund's own report does: nothing is missing, so nothing is shown.
+    const bucket = REPORT_BUCKET[code];
+    const inReport = absent
+      .map(r => {
+        const expected = r.line.expected ?? 0;
+        const fromReport = bucket ? depositedTotals(depositIndex, r.m.year, r.m.month)?.[bucket] : null;
+        if (fromReport != null && fromReport >= expected * 0.95) return { r, got: fromReport };
+        const retro = retroAmount(review, code, r.m.year, r.m.month);
+        return retro >= expected * 0.9 ? { r, got: retro } : { r, got: null };
+      })
+      .filter((x): x is { r: typeof absent[number]; got: number } => x.got != null);
+    const missing = absent.filter(r => !inReport.some(x => x.r === r));
     const lower = rows.filter(r => (r.line.reported ?? 0) > TOLERANCE && (r.line.expected ?? 0) - (r.line.reported ?? 0) > TOLERANCE);
     const label = LINE_LABEL[code] ?? code;
 
@@ -90,7 +111,7 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
       const onlyFirstMonth = missing.length === 1 && first && missing[0].m.year === first.year && missing[0].m.month === first.month;
       const amount = sum(missing.map(r => r.line.expected ?? 0));
       findings.push(onlyFirstMonth
-        ? firstMonthFinding(code, label, amount, monthLabel(missing[0].m))
+        ? firstMonthFinding(code, label, amount, monthLabel(missing[0].m), partialStart(review, first))
         : missingFinding(code, label, amount, missing.map(r => monthLabel(r.m))));
     }
 
@@ -150,7 +171,13 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
   }
 
   // 4. Salary jumps the analysis flagged — explain instead of alarming.
+  const partial = partialMonths(review, order);
+  const nextOf = (y: number, m: number) => (m === 12 ? `${y + 1}-1` : `${y}-${m + 1}`);
   for (const anomaly of analysis.anomalies.filter(a => a.kind === 'UnusualChange')) {
+    // A jump to or from a part-month (started on the 22nd, left on the 10th) is the month length, not a pay change.
+    const prev = anomaly.month === 1 ? `${anomaly.year - 1}-12` : `${anomaly.year}-${anomaly.month - 1}`;
+    if (partial.has(`${anomaly.year}-${anomaly.month}`) || partial.has(prev) || partial.has(nextOf(anomaly.year, anomaly.month))) continue;
+    if (isOneOffPayment(review, anomaly.year, anomaly.month)) continue;
     findings.push({
       id: `salary-${anomaly.year}-${anomaly.month}`,
       severity: 'info',
@@ -210,22 +237,103 @@ export function explainReview(review: EmploymentReviewCase, analysis: AnalyzeRes
   };
 }
 
-function firstMonthFinding(code: string, label: string, amount: number, month: string): GapFinding {
+/** "22/10/2023" when the job started inside the first month, so that only part of it was worked. */
+/**
+ * A jump in the gross that is a bonus (or the month after a bonus, when the pay goes back): the payslip's own payment lines
+ * say so, and without them a one-month spike that returns to the earlier level is the same thing. It is not a pay change.
+ */
+function isOneOffPayment(review: EmploymentReviewCase, year: number, month: number): boolean {
+  const grossOf = (y: number, m: number) => review.months.find(x => x.year === y && x.month === m)?.grossSalary ?? null;
+  const bonusOf = (y: number, m: number) => {
+    const doc = review.documents.find(d => d.documentType === 'payslip' && d.year === y && d.month === m && Array.isArray(d.extractedComponents));
+    return (doc?.extractedComponents ?? []).filter(c => c.kind === 'bonus').reduce((a, c) => a + c.amount, 0);
+  };
+  const near = (a: number, b: number) => b > 0 && Math.abs(a - b) / b < 0.25;
+  const prevY = month === 1 ? year - 1 : year;
+  const prevM = month === 1 ? 12 : month - 1;
+  const nextY = month === 12 ? year + 1 : year;
+  const nextM = month === 12 ? 1 : month + 1;
+  const gross = grossOf(year, month);
+  const prev = grossOf(prevY, prevM);
+  if (gross == null || prev == null) return false;
+
+  // This month holds a bonus, and without it the pay is where it was.
+  const bonus = bonusOf(year, month);
+  if (bonus > 0 && near(gross - bonus, prev)) return true;
+  // The month before held a bonus, and without it the pay is where it is now.
+  const prevBonus = bonusOf(prevY, prevM);
+  if (prevBonus > 0 && near(prev - prevBonus, gross)) return true;
+
+  // No payment lines read: up for a single month and back to the level before it, or the month right after such a spike.
+  const next = grossOf(nextY, nextM);
+  const beforePrev = grossOf(prevM === 1 ? prevY - 1 : prevY, prevM === 1 ? 12 : prevM - 1);
+  if (next != null && gross > prev * 1.25 && near(next, prev)) return true;
+  if (beforePrev != null && prev > beforePrev * 1.25 && near(gross, beforePrev)) return true;
+  return false;
+}
+
+/** Months the person worked only part of: the start month when it began after the 1st, the end month when it ended before its last day. */
+function partialMonths(review: EmploymentReviewCase, order: Array<{ year: number; month: number }>): Set<string> {
+  const set = new Set<string>();
+  const start = review.period?.startDate?.split('-').map(Number);
+  if (start && start.length === 3 && start[2] > 1) set.add(`${start[0]}-${start[1]}`);
+  const end = review.period?.endDate?.split('-').map(Number);
+  const last = order[order.length - 1];
+  if (end && end.length === 3 && end[0] === last?.year && end[1] === last?.month) {
+    const days = new Date(end[0], end[1], 0).getDate();
+    if (end[2] < days) set.add(`${end[0]}-${end[1]}`);
+  }
+  return set;
+}
+
+/** What other payslips carry for this salary month and line (the "differences" rows), added up. */
+function retroAmount(review: EmploymentReviewCase, code: string, year: number, month: number): number {
+  let total = 0;
+  for (const d of review.documents) {
+    if (d.documentType !== 'payslip' || !Array.isArray(d.extractedContributions)) continue;
+    if (d.year === year && d.month === month) continue;
+    for (const c of d.extractedContributions) {
+      if (c.forYear !== year || c.forMonth !== month) continue;
+      const study = isStudyFund(c);
+      const ok = code === 'TrainingFundEmployee' ? study && c.payer === 'employee'
+        : code === 'TrainingFundEmployer' ? study && c.payer === 'employer'
+        : study || c.kind === 'disability' ? false
+        : code === 'EmployerCompensation' ? c.kind === 'severance'
+        : code === 'EmployeePension' ? c.kind !== 'severance' && c.payer === 'employee'
+        : code === 'EmployerPension' ? c.kind !== 'severance' && c.payer === 'employer'
+        : false;
+      if (ok) total += c.amount;
+    }
+  }
+  return total;
+}
+
+function partialStart(review: EmploymentReviewCase, first: { year: number; month: number } | undefined): string | null {
+  const start = review.period?.startDate;
+  if (!start || !first) return null;
+  const [y, m, d] = start.split('-').map(Number);
+  if (!y || !m || !d || d <= 1 || y !== first.year || m !== first.month) return null;
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+function firstMonthFinding(code: string, label: string, amount: number, month: string, startedOn: string | null): GapFinding {
+  const part = startedOn
+    ? ` (הסכום מחושב על השכר החלקי של החודש הזה, כי העבודה התחילה ב־${startedOn})`
+    : '';
   return {
     id: `${code}-first-month`,
     severity: 'check',
     title: `בחודש הראשון (${month}) לא מופיע ${label}`,
     amount: round(amount),
     months: [month],
-    what: `לפי השכר, היה אמור להופיע ${shekel(amount)}, אבל בתלוש של החודש הראשון אין שורה כזו. בשאר החודשים היא כן מופיעה.`,
+    what: `לפי השכר, היה אמור להופיע ${shekel(amount)}${part}. בדקנו את התלוש של החודש הראשון ואת התלושים שאחריו, גם כשורת "הפרשים", ולא נמצאה שורה כזו. בשאר החודשים היא כן מופיעה.`,
     why: [
       'בחודש הראשון ההפקדות מתחילות לפעמים מאוחר יותר: מי שלא הייתה לו קרן פנסיה פעילה יכול להצטרף לפנסיה אחרי תקופת המתנה, ולפעמים ההפקדה משולמת אחר כך רטרואקטיבית.',
-      'ייתכן שההפקדה מופיעה בתלוש של החודש הבא כשורת "הפרשים" — אם כן, היא תיספר לחודש הנכון.',
-      'ייתכן שהשורה לא נקראה מהתלוש — כדאי להציץ בתלוש של אותו חודש.'
+      'ייתכן שהשורה לא נקראה מהקובץ. אם יש אותה בקובץ, בדיקה מחדש של התלוש בשלב המסמכים תקרא אותה והממצא יתעדכן לבד.'
     ],
     actions: [
-      { text: 'בדקו בתלוש של החודש הראשון אם יש שורה של ניכוי או הפרשה לקופה.', link: '/review/check', linkLabel: 'לתלושים לפי חודש' },
-      { text: 'דוח הפקדות מהקופה יראה אם הסכום הופקד בכל זאת.', link: '/review/documents', linkLabel: 'להעלאת דוח פנסיה' }
+      { text: 'אם השורה קיימת בקובץ של התלוש, בצעו בדיקה מחדש לתלוש, והממצא יוסר.', link: '/review/documents', linkLabel: 'לשלב המסמכים' },
+      { text: 'דוח הפקדות מהקופה יראה אם הסכום הופקד בכל זאת, והממצא יוסר לבד כשהדוח נקרא.', link: '/review/documents', linkLabel: 'להעלאת דוח פנסיה' }
     ]
   };
 }

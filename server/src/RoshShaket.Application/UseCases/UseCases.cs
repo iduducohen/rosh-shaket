@@ -60,12 +60,17 @@ public sealed class VerifyDocumentHandler(IDocumentVerifier verifier, DocumentVe
         IReadOnlyList<PayslipImage> images,
         DocumentVerifyRequest request,
         Guid? userId,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool reread = false)
     {
         var normalized = request with { ExpectedType = ReviewDocumentTypes.Normalize(request.ExpectedType) };
         policy.Validate(images, normalized);
 
-        await billing.ChargeDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, ct);
+        // A re-read of a paid document, after the reading improved, costs no credit.
+        if (reread)
+            await billing.AllowRereadAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, ct);
+        else
+            await billing.ChargeDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, ct);
         DocumentExtraction extraction;
         try
         {
@@ -74,7 +79,8 @@ public sealed class VerifyDocumentHandler(IDocumentVerifier verifier, DocumentVe
         catch
         {
             // The AI call failed on our side — the user keeps the credit.
-            await billing.RefundDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, CancellationToken.None);
+            if (!reread)
+                await billing.RefundDocumentAsync(userId, normalized.ExpectedType, normalized.ExpectedYear, normalized.ExpectedMonth, CancellationToken.None);
             throw;
         }
 

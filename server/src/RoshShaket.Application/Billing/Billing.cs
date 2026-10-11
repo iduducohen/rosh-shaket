@@ -72,6 +72,11 @@ public interface IBillingStore
     Task<BillingPurchase> AddPurchaseAsync(Guid userId, BillingPlan plan, string provider, string status, CancellationToken ct);
     Task<BillingAccount> GetAccountAsync(Guid userId, CancellationToken ct);
     Task RecordUsageAsync(ApiUsageRecord usage, CancellationToken ct);
+    /// <summary>
+    /// A free re-read of a document that was already paid for, after the reading itself improved.
+    /// False when the slot was never paid for, or has used its re-reads.
+    /// </summary>
+    Task<bool> TryRereadAsync(Guid userId, string documentType, int? year, int? month, CancellationToken ct) => Task.FromResult(false);
 }
 
 /// <summary>Thrown when a paid check is requested without credits; mapped to HTTP 402.</summary>
@@ -108,6 +113,19 @@ public sealed class BillingHandlers(IBillingStore store, Microsoft.Extensions.Op
         await store.EnsureAccountAsync(id, O.FreeDocuments, ct);
         if (!await store.TryConsumeAsync(id, documentType, year, month, ct))
             throw new PaymentRequiredException("נגמרו המסמכים בחבילה. אפשר להוסיף מסמכים ולהמשיך מאותה נקודה.");
+    }
+
+    /// <summary>
+    /// Called instead of <see cref="ChargeDocumentAsync"/> when the client re-reads a document it already paid for,
+    /// because the reading improved. Costs no credit, and is allowed only for a slot that was paid for.
+    /// </summary>
+    public async Task AllowRereadAsync(Guid? userId, string documentType, int? year, int? month, CancellationToken ct)
+    {
+        if (!O.Enabled) return;
+        if (userId is not Guid id)
+            throw new SignInRequiredException("הבדיקה המלאה זמינה למשתמשים מחוברים.");
+        if (!await store.TryRereadAsync(id, documentType, year, month, ct))
+            throw new PaymentRequiredException("אין קריאה חוזרת פנויה למסמך הזה.");
     }
 
     /// <summary>The AI check failed on our side — the user should not pay for it.</summary>

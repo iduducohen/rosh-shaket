@@ -55,7 +55,9 @@ public sealed record ReviewDocumentMeta(
     /// <summary>Form 106 only: the per-fund yearly totals, kept as the client sent them.</summary>
     JsonElement? ExtractedFundTotals = null,
     /// <summary>A final-settlement payslip (גמר חשבון), kept as the client set it.</summary>
-    bool? IsSettlement = null);
+    bool? IsSettlement = null,
+    /// <summary>The version of the reading that produced the extracted fields; older ones are read again by the client.</summary>
+    int? ExtractionVersion = null);
 
 public sealed record UpsertPeriodRequest(
     Guid WorkspaceId,

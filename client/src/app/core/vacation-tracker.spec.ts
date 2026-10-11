@@ -97,4 +97,50 @@ describe('trackVacation', () => {
     expect(legalAnnualVacationDays(20)).toBe(20);
     expect(legalAnnualVacationDays(1, 6)).toBe(14);
   });
+
+  it('lays out every number of a month that does not add up, with the difference', () => {
+    const t = trackVacation({
+      ...period,
+      payslips: [slip(2023, 11, { balance: 4.25, accrued: 1, used: 0 }), slip(2023, 12, { balance: 3.0, accrued: 1, used: 0 })]
+    });
+
+    const m = t.findings.find(f => f.mismatches?.length)!.mismatches![0];
+
+    expect(m.kind).toBe('chain');
+    expect(m.rows.map(r => r.days)).toEqual([4.25, 1, 0, 5.25]);
+    expect(m.printed).toBe(3);
+    expect(m.difference).toBe(-2.25);
+    expect(m.explanation.length).toBeGreaterThan(1);
+  });
+
+  it('puts accrual and use back in their columns when the reading swapped them, and does not call that a gap', () => {
+    // Payslip March 2025: opening 8.54, accrual 1.67, use 1, closing 9.2 - read with the two numbers the other way round.
+    const t = trackVacation({
+      ...period,
+      payslips: [slip(2025, 2, { balance: 8.54, accrued: 1.67, used: 0 }), slip(2025, 3, { balance: 9.2, accrued: 1, used: 1.67 })]
+    });
+
+    expect(t.mismatchCount).toBe(0);
+    expect(t.months[1].accrued).toBe(1.67);
+    expect(t.months[1].used).toBe(1);
+  });
+
+  it('moves a lone number to accrual when only that makes the balance add up', () => {
+    const t = trackVacation({
+      ...period,
+      payslips: [slip(2025, 10, { balance: 11.37, accrued: 0, used: 0 }), slip(2025, 11, { balance: 13.04, accrued: null, used: 1.67 })]
+    });
+
+    expect(t.mismatchCount).toBe(0);
+    expect(t.months[1].accrued).toBe(1.67);
+  });
+
+  it('does not repair a real gap', () => {
+    const t = trackVacation({
+      ...period,
+      payslips: [slip(2023, 11, { balance: 4.25, accrued: 1, used: 0 }), slip(2023, 12, { balance: 3.0, accrued: 1, used: 0 })]
+    });
+
+    expect(t.mismatchCount).toBe(1);
+  });
 });

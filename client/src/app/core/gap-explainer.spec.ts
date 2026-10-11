@@ -49,7 +49,7 @@ describe('explainReview', () => {
     expect(first.map(f => f.id)).toEqual(['EmployeePension-first-month', 'TrainingFundEmployee-first-month']);
     expect(first.every(f => f.severity === 'check')).toBeTrue();
     expect(first[0].months).toEqual(['אוקטובר 2023']);
-    expect(first[0].why.join(' ')).toContain('הפרשים');
+    expect(first[0].what).toContain('הפרשים');
     expect(e.findings.some(f => f.id === 'no-fund-report')).toBeTrue();
   });
 
@@ -89,5 +89,70 @@ describe('explainReview', () => {
     expect(e.estimatedForMissing).toBe(1300);
     expect(e.findings.find(f => f.id === 'no-payslip')!.what).toContain('אומדן');
     expect(e.headline).toContain('תואמות');
+  });
+
+  const FIRST: Array<{ y: number; m: number; salary: number; lines: Line[] }> = [
+    { y: 2023, m: 10, salary: 11032.26, lines: [['EmployeePension', 661.94, 0], ['TrainingFundEmployee', 275.81, 0]] },
+    { y: 2023, m: 11, salary: 34200, lines: FULL }
+  ];
+
+  it('takes the first-month deduction from the "differences" rows of the next payslip, with no manual check', () => {
+    const { review, analysis } = build(FIRST);
+    (review as any).documents = [{
+      documentType: 'payslip', year: 2023, month: 11,
+      extractedContributions: [
+        { kind: 'pension', payer: 'employee', provider: 'כלל', amount: 661.94, forYear: 2023, forMonth: 10, ratePercent: null },
+        { kind: 'study', payer: 'employee', provider: 'מור', amount: 275.81, forYear: 2023, forMonth: 10, ratePercent: null }
+      ]
+    }];
+
+    const f = explainReview(review, analysis).findings;
+
+    expect(f.some(x => x.id.endsWith('-first-month'))).toBeFalse();
+    expect(f.some(x => x.id.endsWith('-in-report') || x.id.endsWith('-missing'))).toBeFalse();
+  });
+
+  it('says the amount is for the part-month when the job started after the 1st', () => {
+    const { review, analysis } = build(FIRST);
+    (review as any).period = { startDate: '2023-10-22', endDate: '2024-01-31' };
+
+    const f = explainReview(review, analysis).findings.find(x => x.id === 'EmployeePension-first-month')!;
+
+    expect(f.what).toContain('22/10/2023');
+  });
+
+  it('does not report a salary jump that is only a part-month before a full one', () => {
+    const { review, analysis } = build(FIRST);
+    (review as any).period = { startDate: '2023-10-22', endDate: '2024-01-31' };
+    (analysis as any).anomalies = [{ kind: 'UnusualChange', year: 2023, month: 11, explanation: 'x' }];
+
+    expect(explainReview(review, analysis).findings.some(x => x.id.startsWith('salary-'))).toBeFalse();
+  });
+
+  it('does not call a bonus month, or the regular pay after it, a salary change', () => {
+    const { review, analysis } = build([
+      { y: 2024, m: 11, salary: 38250, lines: FULL },
+      { y: 2024, m: 12, salary: 80194, lines: FULL },
+      { y: 2025, m: 1, salary: 38250, lines: FULL }
+    ]);
+    (review as any).documents = [{
+      documentType: 'payslip', year: 2024, month: 12,
+      extractedComponents: [{ kind: 'salary', amount: 38250 }, { kind: 'bonus', amount: 41944 }]
+    }];
+    (analysis as any).anomalies = [
+      { kind: 'UnusualChange', year: 2024, month: 12, explanation: 'x' },
+      { kind: 'UnusualChange', year: 2025, month: 1, explanation: 'x' }
+    ];
+
+    expect(explainReview(review, analysis).findings.some(f => f.id.startsWith('salary-'))).toBeFalse();
+  });
+
+  it('still reports a real raise that stays', () => {
+    const { review, analysis } = build([
+      { y: 2024, m: 5, salary: 20000, lines: FULL }, { y: 2024, m: 6, salary: 30000, lines: FULL }, { y: 2024, m: 7, salary: 30000, lines: FULL }
+    ]);
+    (analysis as any).anomalies = [{ kind: 'UnusualChange', year: 2024, month: 6, explanation: 'x' }];
+
+    expect(explainReview(review, analysis).findings.some(f => f.id === 'salary-2024-6')).toBeTrue();
   });
 });

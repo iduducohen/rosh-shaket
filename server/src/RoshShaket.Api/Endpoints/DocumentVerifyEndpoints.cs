@@ -49,7 +49,8 @@ public static class DocumentVerifyEndpoints
                 }
 
                 var request = new DocumentVerifyRequest(expectedType, expectedYear, expectedMonth);
-                return TypedResults.Ok(await handler.HandleAsync(images, request, BillingEndpoints.UserId(user), ct));
+                var reread = string.Equals(form["reread"].ToString(), "true", StringComparison.OrdinalIgnoreCase);
+                return TypedResults.Ok(await handler.HandleAsync(images, request, BillingEndpoints.UserId(user), ct, reread));
             })
             .WithTags("Documents")
             .DisableAntiforgery()
